@@ -1,6 +1,6 @@
 {
   "name": "@asra/web",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "ASRA Academy web application (Next.js)",
   "type": "module",

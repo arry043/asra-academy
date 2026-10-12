@@ -10,25 +10,27 @@ See [SRS.md](./SRS.md) for detail and [CLIENT-CLARIFICATIONS.md](./CLIENT-CLARIF
 
 ## PUBLIC WEBSITE
 
-| ID          | Requirement                                         | Priority | Source            | Status                           |
-| ----------- | --------------------------------------------------- | -------- | ----------------- | -------------------------------- |
-| REQ-PUB-001 | Home page                                           | MUST     | Order §5 + Design | CONFIRMED                        |
-| REQ-PUB-002 | About ASRA Academy page                             | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-003 | Classes 6–10 page                                   | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-004 | Classes 11–12 page                                  | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-005 | English Language page                               | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-006 | Entrepreneurship & Business page                    | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-007 | Quranic Studies page                                | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-008 | Arabic and Urdu Courses page                        | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-009 | Faculty page                                        | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-010 | Admission and Enrolment page                        | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-011 | Student Login page                                  | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-012 | Contact Us page                                     | MUST     | Order §5          | CONFIRMED                        |
-| REQ-PUB-013 | Privacy Policy page                                 | MUST     | Order §5          | CONFIRMED (text pending)         |
-| REQ-PUB-014 | Terms and Conditions page                           | MUST     | Order §5          | CONFIRMED (text pending)         |
-| REQ-PUB-015 | Refund Policy page                                  | MUST     | Order §5          | CONFIRMED (text pending)         |
-| REQ-PUB-016 | Green + Gold ASRA branding, modern card-based UI    | MUST     | Order §4 + Design | CONFIRMED (brand assets pending) |
-| REQ-PUB-017 | Page copy, images and legal text supplied by client | MUST     | Order §5          | PENDING CLIENT CONFIRMATION      |
+| ID          | Requirement                                                                                                               | Priority | Source              | Status                                                                   |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------- | ------------------------------------------------------------------------ |
+| REQ-PUB-001 | Home page                                                                                                                 | MUST     | Order §5 + Design   | CONFIRMED                                                                |
+| REQ-PUB-002 | About ASRA Academy page                                                                                                   | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-003 | Classes 6–10 page                                                                                                         | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-004 | Classes 11–12 page                                                                                                        | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-005 | English Language page                                                                                                     | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-006 | Entrepreneurship & Business page                                                                                          | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-007 | Quranic Studies page                                                                                                      | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-008 | Arabic and Urdu Courses page                                                                                              | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-009 | Faculty page                                                                                                              | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-010 | Admission and Enrolment page                                                                                              | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-011 | Student Login page                                                                                                        | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-012 | Contact Us page                                                                                                           | MUST     | Order §5            | CONFIRMED                                                                |
+| REQ-PUB-013 | Privacy Policy page                                                                                                       | MUST     | Order §5            | CONFIRMED (text pending)                                                 |
+| REQ-PUB-014 | Terms and Conditions page                                                                                                 | MUST     | Order §5            | CONFIRMED (text pending)                                                 |
+| REQ-PUB-015 | Refund Policy page                                                                                                        | MUST     | Order §5            | CONFIRMED (text pending)                                                 |
+| REQ-PUB-016 | Green + Gold ASRA branding, modern card-based UI                                                                          | MUST     | Order §4 + Design   | CONFIRMED (logo supplied; vector logo, fonts and design mock-up pending) |
+| REQ-PUB-018 | ASRA logo, favicon/app icons, social share image                                                                          | MUST     | Client logo         | DONE (foundation)                                                        |
+| REQ-PUB-019 | Tagline "Learn • Grow • Succeed", "Founded by students of AMU", contact email asraacademy1@gmail.com shown on the website | MUST     | Client (2026-10-12) | CONFIRMED                                                                |
+| REQ-PUB-017 | Page copy, images and legal text supplied by client                                                                       | MUST     | Order §5            | PENDING CLIENT CONFIRMATION                                              |
 
 ## STUDENT
 

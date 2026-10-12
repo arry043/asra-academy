@@ -4,6 +4,17 @@ Online Learning Platform & Learning Management System (LMS) for **ASRA Academy**
 
 ASRA Academy offers school education for **Classes 6–12** (CBSE pattern for 6–10, subject-specific coaching for 11–12) and special courses in **English Language, Entrepreneurship & Business, Quranic Studies, Arabic and Urdu**. The platform combines a responsive, SEO-friendly public website with Student, Faculty and Admin portals.
 
+<p align="center"><img src="apps/web/public/brand/asra-academy-logo.png" alt="ASRA Academy — Learn • Grow • Succeed" width="200" /></p>
+
+| Item       | Detail                                                  |
+| ---------- | ------------------------------------------------------- |
+| Tagline    | _Learn • Grow • Succeed_                                |
+| Founded by | Students of AMU                                         |
+| Contact    | [asraacademy1@gmail.com](mailto:asraacademy1@gmail.com) |
+| Website    | www.asraacademy.in                                      |
+
+Brand assets and colour usage rules: [docs/brand/README.md](docs/brand/README.md). Brand constants for the web app: [`apps/web/src/config/site.ts`](apps/web/src/config/site.ts).
+
 > **Current phase:** PHASE 01 — Project Foundation & Architecture (complete). No business features are implemented yet.
 
 ---
@@ -341,6 +352,7 @@ Detailed plan: [docs/reference/IMPLEMENTATION-PLAN-PHASES.md](docs/reference/IMP
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)                   | Requirements matrix                 |
 | [docs/CLIENT-CLARIFICATIONS.md](docs/CLIENT-CLARIFICATIONS.md) | Open client questions               |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md)                         | Change history                      |
+| [docs/brand/README.md](docs/brand/README.md)                   | Logo files, colours, usage rules    |
 
 ---
 

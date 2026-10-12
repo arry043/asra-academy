@@ -23,6 +23,34 @@ Entry template:
 
 ---
 
+## [0.1.1] — 2026-10-12
+
+**Phase:** 01 — Project Foundation (brand update)
+**Status:** Requirement Freeze / Foundation
+
+### Added
+
+- Added the official ASRA Academy logo supplied by the client. The master file is in `docs/brand/`; web copies are in `apps/web/public/brand/`.
+- Generated favicon and icons from the logo's crest:
+  - `favicon.ico` (16/32/48 px), `icon.png` and `apple-icon.png`, on an ivory tile so they stay visible on dark browser tabs.
+  - Web app manifest (`manifest.ts`) with standard and maskable icons.
+  - A 1200×630 Open Graph / Twitter share image (`public/brand/og-image.png`) with alt text.
+- Added `apps/web/src/config/site.ts`, a single source for name, tagline, founding statement, contact email and logo paths.
+- Added `docs/brand/README.md`, covering asset inventory, usage rules and colour contrast.
+
+### Changed
+
+- Theme tokens now use colours sampled from the logo instead of approximations.
+- Added `asra-gold-800` (`#8a5a0b`) for gold text, because the logo gold is only 2.9:1 on ivory.
+- Site metadata now includes the tagline, Open Graph and Twitter cards, and theme colour `#012114`.
+- The foundation page and 404 page now show the logo or emblem. The footer shows "Founded by students of AMU" and asraacademy1@gmail.com.
+- Updated the client clarifications:
+  - V-01 is partially confirmed: the logo PNG was received; a vector file and a reversed variant are still needed.
+  - V-08 (contact email) and Q-03 (enquiry recipient) are now confirmed.
+  - Added V-07 for the tagline and founding-statement wording.
+
+---
+
 ## [0.1.0] — 2026-10-12
 
 **Phase:** 00 — Requirement Freeze & Project Preparation · 01 — Project Foundation & Architecture

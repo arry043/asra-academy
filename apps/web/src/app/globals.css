@@ -5,40 +5,42 @@
 
 /*
  * ASRA Academy theme tokens (shadcn/ui convention).
- * Green + Gold brand direction from the client visual reference. Values are provisional
- * approximations until official brand colour codes are supplied (CLIENT-CLARIFICATIONS V-02).
+ * Brand colours are sampled from the official logo (docs/brand/README.md):
+ *   logo green #012114 (highlight #034729) · logo gold #c88717 (highlight #e4a735).
+ * Logo gold is 2.9:1 on ivory — use it for graphics/large display only; use gold-800 for gold text.
  * The full design system is built in PHASE 04.
  */
 :root {
   --radius: 0.75rem;
 
   /* Brand scales */
-  --asra-green-950: oklch(0.22 0.05 160);
-  --asra-green-900: oklch(0.29 0.07 160);
-  --asra-green-800: oklch(0.36 0.09 160);
-  --asra-green-700: oklch(0.44 0.11 160);
-  --asra-green-600: oklch(0.52 0.13 160);
-  --asra-green-100: oklch(0.95 0.03 160);
-  --asra-green-50: oklch(0.98 0.015 160);
-  --asra-gold-700: oklch(0.6 0.12 80);
-  --asra-gold-600: oklch(0.7 0.13 82);
-  --asra-gold-500: oklch(0.78 0.13 85);
-  --asra-gold-100: oklch(0.96 0.04 90);
-  --asra-ivory: oklch(0.99 0.008 95);
+  --asra-green-950: #011a10;
+  --asra-green-900: #012114; /* logo green */
+  --asra-green-800: #03331f;
+  --asra-green-700: #034729; /* logo green highlight */
+  --asra-green-600: #0a5f39;
+  --asra-green-100: #e3efe8;
+  --asra-green-50: #f2f8f4;
+  --asra-gold-800: #8a5a0b; /* AA text on light backgrounds */
+  --asra-gold-700: #a8700f;
+  --asra-gold-600: #c88717; /* logo gold */
+  --asra-gold-500: #e4a735; /* logo gold highlight */
+  --asra-gold-100: #fbf1dc;
+  --asra-ivory: #fdfbf5;
 
   /* Semantic tokens */
   --background: var(--asra-ivory);
-  --foreground: oklch(0.21 0.02 160);
+  --foreground: var(--asra-green-900);
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
   --popover-foreground: var(--foreground);
-  --primary: var(--asra-green-800);
+  --primary: var(--asra-green-700);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: var(--asra-green-100);
   --secondary-foreground: var(--asra-green-900);
   --muted: oklch(0.96 0.008 120);
-  --muted-foreground: oklch(0.5 0.02 160);
+  --muted-foreground: #51625a;
   --accent: var(--asra-gold-500);
   --accent-foreground: var(--asra-green-950);
   --destructive: oklch(0.577 0.245 27.325);
@@ -101,6 +103,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
 
+  --color-asra-ivory: var(--asra-ivory);
   --color-asra-green-50: var(--asra-green-50);
   --color-asra-green-100: var(--asra-green-100);
   --color-asra-green-600: var(--asra-green-600);
@@ -111,6 +114,7 @@
   --color-asra-gold-100: var(--asra-gold-100);
   --color-asra-gold-500: var(--asra-gold-500);
   --color-asra-gold-600: var(--asra-gold-600);
+  --color-asra-gold-800: var(--asra-gold-800);
   --color-asra-gold-700: var(--asra-gold-700);
 }
 

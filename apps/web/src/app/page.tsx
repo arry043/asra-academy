@@ -1,6 +1,8 @@
-import { CheckCircle2, Database, GraduationCap, Server, XCircle } from 'lucide-react';
+import { CheckCircle2, Database, Mail, Server, XCircle } from 'lucide-react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { siteConfig } from '@/config/site';
 import { getApiHealth } from '@/lib/api';
 import { publicEnv } from '@/lib/env';
 
@@ -17,26 +19,31 @@ const stack = [
 
 export default async function FoundationPage() {
   const health = await getApiHealth();
+  const { logo, contact } = siteConfig;
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-5xl flex-col justify-center gap-10 px-4 py-16 sm:px-6">
-      <header className="flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
-            <GraduationCap className="size-6" aria-hidden />
-          </span>
-          <span className="rounded-full bg-asra-gold-100 px-3 py-1 text-xs font-semibold tracking-wide text-asra-gold-700 uppercase">
-            Phase 01 · Foundation
-          </span>
-        </div>
-        <h1 className="text-4xl font-bold text-asra-green-900 sm:text-5xl">
-          ASRA <span className="text-asra-gold-600">Academy</span>
+    <main className="mx-auto flex min-h-dvh max-w-5xl flex-col justify-center gap-10 px-4 py-12 sm:px-6">
+      <header className="flex flex-col items-center gap-5 text-center">
+        <Image
+          src={logo.full.src}
+          width={logo.full.width}
+          height={logo.full.height}
+          alt={logo.alt}
+          priority
+          className="h-auto w-48 sm:w-60"
+        />
+        <h1 className="sr-only">
+          {siteConfig.name} — {siteConfig.tagline}
         </h1>
+        <span className="rounded-full bg-asra-gold-100 px-3 py-1 text-xs font-semibold tracking-wide text-asra-gold-800 uppercase">
+          Phase 01 · Foundation
+        </span>
         <p className="max-w-2xl text-lg text-muted-foreground">
           Online learning platform &amp; LMS. This page verifies that the web application, design
           tokens and API connection are working.
         </p>
-        <div className="flex flex-wrap gap-3">
+        <p className="text-sm font-medium text-asra-green-700">{siteConfig.foundedBy}</p>
+        <div className="flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
             <a href={`${publicEnv.NEXT_PUBLIC_API_URL}/health`} target="_blank" rel="noreferrer">
               <Server aria-hidden /> Open API health
@@ -58,7 +65,7 @@ export default async function FoundationPage() {
           </CardHeader>
           <CardContent>
             {health.ok ? (
-              <p className="flex items-center gap-2 font-medium text-success">
+              <p className="flex items-center gap-2 font-medium text-asra-green-700">
                 <CheckCircle2 className="size-5" aria-hidden />
                 {health.message} ({health.data.environment})
               </p>
@@ -91,8 +98,16 @@ export default async function FoundationPage() {
         </Card>
       </section>
 
-      <footer className="text-sm text-muted-foreground">
-        Built by Marvel&apos;s Techworks for ASRA Academy.
+      <footer className="flex flex-col items-center gap-2 border-t pt-6 text-center text-sm text-muted-foreground sm:flex-row sm:justify-between sm:text-left">
+        <p>
+          © {new Date().getFullYear()} {siteConfig.name} · {siteConfig.foundedBy}
+        </p>
+        <a
+          href={`mailto:${contact.email}`}
+          className="inline-flex items-center gap-1.5 font-medium text-asra-green-700 hover:underline"
+        >
+          <Mail className="size-4" aria-hidden /> {contact.email}
+        </a>
       </footer>
     </main>
   );

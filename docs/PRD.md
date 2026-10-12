@@ -6,6 +6,9 @@
 | Client              | ASRA Academy                                                                  |
 | Development Partner | Marvel's Techworks                                                            |
 | Academy Website     | www.asraacademy.in                                                            |
+| Contact Email       | asraacademy1@gmail.com                                                        |
+| Tagline             | Learn • Grow • Succeed                                                        |
+| Founded by          | Students of AMU                                                               |
 | Document Version    | 0.1.0                                                                         |
 | Status              | Requirement Freeze — Baseline (pending client clarifications)                 |
 | Primary Sources     | Client _Project Development Order_ (§1–6, §8); client visual design reference |
@@ -265,7 +268,16 @@ Design principles:
 | Mobile-first responsive          | Designed for phones first, scaled up to tablet and desktop         |
 | Cross-device consistency         | Same component system across mobile, tablet and desktop            |
 
-The design system will be implemented as reusable components (shadcn/ui + Tailwind tokens) in the Design System phase. Brand assets (logo, exact colours, fonts) are pending (CLIENT-CLARIFICATIONS §V).
+The design system will be implemented as reusable components (shadcn/ui + Tailwind tokens) in the Design System phase.
+
+### 7.1 Brand Identity (supplied 2026-10-12)
+
+- **Logo:** a crest (crescent and star, gold ring, green "A" with a gold four-point star, open book) above the "ASRA" wordmark in green, "ACADEMY" in gold, and the tagline. Files and usage rules: [brand/README.md](./brand/README.md).
+- **Tagline:** _Learn • Grow • Succeed_.
+- **Founding statement:** _Founded by students of AMU_.
+- **Contact email:** asraacademy1@gmail.com.
+- **Colours sampled from the logo:** green `#012114` (highlight `#034729`) and gold `#c88717` (highlight `#e4a735`) on ivory `#fdfbf5`. Official codes still need client confirmation.
+- **Still pending:** a vector logo, a light-on-dark logo variant, brand fonts and the homepage design mock-up (CLIENT-CLARIFICATIONS §V).
 
 ## 8. Success Criteria (product level)
 

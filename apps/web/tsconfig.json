@@ -1,6 +1,7 @@
 {
   "extends": "@asra/config/tsconfig.nextjs.json",
   "compilerOptions": {
+    "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"]
     }
