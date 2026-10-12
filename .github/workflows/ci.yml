@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 20
     env:
       # Placeholder values only — CI never connects to Neon or any real service.
-      NODE_ENV: production
+      # NODE_ENV is deliberately NOT set here: NODE_ENV=production makes `npm ci` skip devDependencies.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
       DIRECT_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
       REDIS_URL: redis://localhost:6379

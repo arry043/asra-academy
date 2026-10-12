@@ -39,7 +39,7 @@
     "docker:down": "docker compose down",
     "docker:ps": "docker compose ps",
     "docker:logs": "docker compose logs -f",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
