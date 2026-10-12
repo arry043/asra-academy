@@ -1,0 +1,7 @@
+{
+  "extends": "@asra/config/tsconfig.node.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src", "prisma", "scripts", "prisma.config.ts"]
+}

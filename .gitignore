@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Generated code
+apps/api/src/generated/
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Environment & secrets — never commit real values
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Docker runtime data (named volumes are used, but guard against bind-mount data)
+.docker-data/
+infrastructure/docker/**/data/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Misc
+.turbo/
+.vercel/
+.cache/

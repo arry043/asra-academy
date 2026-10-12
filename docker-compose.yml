@@ -1,0 +1,56 @@
+# ASRA Academy — LOCAL DEVELOPMENT infrastructure only.
+# Production PostgreSQL is Neon; this container is never used for production data.
+#
+#   docker compose up -d      # start PostgreSQL + Redis
+#   docker compose ps         # both should report "healthy"
+#   docker compose down       # stop (data persists in named volumes)
+#   docker compose down -v    # stop AND delete local data
+#
+# Values are read from the root .env file (copy .env.example → .env).
+
+name: asra-academy
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: asra-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-asra_academy}
+      POSTGRES_USER: ${POSTGRES_USER:-asra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+      TZ: UTC
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: asra-redis
+    restart: unless-stopped
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+      - ./infrastructure/docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  postgres_data:
+    name: asra_postgres_data
+  redis_data:
+    name: asra_redis_data

@@ -1,0 +1,139 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * ASRA Academy theme tokens (shadcn/ui convention).
+ * Green + Gold brand direction from the client visual reference. Values are provisional
+ * approximations until official brand colour codes are supplied (CLIENT-CLARIFICATIONS V-02).
+ * The full design system is built in PHASE 04.
+ */
+:root {
+  --radius: 0.75rem;
+
+  /* Brand scales */
+  --asra-green-950: oklch(0.22 0.05 160);
+  --asra-green-900: oklch(0.29 0.07 160);
+  --asra-green-800: oklch(0.36 0.09 160);
+  --asra-green-700: oklch(0.44 0.11 160);
+  --asra-green-600: oklch(0.52 0.13 160);
+  --asra-green-100: oklch(0.95 0.03 160);
+  --asra-green-50: oklch(0.98 0.015 160);
+  --asra-gold-700: oklch(0.6 0.12 80);
+  --asra-gold-600: oklch(0.7 0.13 82);
+  --asra-gold-500: oklch(0.78 0.13 85);
+  --asra-gold-100: oklch(0.96 0.04 90);
+  --asra-ivory: oklch(0.99 0.008 95);
+
+  /* Semantic tokens */
+  --background: var(--asra-ivory);
+  --foreground: oklch(0.21 0.02 160);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+  --primary: var(--asra-green-800);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: var(--asra-green-100);
+  --secondary-foreground: var(--asra-green-900);
+  --muted: oklch(0.96 0.008 120);
+  --muted-foreground: oklch(0.5 0.02 160);
+  --accent: var(--asra-gold-500);
+  --accent-foreground: var(--asra-green-950);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.91 0.015 140);
+  --input: oklch(0.91 0.015 140);
+  --ring: var(--asra-green-600);
+  --success: oklch(0.62 0.15 150);
+  --warning: oklch(0.75 0.15 70);
+}
+
+.dark {
+  --background: var(--asra-green-950);
+  --foreground: oklch(0.97 0.01 95);
+  --card: oklch(0.26 0.05 160);
+  --card-foreground: oklch(0.97 0.01 95);
+  --popover: oklch(0.26 0.05 160);
+  --popover-foreground: oklch(0.97 0.01 95);
+  --primary: var(--asra-gold-500);
+  --primary-foreground: var(--asra-green-950);
+  --secondary: oklch(0.32 0.06 160);
+  --secondary-foreground: oklch(0.97 0.01 95);
+  --muted: oklch(0.3 0.04 160);
+  --muted-foreground: oklch(0.75 0.02 140);
+  --accent: var(--asra-gold-600);
+  --accent-foreground: var(--asra-green-950);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: var(--asra-gold-600);
+}
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  --color-asra-green-50: var(--asra-green-50);
+  --color-asra-green-100: var(--asra-green-100);
+  --color-asra-green-600: var(--asra-green-600);
+  --color-asra-green-700: var(--asra-green-700);
+  --color-asra-green-800: var(--asra-green-800);
+  --color-asra-green-900: var(--asra-green-900);
+  --color-asra-green-950: var(--asra-green-950);
+  --color-asra-gold-100: var(--asra-gold-100);
+  --color-asra-gold-500: var(--asra-gold-500);
+  --color-asra-gold-600: var(--asra-gold-600);
+  --color-asra-gold-700: var(--asra-gold-700);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

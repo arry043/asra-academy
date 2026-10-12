@@ -1,0 +1,19 @@
+// ASRA Academy — Prisma schema
+//
+// PHASE 01 (foundation): intentionally contains NO domain models.
+// The LMS domain schema (users, academic structure, courses, enrolments, ...) is designed
+// in PHASE 02 — Database & Backend Core, after client clarifications (docs/CLIENT-CLARIFICATIONS.md).
+//
+// Connection URLs are supplied via prisma.config.ts (CLI/migrations) and the
+// @prisma/adapter-pg driver adapter (runtime). Production database: Neon PostgreSQL.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}

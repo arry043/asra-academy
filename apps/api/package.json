@@ -1,0 +1,45 @@
+{
+  "name": "@asra/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ASRA Academy REST API (Express.js modular monolith)",
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/server.ts",
+    "build": "npm run db:generate && tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "typecheck": "npm run db:generate && tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "clean": "rm -rf dist src/generated",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio --port 5555 --browser none",
+    "db:seed": "prisma db seed",
+    "check:services": "tsx scripts/check-services.ts"
+  },
+  "dependencies": {
+    "@asra/types": "0.1.0",
+    "@asra/validation": "0.1.0",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "ioredis": "^5.11.1",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@asra/config": "0.1.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "pino-pretty": "^13.2.0",
+    "prisma": "^7.10.0",
+    "tsx": "^4.23.15"
+  }
+}
