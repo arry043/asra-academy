@@ -36,8 +36,8 @@ See [SRS.md](./SRS.md) for detail and [CLIENT-CLARIFICATIONS.md](./CLIENT-CLARIF
 
 | ID          | Requirement                                    | Priority | Source   | Status                      |
 | ----------- | ---------------------------------------------- | -------- | -------- | --------------------------- |
-| REQ-STU-001 | Student registration                           | MUST     | Order §3 | CONFIRMED                   |
-| REQ-STU-002 | Secure login                                   | MUST     | Order §3 | CONFIRMED                   |
+| REQ-STU-001 | Student registration                           | MUST     | Order §3 | DONE (Phase 03)             |
+| REQ-STU-002 | Secure login                                   | MUST     | Order §3 | DONE (Phase 03)             |
 | REQ-STU-003 | Class/course-wise dashboard                    | MUST     | Order §3 | CONFIRMED                   |
 | REQ-STU-004 | Progress tracking & exam results               | MUST     | Order §3 | CONFIRMED                   |
 | REQ-STU-005 | Enrolment & payment history                    | MUST     | Order §3 | CONFIRMED                   |
@@ -58,17 +58,17 @@ See [SRS.md](./SRS.md) for detail and [CLIENT-CLARIFICATIONS.md](./CLIENT-CLARIF
 
 ## ADMIN
 
-| ID          | Requirement                                             | Priority | Source   | Status                          |
-| ----------- | ------------------------------------------------------- | -------- | -------- | ------------------------------- |
-| REQ-ADM-001 | Manage students, teachers, classes, courses, enrolments | MUST     | Order §3 | CONFIRMED                       |
-| REQ-ADM-002 | Manage course pricing & payment records                 | MUST     | Order §3 | CONFIRMED                       |
-| REQ-ADM-003 | Manage live-class schedules & learning content          | MUST     | Order §3 | CONFIRMED                       |
-| REQ-ADM-004 | Notifications & announcements                           | MUST     | Order §3 | CONFIRMED                       |
-| REQ-ADM-005 | Reporting                                               | MUST     | Order §3 | CONFIRMED (report list pending) |
-| REQ-ADM-006 | Certificates                                            | MUST     | Order §3 | CONFIRMED (rules pending)       |
-| REQ-ADM-007 | Promotional offers                                      | MUST     | Order §3 | CONFIRMED (rules pending)       |
-| REQ-ADM-008 | Admin sub-roles & permissions                           | SHOULD   | Tech Rec | PENDING CLIENT CONFIRMATION     |
-| REQ-ADM-009 | Administrator training                                  | MUST     | Order §6 | CONFIRMED                       |
+| ID          | Requirement                                             | Priority | Source   | Status                                                                    |
+| ----------- | ------------------------------------------------------- | -------- | -------- | ------------------------------------------------------------------------- |
+| REQ-ADM-001 | Manage students, teachers, classes, courses, enrolments | MUST     | Order §3 | CONFIRMED                                                                 |
+| REQ-ADM-002 | Manage course pricing & payment records                 | MUST     | Order §3 | CONFIRMED                                                                 |
+| REQ-ADM-003 | Manage live-class schedules & learning content          | MUST     | Order §3 | CONFIRMED                                                                 |
+| REQ-ADM-004 | Notifications & announcements                           | MUST     | Order §3 | CONFIRMED                                                                 |
+| REQ-ADM-005 | Reporting                                               | MUST     | Order §3 | CONFIRMED (report list pending)                                           |
+| REQ-ADM-006 | Certificates                                            | MUST     | Order §3 | CONFIRMED (rules pending)                                                 |
+| REQ-ADM-007 | Promotional offers                                      | MUST     | Order §3 | CONFIRMED (rules pending)                                                 |
+| REQ-ADM-008 | Admin sub-roles & permissions                           | SHOULD   | Tech Rec | FOUNDATION DONE (permission model + middleware); sub-roles PENDING (S-01) |
+| REQ-ADM-009 | Administrator training                                  | MUST     | Order §6 | CONFIRMED                                                                 |
 
 ## ACADEMIC
 
@@ -178,15 +178,18 @@ See [SRS.md](./SRS.md) for detail and [CLIENT-CLARIFICATIONS.md](./CLIENT-CLARIF
 
 ## SECURITY
 
-| ID          | Requirement                                            | Priority | Source   | Status                                                       |
-| ----------- | ------------------------------------------------------ | -------- | -------- | ------------------------------------------------------------ |
-| REQ-SEC-001 | Secure authentication                                  | MUST     | Order §4 | CONFIRMED                                                    |
-| REQ-SEC-002 | Student privacy & safeguards for minors                | MUST     | Order §4 | CONFIRMED (measures pending)                                 |
-| REQ-SEC-003 | JWT + bcrypt, server-side RBAC                         | MUST     | Tech Rec | PROPOSED                                                     |
-| REQ-SEC-004 | Helmet, CORS allow-list, Zod validation, rate limiting | MUST     | Tech Rec | DONE (Helmet, CORS, env validation) / rate limiting Phase 03 |
-| REQ-SEC-005 | No secrets in source control                           | MUST     | Tech Rec | DONE                                                         |
-| REQ-SEC-006 | DPDP Act 2023 compliance review                        | MUST     | Tech Rec | PENDING CLIENT CONFIRMATION                                  |
-| REQ-SEC-007 | Audit logging of sensitive admin actions               | SHOULD   | Tech Rec | PROPOSED                                                     |
+| ID          | Requirement                                                         | Priority | Source   | Status                                                            |
+| ----------- | ------------------------------------------------------------------- | -------- | -------- | ----------------------------------------------------------------- |
+| REQ-SEC-001 | Secure authentication                                               | MUST     | Order §4 | DONE (Phase 03; production email provider pending Q-01)           |
+| REQ-SEC-002 | Student privacy & safeguards for minors                             | MUST     | Order §4 | CONFIRMED (measures pending)                                      |
+| REQ-SEC-003 | JWT + Argon2id, server-side RBAC                                    | MUST     | Tech Rec | DONE (Phase 03)                                                   |
+| REQ-SEC-004 | Helmet, CORS allow-list, Zod validation, rate limiting              | MUST     | Tech Rec | DONE (Phase 03: auth rate limits, CSRF origin checks)             |
+| REQ-SEC-008 | Refresh-token rotation with reuse detection; hashed one-time tokens | MUST     | Tech Rec | DONE (Phase 03)                                                   |
+| REQ-SEC-009 | Email verification required before sign-in                          | SHOULD   | Tech Rec | DONE — policy PENDING CLIENT CONFIRMATION (D-03)                  |
+| REQ-SEC-010 | Resource ownership checks in services (faculty ↔ assigned course)   | MUST     | Order §3 | PARTIAL — policy implemented; applied when course endpoints exist |
+| REQ-SEC-005 | No secrets in source control                                        | MUST     | Tech Rec | DONE                                                              |
+| REQ-SEC-006 | DPDP Act 2023 compliance review                                     | MUST     | Tech Rec | PENDING CLIENT CONFIRMATION                                       |
+| REQ-SEC-007 | Audit logging of sensitive admin actions                            | SHOULD   | Tech Rec | PROPOSED                                                          |
 
 ## INFRASTRUCTURE
 

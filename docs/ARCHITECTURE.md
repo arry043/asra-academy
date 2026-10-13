@@ -90,8 +90,8 @@ asra-academy/
 ## 5. Backend Responsibilities (apps/api)
 
 - REST API under `/api/v1`.
-- Authentication (JWT issue/verify, bcrypt hashing) — Phase 03.
-- Authorization/RBAC enforcement on every request — Phase 03.
+- Authentication (JWT access tokens, rotating refresh sessions, Argon2id hashing) — implemented in Phase 03, see [AUTHENTICATION.md](./AUTHENTICATION.md).
+- Authorization/RBAC enforcement (`authenticate`, `requireRole`, `requirePermission`, `accessPolicy`) — Phase 03.
 - Business logic in services; persistence in repositories via Prisma.
 - Input validation (Zod) at the edge of every route.
 - Integration with external providers via adapters.
@@ -103,7 +103,8 @@ asra-academy/
 apps/api/src/
 ├── config/        env parsing (Zod), constants
 ├── controllers/   HTTP ↔ service translation (no business logic)
-├── middleware/    request id, logging, error handler, 404, (auth, rbac later)
+├── middleware/    request id, logging, error handler, 404, validateRequest, authenticate,
+│                  authorize (requireRole/requirePermission), rate-limit, trusted-origin
 ├── routes/        route registration, versioned under /api/v1
 ├── services/      business logic
 ├── repositories/  data access (Prisma only here)
@@ -111,6 +112,7 @@ apps/api/src/
 ├── utils/         response helpers, AppError, async handler
 ├── types/         backend-only types
 ├── database/      Prisma client + lifecycle, Prisma→API error mapping, seed modules
+├── email/         provider-neutral email service + dev/test transports
 ├── lib/           infrastructure clients (redis, logger)
 ├── app.ts         Express app composition (testable, no listen)
 └── server.ts      process entry: listen + graceful shutdown
@@ -170,16 +172,28 @@ Errors → central errorHandler: AppError | ZodError → 422 | Prisma error → 
 
 ### 8.1 Authentication boundary
 
+Implemented in Phase 03 — full detail in [AUTHENTICATION.md](./AUTHENTICATION.md).
+
 - The API is the **only** authority that issues and verifies tokens.
-- JWT access tokens (short-lived) + refresh tokens (rotated, revocable, stored server-side as hashes) — Phase 03.
-- Web app stores tokens in **httpOnly, Secure, SameSite** cookies (Technical Recommendation) — never `localStorage`.
-- `JWT_SECRET` supplied only via environment.
+- **Access token:** JWT HS256 (`jose`), 15 min, claims `sub` + `sid` (session id) only. Sent as `Authorization: Bearer`; the web app keeps it **in memory only** (never localStorage/sessionStorage).
+- **Refresh token:** opaque 256-bit value in an **HttpOnly, SameSite=Strict, Secure (prod)** cookie scoped to `/api/v1/auth`; **rotated on every use**; only its SHA-256 hash is stored (`auth_sessions`); reuse of a rotated token revokes the session.
+- `authenticate` loads session + user + roles + permissions from PostgreSQL in one query per request, so logout, password reset, suspension and role changes take effect immediately — no token blacklist.
+- Passwords: Argon2id. One-time email tokens (verification, reset): random, hashed, single-use, delivered in the URL fragment.
+- CSRF: SameSite=Strict + `Origin`/`Sec-Fetch-Site` allow-list on auth routes; other routes use Bearer tokens. Deployment assumption: web and API are same-site.
+- `JWT_SECRET` (≥ 32 chars) supplied only via environment; validated at startup.
+
+```
+login ──► Argon2id verify ──► auth_sessions row ──► { accessToken } + Set-Cookie asra_refresh
+request ──► authenticate (JWT ✓ → session live? user ACTIVE? roles/perms) ──► requireRole/Permission ──► service (accessPolicy ownership)
+refresh ──► hash(cookie) → CAS rotate token → new access token + new cookie   (reuse ⇒ revoke session)
+```
 
 ### 8.2 Authorization boundary
 
-- RBAC middleware on the API decides access; the frontend only hides UI elements for UX.
-- Roles (initial): `STUDENT`, `FACULTY`, `ADMIN`, `SUPER_ADMIN`. Parent/Guardian pending.
-- Resource-level checks in services (e.g. faculty ↔ allocated subject, student ↔ enrolment).
+- RBAC middleware on the API decides access (`requireRole` = any-of, `requirePermission` = all-of; 401 unauthenticated vs 403 forbidden); the frontend only hides UI elements for UX.
+- Roles (initial): `STUDENT`, `FACULTY`, `ADMIN`, `SUPER_ADMIN` — rows in `roles`, least-privilege grants in `role_permissions`. Parent/Guardian pending.
+- **Resource-level checks in services are mandatory** for every business endpoint, via `accessPolicy` (e.g. faculty ↔ assigned course — implemented; student ↔ enrolment — Phase 10). Role middleware alone never enforces ownership.
+- Public registration creates STUDENT only; staff accounts are provisioned by an operator CLI (`npm run auth:create-user`) until the admin portal exists.
 
 ### 8.3 External service boundary
 
@@ -237,7 +251,7 @@ Rules: provider selection via configuration; no vendor-specific identifiers leak
 
 ### 8.4 Redis / BullMQ (future role)
 
-Phase 01 only provisions Redis and verifies connectivity. From later phases Redis + BullMQ will handle:
+Since Phase 03 Redis stores the shared **auth rate-limit counters** (with an in-memory fallback if Redis is down). From later phases Redis + BullMQ will handle:
 
 - Email/WhatsApp notification delivery with retries.
 - Scheduled reminders (live classes, deadlines).
@@ -287,17 +301,20 @@ Hosting targets for web and API are pending (CLIENT-CLARIFICATIONS §W).
 
 ## 13. Architecture Decision Log
 
-| ID      | Decision                                                                                    | Status   |
-| ------- | ------------------------------------------------------------------------------------------- | -------- |
-| ADR-001 | Modular monolith (single Express app)                                                       | Accepted |
-| ADR-002 | npm workspaces monorepo                                                                     | Accepted |
-| ADR-003 | PostgreSQL + Prisma; Neon in production, Docker locally                                     | Accepted |
-| ADR-004 | REST API with `/api/v1` prefix and uniform envelope                                         | Accepted |
-| ADR-005 | JWT auth with bcrypt hashing (Phase 03)                                                     | Accepted |
-| ADR-006 | Provider adapters for all external services                                                 | Accepted |
-| ADR-007 | Redis + BullMQ for background jobs (later)                                                  | Accepted |
-| ADR-008 | Prisma driver adapter (`@prisma/adapter-pg`) for runtime connections (Prisma 7 requirement) | Accepted |
-| ADR-009 | UUID keys generated by PostgreSQL (`gen_random_uuid()`); snake_case tables/columns          | Accepted |
-| ADR-010 | Roles/permissions as data with many-to-many user roles (pending S-04)                       | Accepted |
-| ADR-011 | Hand-written CHECK constraints in migration SQL for invariants Prisma cannot express        | Accepted |
-| ADR-012 | Node built-in test runner + tsx against a local `*_test` database (no new dependencies)     | Accepted |
+| ID      | Decision                                                                                          | Status   |
+| ------- | ------------------------------------------------------------------------------------------------- | -------- |
+| ADR-001 | Modular monolith (single Express app)                                                             | Accepted |
+| ADR-002 | npm workspaces monorepo                                                                           | Accepted |
+| ADR-003 | PostgreSQL + Prisma; Neon in production, Docker locally                                           | Accepted |
+| ADR-004 | REST API with `/api/v1` prefix and uniform envelope                                               | Accepted |
+| ADR-005 | JWT access tokens + rotating refresh sessions; **Argon2id** hashing (supersedes bcrypt, Phase 03) | Accepted |
+| ADR-006 | Provider adapters for all external services                                                       | Accepted |
+| ADR-007 | Redis + BullMQ for background jobs (later)                                                        | Accepted |
+| ADR-008 | Prisma driver adapter (`@prisma/adapter-pg`) for runtime connections (Prisma 7 requirement)       | Accepted |
+| ADR-009 | UUID keys generated by PostgreSQL (`gen_random_uuid()`); snake_case tables/columns                | Accepted |
+| ADR-010 | Roles/permissions as data with many-to-many user roles (pending S-04)                             | Accepted |
+| ADR-011 | Hand-written CHECK constraints in migration SQL for invariants Prisma cannot express              | Accepted |
+| ADR-012 | Node built-in test runner + tsx against a local `*_test` database (no new dependencies)           | Accepted |
+| ADR-013 | Access token in memory + refresh token in HttpOnly SameSite=Strict cookie; same-site deployment   | Accepted |
+| ADR-014 | Authorization from database state on every request (session-bound JWT `sid`), no blacklist        | Accepted |
+| ADR-015 | Redis-backed rate limiting with per-instance memory fallback                                      | Accepted |
