@@ -19,7 +19,48 @@ Entry template:
 
 ### Planned
 
-- PHASE 02 — Database & Backend Core.
+- PHASE 03 — Authentication & RBAC.
+
+---
+
+## [0.2.0] — 2026-10-13
+
+**Phase:** 02 — Database & Backend Core
+**Status:** Implemented (uncommitted, pending review)
+
+### Added — Database
+
+- Prisma schema with the initial LMS domain: `User`, `Role`, `Permission`, `StudentProfile`, `FacultyProfile`, `AcademicLevel`, `Class`, `Stream`, `Subject`, `CourseCategory`, `Course`, `CourseInstructor`, `Module`, `Chapter`, `Lesson` and `Resource`.
+- Two additional join models, `UserRole` and `RolePermission`. A user can hold multiple roles; one role per user is pending S-04.
+- Conventions: PostgreSQL-generated UUID keys, snake_case tables and columns, `timestamptz(3)` UTC timestamps, explicit `RESTRICT`/`CASCADE` rules, unique positions within each curriculum parent.
+- Initial migration `20261013042559_init_database_core`, including hand-written CHECK constraints: normalised email, key and slug formats, non-negative numbers, `published_at` required when published, and exactly one location per resource.
+- Idempotent, transactional seed for the 4 system roles and 11 permissions. It seeds no user accounts and no academic catalogue.
+- New `docs/DATABASE.md`: entity relationships, conventions, constraints, migration, seed and reset workflow, local vs. Neon setup.
+
+### Added — Backend
+
+- `src/database/`: shared Prisma client and pool settings, `pingDatabase`, graceful disconnect, the `DbClient` type and seed modules.
+- Safe Prisma error mapping (`database/errors.ts`): 409 for unique or relation conflicts, 404 for missing records, 422 for CHECK violations and over-long values, 503 when the database is unreachable. SQL, constraint names and row values are never exposed.
+- `validateRequest` Zod middleware and common validators (`id`, `slug`, pagination).
+- Shared `PERMISSIONS` (`@asra/types`); `emailSchema`, `slugSchema`, `positionSchema` and `resourceInputSchema` (`@asra/validation`).
+- `access-control.repository.ts`: the repository pattern, transaction-aware via `DbClient`.
+- Startup database check; the API keeps running if it fails and readiness reports `database: "down"`.
+- Root scripts `db:migrate:create`, `db:migrate:status`, `db:reset`. `db:migrate`, `db:migrate:create` and `db:reset` are guarded and refuse non-local hosts and `NODE_ENV=production`.
+- Automated tests (40) with Node's built-in test runner and `tsx`, against a separate local `*_test` database. No new dependencies.
+
+### Changed
+
+- Moved `src/lib/prisma.ts` to `src/database/prisma.ts`.
+- Readiness probes are injectable, for testing.
+- New env vars `DATABASE_POOL_MAX` and `TEST_DATABASE_URL` (both optional). `DIRECT_DATABASE_URL` is validated when set.
+
+### Fixed
+
+- Empty `JWT_SECRET=` (as shipped in `.env.example`) no longer fails API startup in development.
+
+### Notes
+
+- Migration and tests were verified against local Docker PostgreSQL 17. **Neon connectivity was not tested**: no credentials were available. See `docs/DATABASE.md` §9.
 
 ---
 

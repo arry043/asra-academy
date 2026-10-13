@@ -97,6 +97,8 @@ Full detail: [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 Granular admin sub-roles (e.g. accounts, content manager) are `[Pending]` (CLIENT-CLARIFICATIONS §S).
 
+**Implementation note (Phase 02):** roles and permissions are stored as data. A user may hold several roles; whether that is allowed is pending S-04. The seeded permission catalogue is listed in [DATABASE.md §8](./DATABASE.md#8-seed).
+
 ## 5. Functional Requirements — Summary
 
 Functional requirements are detailed per area in sections 7–26. Every area maps to a category in REQUIREMENTS.md.
@@ -199,6 +201,8 @@ Functional requirements are detailed per area in sections 7–26. Every area map
 | FR-ACA-004 | Chapter-wise organisation of lectures, notes, assignments, practice questions and exams | MUST HAVE         | `[Client §2A]`                                |
 | FR-ACA-005 | Final subject list per class/stream                                                     | MUST HAVE         | `[Pending]` §A                                |
 | FR-ACA-006 | Support boards other than CBSE                                                          | FUTURE / OPTIONAL | `[Pending]` §A                                |
+
+**Implementation note (Phase 02):** AcademicLevel → Class / Stream and independent Subjects are admin-managed rows. A Course links optionally to class, stream and subject. No catalogue is seeded. See [DATABASE.md §2.3](./DATABASE.md#23-academic-structure).
 
 ## 13. Course Requirements
 

@@ -1,9 +1,14 @@
-import { API_PREFIX, SHUTDOWN_TIMEOUT_MS } from './config/constants.js';
+import {
+  API_PREFIX,
+  DEPENDENCY_CHECK_TIMEOUT_MS,
+  SHUTDOWN_TIMEOUT_MS,
+} from './config/constants.js';
 import { env } from './config/env.js';
 import { createApp } from './app.js';
+import { disconnectPrisma, pingDatabase } from './database/prisma.js';
 import { logger } from './lib/logger.js';
-import { disconnectPrisma } from './lib/prisma.js';
 import { connectRedis, disconnectRedis } from './lib/redis.js';
+import { withTimeout } from './utils/with-timeout.js';
 
 const app = createApp();
 
@@ -18,6 +23,27 @@ server.on('error', (error) => {
   process.exit(1);
 });
 
+/**
+ * Verify PostgreSQL once at startup so a misconfiguration is visible immediately. The API keeps
+ * running if it fails (Neon may be waking from scale-to-zero; Docker may still be starting):
+ * liveness stays green, readiness (`/health/ready`) reports the database as down, and requests
+ * that need the database return 503 until it is reachable. Migrations are never run here.
+ */
+async function verifyDatabase(): Promise<void> {
+  try {
+    await withTimeout(pingDatabase(), DEPENDENCY_CHECK_TIMEOUT_MS * 5, 'PostgreSQL');
+    logger.info('PostgreSQL connected');
+  } catch (error) {
+    // Log the error class/code only — driver messages can contain host names.
+    const { name, code } = error as { name?: string; code?: string };
+    logger.error(
+      { errorName: name, errorCode: code },
+      'PostgreSQL unreachable at startup — check DATABASE_URL and that the database is running',
+    );
+  }
+}
+
+void verifyDatabase();
 void connectRedis();
 
 let shuttingDown = false;

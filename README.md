@@ -15,7 +15,7 @@ ASRA Academy offers school education for **Classes 6–12** (CBSE pattern for 6�
 
 Brand assets and colour usage rules: [docs/brand/README.md](docs/brand/README.md). Brand constants for the web app: [`apps/web/src/config/site.ts`](apps/web/src/config/site.ts).
 
-> **Current phase:** PHASE 01 — Project Foundation & Architecture (complete). No business features are implemented yet.
+> **Current phase:** PHASE 02 — Database & Backend Core (implemented). No business features (auth, LMS workflows) are implemented yet.
 
 ---
 
@@ -147,10 +147,14 @@ npm run db:generate
 # 6. Validate the Prisma schema
 npm run db:validate
 
-# 7. (optional) Verify PostgreSQL + Redis connectivity
+# 7. Apply migrations and seed roles/permissions
+npm run db:migrate
+npm run db:seed
+
+# 8. (optional) Verify PostgreSQL + Redis connectivity
 npm run check:services
 
-# 8. Start the web app and API
+# 9. Start the web app and API
 npm run dev
 ```
 
@@ -249,7 +253,7 @@ API conventions:
 - **Neon (development / production):** create a Neon project, then set
   - `DATABASE_URL` → the **pooled** connection string (host contains `-pooler`), used by the running API;
   - `DIRECT_DATABASE_URL` → the **direct** connection string, used by Prisma migrations.
-- **Phase 01 has no domain models.** The LMS schema and first migration arrive in Phase 02.
+- **Schema, migrations, seed, reset and Neon steps:** see [docs/DATABASE.md](docs/DATABASE.md).
 
 ## Prisma commands
 
@@ -259,10 +263,14 @@ Run from the repository root:
 | --------------------------- | ------------------------------------------------------------------------- |
 | `npm run db:generate`       | Generate the Prisma client into `apps/api/src/generated/prisma`           |
 | `npm run db:validate`       | Validate `apps/api/prisma/schema.prisma`                                  |
-| `npm run db:migrate`        | `prisma migrate dev` — create/apply migrations locally                    |
+| `npm run db:migrate`        | `prisma migrate dev` — create/apply migrations (**local hosts only**)     |
+| `npm run db:migrate:create` | Create a migration without applying it (local only)                       |
 | `npm run db:migrate:deploy` | `prisma migrate deploy` — apply committed migrations (staging/production) |
+| `npm run db:migrate:status` | Show applied/pending migrations                                           |
 | `npm run db:studio`         | Open Prisma Studio on http://localhost:5555                               |
-| `npm run db:seed`           | Run `apps/api/prisma/seed.ts` (Phase 01: verifies connectivity only)      |
+| `npm run db:seed`           | Idempotently seed system roles and permissions                            |
+| `npm run db:reset`          | ⚠ Drop all local data, re-migrate and seed (local only, asks to confirm)  |
+| `npm test -w @asra/api`     | API tests against local `<db>_test` database                              |
 | `npm run check:services`    | Verify PostgreSQL (via Prisma) and Redis connectivity                     |
 
 ## Development workflow
@@ -313,6 +321,7 @@ Rules:
 
 **PHASE 00 — Requirement Freeze & Project Preparation:** ✅ complete
 **PHASE 01 — Project Foundation & Architecture:** ✅ complete
+**PHASE 02 — Database & Backend Core:** ✅ implemented: LMS schema, initial migration, RBAC seed, database layer, error mapping, tests ([docs/DATABASE.md](docs/DATABASE.md))
 
 - Monorepo, web and API foundations, shared packages
 - PostgreSQL + Redis in Docker with health checks and persistent volumes
@@ -350,6 +359,7 @@ Detailed plan: [docs/reference/IMPLEMENTATION-PLAN-PHASES.md](docs/reference/IMP
 | [docs/SRS.md](docs/SRS.md)                                     | Software requirements specification |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   | System architecture                 |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)                   | Requirements matrix                 |
+| [docs/DATABASE.md](docs/DATABASE.md)                           | Data model, migrations, seed, reset |
 | [docs/CLIENT-CLARIFICATIONS.md](docs/CLIENT-CLARIFICATIONS.md) | Open client questions               |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md)                         | Change history                      |
 | [docs/brand/README.md](docs/brand/README.md)                   | Logo files, colours, usage rules    |

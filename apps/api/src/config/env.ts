@@ -17,6 +17,11 @@ const csv = z.string().transform((value) =>
     .filter(Boolean),
 );
 
+/** Treats `VAR=` (empty) in .env files the same as an unset variable. */
+const emptyToUndefined = (value: unknown) => (value === '' ? undefined : value);
+
+const postgresUrl = z.url({ protocol: /^postgres(ql)?$/ });
+
 const envSchema = z
   .object({
     NODE_ENV: appEnvironmentSchema.default('development'),
@@ -25,14 +30,26 @@ const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
 
-    DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+    // Runtime connection (Neon: pooled endpoint; local: Docker PostgreSQL).
+    DATABASE_URL: postgresUrl,
+    // Prisma CLI / migrations only (Neon: direct endpoint). Not used by the running API, but
+    // validated when present so a malformed value is caught early.
+    DIRECT_DATABASE_URL: z.preprocess(emptyToUndefined, postgresUrl.optional()),
+    // Upper bound of the per-process `pg` pool. Keep small on Neon (the pooler multiplexes).
+    DATABASE_POOL_MAX: z.preprocess(
+      (value) => emptyToUndefined(value) ?? '10',
+      z.coerce.number().int().min(1).max(100),
+    ),
     REDIS_URL: z.url({ protocol: /^rediss?$/ }).default('redis://localhost:6379'),
 
     NEXT_PUBLIC_APP_URL: z.url().default('http://localhost:3000'),
     CORS_ORIGINS: csv.optional(),
 
     // Used from PHASE 03 (authentication). Validated now so misconfiguration surfaces early.
-    JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters').optional(),
+    JWT_SECRET: z.preprocess(
+      emptyToUndefined,
+      z.string().min(32, 'JWT_SECRET must be at least 32 characters').optional(),
+    ),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production' && !env.JWT_SECRET) {
