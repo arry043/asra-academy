@@ -14,11 +14,16 @@
     "clean": "rm -rf dist src/generated",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "tsx scripts/db-command.ts migrate-dev",
+    "db:migrate:create": "tsx scripts/db-command.ts migrate-create",
     "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
     "db:studio": "prisma studio --port 5555 --browser none",
     "db:seed": "prisma db seed",
-    "check:services": "tsx scripts/check-services.ts"
+    "db:reset": "tsx scripts/db-command.ts reset",
+    "check:services": "tsx scripts/check-services.ts",
+    "test": "npm run db:generate && npm run test:db:prepare && node --import tsx --import ./tests/setup-env.ts --test --test-concurrency=1 \"tests/**/*.test.ts\"",
+    "test:db:prepare": "tsx scripts/prepare-test-db.ts"
   },
   "dependencies": {
     "@asra/types": "0.1.0",

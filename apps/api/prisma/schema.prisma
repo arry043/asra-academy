@@ -1,8 +1,16 @@
-// ASRA Academy — Prisma schema
+// ASRA Academy — Prisma schema (PHASE 02 — Database & Backend Core)
 //
-// PHASE 01 (foundation): intentionally contains NO domain models.
-// The LMS domain schema (users, academic structure, courses, enrolments, ...) is designed
-// in PHASE 02 — Database & Backend Core, after client clarifications (docs/CLIENT-CLARIFICATIONS.md).
+// Conventions (see docs/DATABASE.md):
+// - Models are PascalCase singular; tables are snake_case plural via @@map.
+// - Fields are camelCase; columns are snake_case via @map.
+// - Primary keys are PostgreSQL-generated UUIDs: gen_random_uuid() (built in since PG 13; Neon + Docker).
+//   Pure join tables use composite primary keys instead.
+// - Timestamps are `timestamptz(3)` and are always written in UTC.
+// - Catalogue data (levels, classes, streams, subjects, categories) is retired with `isActive = false`
+//   rather than deleted; foreign keys to catalogue rows use RESTRICT so in-use rows cannot vanish.
+// - Curriculum content (module → chapter → lesson → resource) is owned by its parent and CASCADEs.
+// - CHECK constraints that Prisma cannot express live in the migration SQL and are listed in
+//   docs/DATABASE.md §Constraints.
 //
 // Connection URLs are supplied via prisma.config.ts (CLI/migrations) and the
 // @prisma/adapter-pg driver adapter (runtime). Production database: Neon PostgreSQL.
@@ -16,4 +24,437 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+/// Lifecycle of an account. Login rules per status are defined in PHASE 03.
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+
+  @@map("user_status")
+}
+
+/// Publication lifecycle shared by courses and lessons.
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("publication_status")
+}
+
+/// Primary kind of content a lesson delivers.
+enum LessonContentType {
+  VIDEO
+  DOCUMENT
+  TEXT
+  LINK
+
+  @@map("lesson_content_type")
+}
+
+/// Kind of learning material attached to a lesson.
+enum ResourceType {
+  VIDEO
+  PDF
+  DOCUMENT
+  PRESENTATION
+  IMAGE
+  AUDIO
+  EXTERNAL_LINK
+  OTHER
+
+  @@map("resource_type")
+}
+
+// =============================================================================
+// Identity & access control
+// =============================================================================
+
+/// Central identity. Authentication data lives here; role-specific data lives in profiles.
+model User {
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Stored trimmed + lower-case (enforced by CHECK `users_email_normalized`).
+  email           String     @unique @db.VarChar(320)
+  /// bcrypt hash (PHASE 03). Nullable for admin-created accounts that have not set a password yet.
+  passwordHash    String?    @map("password_hash") @db.VarChar(255)
+  fullName        String     @map("full_name") @db.VarChar(150)
+  /// Optional contact number; whether it is required/unique is pending (CLIENT-CLARIFICATIONS D-01/D-02).
+  phone           String?    @db.VarChar(20)
+  status          UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(3)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  roles          UserRole[]
+  studentProfile StudentProfile?
+  facultyProfile FacultyProfile?
+
+  @@index([status])
+  @@map("users")
+}
+
+/// A named set of permissions. System roles are seeded; more can be added as data.
+model Role {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Stable machine identifier, e.g. `SUPER_ADMIN` (CHECK `roles_key_format`).
+  key         String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  /// System roles are created by the seed and must not be deleted by administrators.
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+/// A single grantable capability, e.g. `courses.manage` (CHECK `permissions_key_format`).
+model Permission {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+/// User ↔ Role (many-to-many). A role that is still assigned cannot be deleted.
+model UserRole {
+  userId     String   @map("user_id") @db.Uuid
+  roleId     String   @map("role_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+/// Role ↔ Permission (many-to-many).
+model RolePermission {
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  grantedAt    DateTime @default(now()) @map("granted_at") @db.Timestamptz(3)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// =============================================================================
+// Profiles
+// =============================================================================
+
+/// Student-specific academic data (1:1 with User). Guardian/DOB fields are pending
+/// (CLIENT-CLARIFICATIONS D-01, E-01) and intentionally absent.
+model StudentProfile {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @unique @map("user_id") @db.Uuid
+  /// Academy-issued admission/student number; format pending.
+  studentCode String?  @unique @map("student_code") @db.VarChar(50)
+  /// Current class (nullable: special-course-only students have none).
+  classId     String?  @map("class_id") @db.Uuid
+  /// Current stream (Classes 11–12 only).
+  streamId    String?  @map("stream_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  class  Class?  @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  stream Stream? @relation(fields: [streamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([classId])
+  @@index([streamId])
+  @@map("student_profiles")
+}
+
+/// Faculty-specific professional data (1:1 with User). Which fields are public is pending (C-02);
+/// `isPublic` defaults to false so nothing is exposed until an admin opts in.
+model FacultyProfile {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  /// Academy-issued employee/faculty identifier.
+  employeeCode    String?  @unique @map("employee_code") @db.VarChar(50)
+  /// Short title shown on profile cards, e.g. "Senior Mathematics Faculty".
+  designation     String?  @db.VarChar(150)
+  bio             String?  @db.Text
+  qualifications  String?  @db.VarChar(500)
+  specialization  String?  @db.VarChar(255)
+  experienceYears Int?     @map("experience_years") @db.SmallInt
+  /// Provider-neutral storage key of the profile photo (storage provider pending, R-01).
+  photoKey        String?  @map("photo_key") @db.VarChar(1024)
+  isPublic        Boolean  @default(false) @map("is_public")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  courses CourseInstructor[]
+
+  @@index([isPublic])
+  @@map("faculty_profiles")
+}
+
+// =============================================================================
+// Academic structure (data-driven; no catalogue is hard-coded — FR-ACA-003)
+// =============================================================================
+
+/// A band of school education, e.g. "Classes 6–10" or "Classes 11–12".
+model AcademicLevel {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  slug        String   @unique @db.VarChar(120)
+  description String?  @db.Text
+  /// Curriculum/board label, e.g. "CBSE". Free text until boards are confirmed (A-03).
+  board       String?  @db.VarChar(50)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  classes Class[]
+  streams Stream[]
+
+  @@index([isActive, sortOrder])
+  @@map("academic_levels")
+}
+
+/// A school grade, e.g. "Class 10". Belongs to exactly one academic level.
+model Class {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicLevelId String   @map("academic_level_id") @db.Uuid
+  name            String   @db.VarChar(100)
+  slug            String   @unique @db.VarChar(120)
+  /// Numeric grade (6–12) for filtering; not unique so a second board can reuse grades (A-03).
+  gradeNumber     Int?     @map("grade_number") @db.SmallInt
+  sortOrder       Int      @default(0) @map("sort_order")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  academicLevel AcademicLevel    @relation(fields: [academicLevelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  courses       Course[]
+  students      StudentProfile[]
+
+  @@unique([academicLevelId, name])
+  @@index([gradeNumber])
+  @@index([isActive, sortOrder])
+  @@map("classes")
+}
+
+/// An academic stream within a level, e.g. Science / Commerce / Arts for Classes 11–12.
+/// The stream list is pending (A-02); streams are optional on courses and students.
+model Stream {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicLevelId String   @map("academic_level_id") @db.Uuid
+  name            String   @db.VarChar(100)
+  slug            String   @unique @db.VarChar(120)
+  description     String?  @db.Text
+  sortOrder       Int      @default(0) @map("sort_order")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  academicLevel AcademicLevel    @relation(fields: [academicLevelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  courses       Course[]
+  students      StudentProfile[]
+
+  @@unique([academicLevelId, name])
+  @@index([isActive, sortOrder])
+  @@map("streams")
+}
+
+/// A reusable subject, e.g. "Mathematics". Not tied to a single class: the class/stream in which a
+/// subject is taught is expressed by a Course (SRS §1.3: a course is "a subject for a class").
+model Subject {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  slug        String   @unique @db.VarChar(120)
+  /// Optional external/board subject code, e.g. CBSE "041".
+  code        String?  @unique @db.VarChar(20)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  courses Course[]
+
+  @@index([isActive])
+  @@map("subjects")
+}
+
+// =============================================================================
+// Course management
+// =============================================================================
+
+/// Admin-managed grouping of courses, e.g. "School Education", "Language Courses".
+model CourseCategory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  slug        String   @unique @db.VarChar(120)
+  description String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  courses Course[]
+
+  @@index([isActive, sortOrder])
+  @@map("course_categories")
+}
+
+/// An enrollable unit of learning: a subject for a class (optionally a stream), or a special course.
+/// Pricing, enrolment and batches are deliberately absent (PHASE 10; CLIENT-CLARIFICATIONS B, M).
+model Course {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title        String            @db.VarChar(200)
+  slug         String            @unique @db.VarChar(220)
+  summary      String?           @db.VarChar(500)
+  description  String?           @db.Text
+  status       PublicationStatus @default(DRAFT)
+  categoryId   String?           @map("category_id") @db.Uuid
+  classId      String?           @map("class_id") @db.Uuid
+  streamId     String?           @map("stream_id") @db.Uuid
+  subjectId    String?           @map("subject_id") @db.Uuid
+  /// Provider-neutral storage key of the cover image.
+  thumbnailKey String?           @map("thumbnail_key") @db.VarChar(1024)
+  publishedAt  DateTime?         @map("published_at") @db.Timestamptz(3)
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  category    CourseCategory?    @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  class       Class?             @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  stream      Stream?            @relation(fields: [streamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  subject     Subject?           @relation(fields: [subjectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  instructors CourseInstructor[]
+  modules     Module[]
+
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@index([classId, subjectId])
+  @@index([streamId])
+  @@index([subjectId])
+  @@map("courses")
+}
+
+/// Course ↔ FacultyProfile assignment. Linking to FacultyProfile (not User) guarantees that only
+/// faculty can be instructors. A faculty member with assignments cannot be deleted (RESTRICT).
+model CourseInstructor {
+  courseId         String   @map("course_id") @db.Uuid
+  facultyProfileId String   @map("faculty_profile_id") @db.Uuid
+  /// At most one primary instructor per course — enforced in the service layer (PHASE 06).
+  isPrimary        Boolean  @default(false) @map("is_primary")
+  assignedAt       DateTime @default(now()) @map("assigned_at") @db.Timestamptz(3)
+
+  course         Course         @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  facultyProfile FacultyProfile @relation(fields: [facultyProfileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([courseId, facultyProfileId])
+  @@index([facultyProfileId])
+  @@map("course_instructors")
+}
+
+// =============================================================================
+// Curriculum & learning content: Course → Module → Chapter → Lesson → Resource
+// `position` is a 0-based order unique within the parent (CHECK position >= 0).
+// =============================================================================
+
+model Module {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId    String   @map("course_id") @db.Uuid
+  title       String   @db.VarChar(200)
+  description String?  @db.Text
+  position    Int
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  course   Course    @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  chapters Chapter[]
+
+  @@unique([courseId, position])
+  @@map("modules")
+}
+
+model Chapter {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  moduleId    String   @map("module_id") @db.Uuid
+  title       String   @db.VarChar(200)
+  description String?  @db.Text
+  position    Int
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  module  Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  lessons Lesson[]
+
+  @@unique([moduleId, position])
+  @@map("chapters")
+}
+
+model Lesson {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chapterId       String            @map("chapter_id") @db.Uuid
+  title           String            @db.VarChar(200)
+  description     String?           @db.Text
+  contentType     LessonContentType @map("content_type")
+  /// Rich-text/markdown body for TEXT lessons or lesson notes.
+  body            String?           @db.Text
+  status          PublicationStatus @default(DRAFT)
+  position        Int
+  /// Expected duration (e.g. video length); CHECK >= 0.
+  durationSeconds Int?              @map("duration_seconds")
+  /// Visible to non-enrolled visitors (assumption H-04, pending client confirmation).
+  isPreview       Boolean           @default(false) @map("is_preview")
+  publishedAt     DateTime?         @map("published_at") @db.Timestamptz(3)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  chapter   Chapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  resources Resource[]
+
+  @@unique([chapterId, position])
+  @@index([status])
+  @@map("lessons")
+}
+
+/// Learning material attached to a lesson. Binary files are never stored in PostgreSQL: a resource
+/// points EITHER to an object in storage (`storageProvider` + `storageKey`) OR to an `externalUrl`
+/// (CHECK `resources_location_exclusive`). Storage provider is pending (R-01, G-01).
+model Resource {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lessonId        String       @map("lesson_id") @db.Uuid
+  title           String       @db.VarChar(200)
+  type            ResourceType
+  /// Adapter identifier, e.g. "s3", "r2", "vimeo" — set together with storageKey.
+  storageProvider String?      @map("storage_provider") @db.VarChar(50)
+  storageKey      String?      @map("storage_key") @db.VarChar(1024)
+  externalUrl     String?      @map("external_url") @db.VarChar(2048)
+  mimeType        String?      @map("mime_type") @db.VarChar(255)
+  /// File size in bytes (CHECK >= 0).
+  sizeBytes       BigInt?      @map("size_bytes")
+  position        Int
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([lessonId, position])
+  @@map("resources")
 }

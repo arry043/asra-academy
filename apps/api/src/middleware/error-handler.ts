@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { env } from '../config/env.js';
+import { toAppError } from '../database/errors.js';
 import { sendError } from '../utils/api-response.js';
 import { AppError } from '../utils/app-error.js';
 
@@ -35,6 +36,18 @@ export function errorHandler(
 
   if (error instanceof ZodError) {
     sendError(res, 422, 'VALIDATION_ERROR', 'Request validation failed', error.issues);
+    return;
+  }
+
+  // Prisma / PostgreSQL errors → safe API errors (no SQL, constraint names or row values).
+  const databaseError = toAppError(error);
+  if (databaseError) {
+    if (databaseError.code === 'SERVICE_UNAVAILABLE') {
+      req.log.error({ err: error }, 'Database unavailable');
+    } else {
+      req.log.warn({ prismaCode: (error as { code?: string }).code }, databaseError.message);
+    }
+    sendError(res, databaseError.statusCode, databaseError.code, databaseError.message);
     return;
   }
 

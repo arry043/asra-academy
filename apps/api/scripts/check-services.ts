@@ -4,7 +4,7 @@
  * - Redis via ioredis (REDIS_URL)
  */
 import { env } from '../src/config/env.js';
-import { disconnectPrisma, prisma } from '../src/lib/prisma.js';
+import { disconnectPrisma, prisma } from '../src/database/prisma.js';
 import { disconnectRedis, redis } from '../src/lib/redis.js';
 
 function redact(url: string): string {
