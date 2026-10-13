@@ -41,6 +41,10 @@ export function createAccessControlRepository(db: DbClient) {
       return count;
     },
 
+    findRoleByKey(key: string) {
+      return db.role.findUnique({ where: { key } });
+    },
+
     findRoleByKeyWithPermissions(key: string) {
       return db.role.findUnique({
         where: { key },

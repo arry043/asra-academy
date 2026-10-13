@@ -1,5 +1,6 @@
 import { CheckCircle2, Database, Mail, Server, XCircle } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { siteConfig } from '@/config/site';
@@ -36,7 +37,7 @@ export default async function FoundationPage() {
           {siteConfig.name} — {siteConfig.tagline}
         </h1>
         <span className="rounded-full bg-asra-gold-100 px-3 py-1 text-xs font-semibold tracking-wide text-asra-gold-800 uppercase">
-          Phase 01 · Foundation
+          Phase 03 · Authentication
         </span>
         <p className="max-w-2xl text-lg text-muted-foreground">
           Online learning platform &amp; LMS. This page verifies that the web application, design
@@ -48,6 +49,9 @@ export default async function FoundationPage() {
             <a href={`${publicEnv.NEXT_PUBLIC_API_URL}/health`} target="_blank" rel="noreferrer">
               <Server aria-hidden /> Open API health
             </a>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link href="/login">Sign in</Link>
           </Button>
           <Button variant="accent" size="lg" disabled>
             Explore Courses (coming soon)

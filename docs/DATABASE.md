@@ -168,6 +168,16 @@ Prisma cannot declare CHECK constraints. They are appended to `20261013042559_in
 | `resources_location_exclusive`                                            | (provider + key) XOR external URL            |
 | `resources_external_link_has_url`                                         | `EXTERNAL_LINK` ⇒ `external_url IS NOT NULL` |
 
+### 4.2.1 Phase 03 CHECK constraints (`20261013045953_auth_sessions_and_tokens`)
+
+| Constraint                                                                                                         | Rule                                                                     |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `auth_sessions_token_hash_format`, `auth_sessions_previous_token_hash_format`, `one_time_tokens_token_hash_format` | `^[0-9a-f]{64}$` — only SHA-256 digests can be stored, never a raw token |
+| `auth_sessions_revocation_consistent`                                                                              | `revoked_at` and `revoked_reason` are both set or both null              |
+| `auth_sessions_expires_after_created`, `one_time_tokens_expires_after_created`                                     | `expires_at > created_at`                                                |
+
+Unique: `auth_sessions.token_hash`, `auth_sessions.previous_token_hash`, `one_time_tokens.token_hash`. Indexes: `(user_id, revoked_at)`, `(user_id, purpose)`, `expires_at` (future cleanup job). Both tables `CASCADE` from `users`. Design rationale: [AUTHENTICATION.md](./AUTHENTICATION.md).
+
 ### 4.3 Indexes
 
 Besides the unique indexes above, there are B-tree indexes on:
@@ -286,7 +296,7 @@ Properties:
 - **Idempotent.** Roles and permissions are upserted by `key`, and grants use `createMany({ skipDuplicates: true })`. Re-running changes nothing (this is covered by tests).
 - **Additive.** The seed never removes grants, so permissions an administrator adds later survive a re-seed. Removing a permission from the definitions requires an explicit migration or admin action.
 - **Atomic.** The seed runs in one transaction.
-- **No accounts.** No administrator, test user, password or email is seeded. The first Super Admin will be created through a documented, explicit Phase 03 procedure (e.g. a one-off CLI command that reads credentials from the environment), never by default.
+- **No accounts.** No administrator, test user, password or email is seeded. Staff accounts (including the first Super Admin) are created explicitly with `npm run auth:create-user -- --email … --name "…" --role SUPER_ADMIN` (password via hidden prompt or `NEW_USER_PASSWORD`) — see [AUTHENTICATION.md §7](./AUTHENTICATION.md#7-provisioning-staff-accounts).
 - **No academic catalogue.** The final classes, streams, subjects and courses are pending client confirmation.
 
 ## 9. Neon (staging / production)

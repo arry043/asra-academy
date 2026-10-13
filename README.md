@@ -15,7 +15,7 @@ ASRA Academy offers school education for **Classes 6–12** (CBSE pattern for 6�
 
 Brand assets and colour usage rules: [docs/brand/README.md](docs/brand/README.md). Brand constants for the web app: [`apps/web/src/config/site.ts`](apps/web/src/config/site.ts).
 
-> **Current phase:** PHASE 02 — Database & Backend Core (implemented). No business features (auth, LMS workflows) are implemented yet.
+> **Current phase:** PHASE 03 — Authentication & RBAC (implemented). LMS business features (dashboards, courses, enrolment) come in later phases.
 
 ---
 
@@ -134,8 +134,9 @@ cd asra-academy
 # 2. Install dependencies (all workspaces)
 npm install
 
-# 3. Create your local environment file, then set POSTGRES_PASSWORD and update
-#    the password inside DATABASE_URL / DIRECT_DATABASE_URL to match
+# 3. Create your local environment file, then set POSTGRES_PASSWORD (and the matching password
+#    inside DATABASE_URL / DIRECT_DATABASE_URL) and JWT_SECRET (required) — generate it with:
+#    node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 cp .env.example .env
 
 # 4. Start PostgreSQL + Redis
@@ -247,6 +248,26 @@ API conventions:
 - Error: `{ "success": false, "message": "...", "error": { "code": "NOT_FOUND" } }`
 - Every response includes an `X-Request-Id` header.
 
+## Authentication (Phase 03)
+
+Full design: [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
+
+- Pages: http://localhost:3000/register, `/login`, `/forgot-password`, `/reset-password`, `/verify-email`.
+- **Email in development:** no provider is configured yet (Q-01). With `EMAIL_TRANSPORT=console`, the verification and reset links are **printed in the API log**. Look for `[DEV EMAIL — not sent]`. Open the link to continue.
+- Sign-in requires a verified email.
+- Public registration creates **students only**. Create staff accounts with:
+
+  ```bash
+  npm run auth:create-user -- --email admin@example.com --name "Local Admin" --role ADMIN
+  # roles: STUDENT | FACULTY | ADMIN | SUPER_ADMIN — the password is asked for at a hidden prompt
+  ```
+
+- API: `POST /api/v1/auth/{register,login,refresh,logout,logout-all,forgot-password,reset-password,verify-email,resend-verification}`, `GET /api/v1/auth/me`.
+- **Tokens:**
+  - the access token is kept in memory by the web app;
+  - the refresh token lives only in an HttpOnly cookie.
+- **Production:** the API will not start with `NODE_ENV=production` until an email provider is implemented, and `AUTH_COOKIE_SECURE` must be true there.
+
 ## Database setup
 
 - **Local:** `docker compose up -d` starts PostgreSQL. `DATABASE_URL` and `DIRECT_DATABASE_URL` both point at it.
@@ -272,6 +293,8 @@ Run from the repository root:
 | `npm run db:reset`          | ⚠ Drop all local data, re-migrate and seed (local only, asks to confirm)  |
 | `npm test -w @asra/api`     | API tests against local `<db>_test` database                              |
 | `npm run check:services`    | Verify PostgreSQL (via Prisma) and Redis connectivity                     |
+| `npm test`                  | All API tests (DB, auth, RBAC, security) on the local `*_test` database   |
+| `npm run auth:create-user`  | Provision a FACULTY / ADMIN / SUPER_ADMIN (or STUDENT) account            |
 
 ## Development workflow
 
@@ -321,6 +344,7 @@ Rules:
 
 **PHASE 00 — Requirement Freeze & Project Preparation:** ✅ complete
 **PHASE 01 — Project Foundation & Architecture:** ✅ complete
+**PHASE 03 — Authentication & RBAC:** ✅ implemented: registration, login, rotating refresh sessions, logout, password reset, email verification, RBAC middleware, rate limiting, auth pages ([docs/AUTHENTICATION.md](docs/AUTHENTICATION.md))
 **PHASE 02 — Database & Backend Core:** ✅ implemented: LMS schema, initial migration, RBAC seed, database layer, error mapping, tests ([docs/DATABASE.md](docs/DATABASE.md))
 
 - Monorepo, web and API foundations, shared packages
@@ -360,6 +384,7 @@ Detailed plan: [docs/reference/IMPLEMENTATION-PLAN-PHASES.md](docs/reference/IMP
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   | System architecture                 |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)                   | Requirements matrix                 |
 | [docs/DATABASE.md](docs/DATABASE.md)                           | Data model, migrations, seed, reset |
+| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)               | Auth flows, tokens, RBAC, security  |
 | [docs/CLIENT-CLARIFICATIONS.md](docs/CLIENT-CLARIFICATIONS.md) | Open client questions               |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md)                         | Change history                      |
 | [docs/brand/README.md](docs/brand/README.md)                   | Logo files, colours, usage rules    |

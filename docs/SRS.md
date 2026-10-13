@@ -97,7 +97,7 @@ Full detail: [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 Granular admin sub-roles (e.g. accounts, content manager) are `[Pending]` (CLIENT-CLARIFICATIONS §S).
 
-**Implementation note (Phase 02):** roles and permissions are stored as data. A user may hold several roles; whether that is allowed is pending S-04. The seeded permission catalogue is listed in [DATABASE.md §8](./DATABASE.md#8-seed).
+**Implementation note (Phase 02/03):** roles and permissions are stored as data and enforced by the API since Phase 03. A user may hold several roles; whether that is allowed is pending S-04. The seeded permission catalogue is listed in [DATABASE.md §8](./DATABASE.md#8-seed).
 
 ## 5. Functional Requirements — Summary
 
@@ -121,17 +121,31 @@ Functional requirements are detailed per area in sections 7–26. Every area map
 
 ## 7. Authentication Requirements
 
-| ID          | Requirement                                                        | Priority          | Origin                                                            |
-| ----------- | ------------------------------------------------------------------ | ----------------- | ----------------------------------------------------------------- |
-| FR-AUTH-001 | Student registration                                               | MUST HAVE         | `[Client §3]`                                                     |
-| FR-AUTH-002 | Secure login for students, faculty and admins                      | MUST HAVE         | `[Client §3, §4]`                                                 |
-| FR-AUTH-003 | Passwords hashed with bcrypt; never stored or logged in plain text | MUST HAVE         | `[Technical Recommendation]` implementing "secure authentication" |
-| FR-AUTH-004 | JWT-based session tokens (short-lived access + refresh)            | MUST HAVE         | `[Technical Recommendation]` (locked stack)                       |
-| FR-AUTH-005 | Password reset via email                                           | SHOULD HAVE       | `[Technical Recommendation]`                                      |
-| FR-AUTH-006 | Email verification at registration                                 | SHOULD HAVE       | `[Pending]` §D                                                    |
-| FR-AUTH-007 | Phone/OTP login or verification                                    | FUTURE / OPTIONAL | `[Pending]` §D                                                    |
-| FR-AUTH-008 | Login rate limiting / brute-force protection                       | MUST HAVE         | `[Technical Recommendation]`                                      |
-| FR-AUTH-009 | Faculty/admin accounts created by admins (no public sign-up)       | SHOULD HAVE       | `[Technical Recommendation]`                                      |
+| ID          | Requirement                                                          | Priority          | Origin                                                                                                                           |
+| ----------- | -------------------------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| FR-AUTH-001 | Student registration                                                 | MUST HAVE         | `[Client §3]`                                                                                                                    |
+| FR-AUTH-002 | Secure login for students, faculty and admins                        | MUST HAVE         | `[Client §3, §4]`                                                                                                                |
+| FR-AUTH-003 | Passwords hashed with Argon2id; never stored or logged in plain text | MUST HAVE         | `[Technical Recommendation]` implementing "secure authentication" (Argon2id replaces the earlier bcrypt recommendation, ADR-005) |
+| FR-AUTH-004 | JWT-based session tokens (short-lived access + refresh)              | MUST HAVE         | `[Technical Recommendation]` (locked stack)                                                                                      |
+| FR-AUTH-005 | Password reset via email                                             | SHOULD HAVE       | `[Technical Recommendation]`                                                                                                     |
+| FR-AUTH-006 | Email verification at registration                                   | SHOULD HAVE       | `[Pending]` §D                                                                                                                   |
+| FR-AUTH-007 | Phone/OTP login or verification                                      | FUTURE / OPTIONAL | `[Pending]` §D                                                                                                                   |
+| FR-AUTH-008 | Login rate limiting / brute-force protection                         | MUST HAVE         | `[Technical Recommendation]`                                                                                                     |
+| FR-AUTH-009 | Faculty/admin accounts created by admins (no public sign-up)         | SHOULD HAVE       | `[Technical Recommendation]`                                                                                                     |
+
+**Implementation status (Phase 03)** — see [AUTHENTICATION.md](./AUTHENTICATION.md):
+
+| ID          | Implemented behaviour                                                                                                                                                                                                                    |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-AUTH-001 | `POST /auth/register` creates a STUDENT (unverified) with an empty student profile; no role can be chosen; duplicate emails get the same response (owner is emailed instead). Registration fields beyond name/email/password await D-01. |
+| FR-AUTH-002 | `POST /auth/login` for all roles; generic 401 for wrong email/password; 403 for disabled or unverified accounts.                                                                                                                         |
+| FR-AUTH-003 | Argon2id (m=19 MiB, t=2, p=1); hashes never returned or logged. Password policy: 10–128 characters, no composition rules (D-06).                                                                                                         |
+| FR-AUTH-004 | 15-min JWT access token (memory) + 30-day rotating refresh session (HttpOnly cookie, hashed in DB, reuse detection). Logout, logout-all, refresh.                                                                                        |
+| FR-AUTH-005 | Forgot/reset password with single-use, 30-min, hashed tokens; reset revokes all sessions. Email delivery is development-only until Q-01.                                                                                                 |
+| FR-AUTH-006 | Implemented and **required to sign in** (current assumption D-03 — pending confirmation).                                                                                                                                                |
+| FR-AUTH-007 | Not implemented (pending D-03).                                                                                                                                                                                                          |
+| FR-AUTH-008 | Per-IP rate limits on login (failed attempts), registration, refresh, forgot/reset password, verify and resend; HTTP 429.                                                                                                                |
+| FR-AUTH-009 | Staff accounts are created with the operator CLI `npm run auth:create-user`; admin UI in a later phase (S-05).                                                                                                                           |
 
 ## 8. Authorization / RBAC Requirements
 
@@ -142,6 +156,8 @@ Functional requirements are detailed per area in sections 7–26. Every area map
 | FR-RBAC-003 | Faculty can only manage content for their allocated subjects/courses | MUST HAVE   | `[Client §3]` "subject allocation" |
 | FR-RBAC-004 | Students can only access courses they are enrolled in (paid content) | MUST HAVE   | `[Technical Recommendation]`       |
 | FR-RBAC-005 | Permission-based model to support future admin sub-roles             | SHOULD HAVE | `[Pending]` §S                     |
+
+**Implementation status (Phase 03):** FR-RBAC-002 — `authenticate` + `requireRole`/`requirePermission` middleware using current database roles/permissions on every request (401 vs 403). FR-RBAC-003 — `accessPolicy.canManageCourseContent` checks faculty course assignment; to be applied by the course endpoints (Phase 06/08). FR-RBAC-004 — requires the Enrolment model (Phase 10). FR-RBAC-005 — permissions are data; grants are least-privilege (see DATABASE.md §8). Portals themselves (FR-RBAC-001) are built in later phases.
 
 ## 9. Student Requirements
 
