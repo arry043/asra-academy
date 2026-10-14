@@ -19,7 +19,57 @@ Entry template:
 
 ### Planned
 
-- PHASE 04 — Public Website & Design System.
+- PHASE 05 — Public Website.
+
+---
+
+## [0.4.0] — 2026-10-14
+
+**Phase:** 04 — Design System & Frontend Foundation
+**Status:** Implemented (uncommitted, pending review)
+
+### Added — Design tokens (`apps/web/src/app/globals.css`)
+
+- Brand scales: ASRA green, gold, ivory, warm white, ivory deep, dark text (ink) and muted green (sage), sampled from the logo. Official codes are pending (V-02).
+- Semantic tokens: `primary`, `secondary`, `accent`, `muted`, `card`, `popover`, `border`, `input`, `ring`, `heading`, plus `success`, `warning`, `info` and `destructive` with `-foreground` and `-soft` variants. Every text pair meets WCAG AA, and the `input` border is 3.3:1.
+- Six category tones (`tone-*`) taken from the reference's pastel course tiles.
+- Typography roles as utilities: `type-display`, `type-h1`–`type-h4`, `type-body-lg/body/body-sm`, `type-caption`, `type-label`, `type-eyebrow` (fluid `clamp()` sizes).
+- Layout tokens: `max-w-page/narrow/prose-content`, `px-gutter`, `py-section`, `h-control-sm/control/control-lg`, `sidebar` and `topbar` sizes. Elevation tokens: `shadow-card/raised/overlay`.
+- Motion tokens: `ease-standard/emphasized`, `animate-fade-in/fade-up/scale-in/page-in`, and a `reveal` scroll-driven utility. The reduced-motion rule now also stops infinite loops and disables reveal.
+- `cn()` taught the custom tokens (`extendTailwindMerge`). New helpers: `getInitials`, `clampProgress`, `toPercent`.
+
+### Added — Components
+
+- Core (`components/ui`): Badge, Alert, Field, PasswordInput, SearchInput, Select, Dialog (modal), Drawer, Tabs, Accordion, Table (+ `TableEmpty`, labelled scroll region), Pagination (link or callback mode), Toast (Radix Toast + `toast.*` API, `<Toaster/>` in the root layout), Tooltip, Avatar (fallback + status), Progress (clamped, no fake "indeterminate"), Skeleton (+ `LoadingRegion`).
+- Restyled: Button (pill shape; `accent`, `icon-sm`; `loading`/`loadingText`), Input, Label, Card (`flat`/`muted`/`brand` variants, `interactive`, `CardAction`, semantic `CardTitle` heading).
+- Education (`components/asra`): CourseCard (+ skeleton), FacultyCard, FeatureCard, CourseCategoryCard, TestimonialCard, LiveClassCard, AssignmentCard, ExamCard, ProgressCard. They are typed, presentational and safe with missing or invalid data. The Join link appears only for live sessions with an http(s) URL.
+- Layouts (`components/layout`): Container, Section, Navbar (mobile drawer), Footer, Sidebar, DashboardLayout, AdminLayout, PageHeader (breadcrumbs), BrandMark, SkipLink, PageTransition.
+- `lib/format.ts` (dates in `Asia/Kolkata`, durations, safe external URLs), `lib/pagination.ts`, `lib/navigation.ts`, `lib/feature-flags.ts`, `config/navigation.ts` (planned Phase 05 routes), `types/education.ts`.
+
+### Added — Showcase
+
+- `/design-system`: brand, components, education cards, layouts, motion and responsive sections, plus `/design-system/dashboard-preview` and `/design-system/admin-preview` with working sub-routes and page transitions. It uses demo fixtures only, is `noindex`, and returns **404 in production unless `ENABLE_DESIGN_SYSTEM=true`** (checked server-side per request).
+
+### Changed — Web
+
+- Auth form controls (`FormField`, `PasswordField`, `FormAlert`, `SubmitButton`) now wrap the design-system primitives. Their API is unchanged, and `name = id` is preserved for FormData. The auth card title is now the page `<h1>`. The signed-in card uses `Badge` and `Button loading`. No auth logic changed.
+- The foundation home page shows "Phase 04" and links to the showcase when it is enabled.
+
+### Added — Tests and tooling
+
+- `apps/web/tests`: 46 tests (helpers + server-rendered component contracts, including a Phase 03 auth-field regression). Script: `npm run test -w @asra/web`. `tsx` was declared as a web devDependency (the version was already in the lockfile). A CI step "Web component tests" was added.
+
+### Fixed
+
+- `Toaster` returned a new array from `getServerSnapshot` on every call, which triggers React's "getServerSnapshot should be cached" warning in development. It now returns a stable constant.
+
+### Documentation
+
+- New [DESIGN-SYSTEM.md](./DESIGN-SYSTEM.md). Updated ARCHITECTURE (§4.1, ADR-016–020), REQUIREMENTS (REQ-PUB-016/020/021, REQ-SCL-002), CLIENT-CLARIFICATIONS (V-01–V-06 updated; new B-07 Hindi course, V-09 time zone), README and `.env.example` (`ENABLE_DESIGN_SYSTEM`).
+
+### Dependencies
+
+- None added at runtime.
 
 ---
 

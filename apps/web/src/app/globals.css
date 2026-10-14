@@ -4,53 +4,95 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * ASRA Academy theme tokens (shadcn/ui convention).
+ * ASRA Academy design tokens — the single source of truth for colour, type, spacing, radius,
+ * elevation and motion. Documented in docs/DESIGN-SYSTEM.md (contrast ratios included).
+ *
  * Brand colours are sampled from the official logo (docs/brand/README.md):
  *   logo green #012114 (highlight #034729) · logo gold #c88717 (highlight #e4a735).
- * Logo gold is 2.9:1 on ivory — use it for graphics/large display only; use gold-800 for gold text.
- * The full design system is built in PHASE 04.
+ * Official brand codes are pending client confirmation (CLIENT-CLARIFICATIONS V-02).
+ *
+ * Rules of thumb:
+ *   - Components use SEMANTIC tokens (bg-primary, text-muted-foreground…), not brand scales.
+ *   - Logo gold (gold-600) is 2.9:1 on ivory: graphics/large display only. Gold TEXT uses gold-800.
+ *   - Sage (muted green) is 3.9:1 on ivory: icons, dividers, decoration — never body text.
  */
 :root {
   --radius: 0.75rem;
 
-  /* Brand scales */
+  /* ---- Brand scales ------------------------------------------------------------------------ */
   --asra-green-950: #011a10;
   --asra-green-900: #012114; /* logo green */
   --asra-green-800: #03331f;
-  --asra-green-700: #034729; /* logo green highlight */
+  --asra-green-700: #034729; /* logo green highlight — primary */
   --asra-green-600: #0a5f39;
+  --asra-green-500: #2f7a55;
+  --asra-green-200: #c5dccf;
   --asra-green-100: #e3efe8;
   --asra-green-50: #f2f8f4;
   --asra-gold-800: #8a5a0b; /* AA text on light backgrounds */
   --asra-gold-700: #a8700f;
-  --asra-gold-600: #c88717; /* logo gold */
-  --asra-gold-500: #e4a735; /* logo gold highlight */
+  --asra-gold-600: #c88717; /* logo gold — graphics only */
+  --asra-gold-500: #e4a735; /* logo gold highlight — accent fills */
+  --asra-gold-200: #f5dca6;
   --asra-gold-100: #fbf1dc;
-  --asra-ivory: #fdfbf5;
+  --asra-gold-50: #fdf8ec;
+  --asra-ivory: #fdfbf5; /* page background */
+  --asra-ivory-200: #f6f1e4; /* sunken / alternating bands */
+  --asra-warm-white: #fffefb; /* raised surfaces: cards, popovers, inputs */
+  --asra-ink: #13211a; /* dark text */
+  --asra-sage: #6b8577; /* muted green — decoration only */
+  --asra-sage-strong: #4a6356; /* muted green that passes AA as text */
 
-  /* Semantic tokens */
+  /* ---- Semantic tokens --------------------------------------------------------------------- */
   --background: var(--asra-ivory);
-  --foreground: var(--asra-green-900);
-  --card: oklch(1 0 0);
-  --card-foreground: var(--foreground);
-  --popover: oklch(1 0 0);
-  --popover-foreground: var(--foreground);
+  --foreground: var(--asra-ink);
+  --card: var(--asra-warm-white);
+  --card-foreground: var(--asra-ink);
+  --popover: var(--asra-warm-white);
+  --popover-foreground: var(--asra-ink);
   --primary: var(--asra-green-700);
-  --primary-foreground: oklch(0.99 0 0);
+  --primary-foreground: var(--asra-warm-white);
   --secondary: var(--asra-green-100);
   --secondary-foreground: var(--asra-green-900);
-  --muted: oklch(0.96 0.008 120);
+  --muted: #f1f3ec;
   --muted-foreground: #51625a;
   --accent: var(--asra-gold-500);
   --accent-foreground: var(--asra-green-950);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.015 140);
-  --input: oklch(0.91 0.015 140);
+  --border: #dfe5dc;
+  --input: #7d9185; /* ≥ 3:1 against surfaces (WCAG 1.4.11) */
   --ring: var(--asra-green-600);
-  --success: oklch(0.62 0.15 150);
-  --warning: oklch(0.75 0.15 70);
+  --heading: var(--asra-green-900);
+
+  /* Status — each has a solid (text/icon) value, a foreground for solid fills and a soft surface */
+  --success: #1a6b40;
+  --success-foreground: var(--asra-warm-white);
+  --success-soft: #e6f4ec;
+  --warning: #8f4c06;
+  --warning-foreground: var(--asra-warm-white);
+  --warning-soft: #fdf3dc;
+  --info: #1d5a85;
+  --info-foreground: var(--asra-warm-white);
+  --info-soft: #e5f0f8;
+  --destructive: #b42318;
+  --destructive-foreground: var(--asra-warm-white);
+  --destructive-soft: #fdeceb;
+
+  /* Category tones (pastel course tiles in the visual reference). Icon colour ≥ 4.5:1 on its tile. */
+  --tone-sky: #1d5a85;
+  --tone-sky-soft: #e6f1fb;
+  --tone-mint: #1a6b40;
+  --tone-mint-soft: #e3f5ec;
+  --tone-amber: #a35a00;
+  --tone-amber-soft: #fdf0dd;
+  --tone-violet: #5b3fa8;
+  --tone-violet-soft: #efeafb;
+  --tone-rose: #b4233f;
+  --tone-rose-soft: #fcebee;
+  --tone-teal: #11706f;
+  --tone-teal-soft: #e2f4f4;
 }
 
+/* Dark theme: preserved from earlier phases, extended with the new semantic names only. */
 .dark {
   --background: var(--asra-green-950);
   --foreground: oklch(0.97 0.01 95);
@@ -67,21 +109,32 @@
   --accent: var(--asra-gold-600);
   --accent-foreground: var(--asra-green-950);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-soft: oklch(0.704 0.191 22.216 / 15%);
   --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 30%);
   --ring: var(--asra-gold-600);
+  --heading: oklch(0.97 0.01 95);
+  --success: oklch(0.78 0.13 155);
+  --success-soft: oklch(0.78 0.13 155 / 15%);
+  --warning: oklch(0.82 0.13 80);
+  --warning-soft: oklch(0.82 0.13 80 / 15%);
+  --info: oklch(0.78 0.1 235);
+  --info-soft: oklch(0.78 0.1 235 / 15%);
 }
 
 @theme inline {
+  /* ---- Typefaces (loaded with next/font in app/layout.tsx) -------------------------------- */
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
+  /* ---- Radius ------------------------------------------------------------------------------ */
+  --radius-sm: calc(var(--radius) - 4px); /* 8px  — badges, small chips */
+  --radius-md: calc(var(--radius) - 2px); /* 10px — inputs, menu items */
+  --radius-lg: var(--radius); /* 12px — popovers, alerts */
+  --radius-xl: calc(var(--radius) + 4px); /* 16px — cards, dialogs */
+  --radius-2xl: calc(var(--radius) + 8px); /* 20px — feature panels */
 
+  /* ---- Colours ----------------------------------------------------------------------------- */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -96,31 +149,205 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-heading: var(--heading);
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+
+  --color-tone-sky: var(--tone-sky);
+  --color-tone-sky-soft: var(--tone-sky-soft);
+  --color-tone-mint: var(--tone-mint);
+  --color-tone-mint-soft: var(--tone-mint-soft);
+  --color-tone-amber: var(--tone-amber);
+  --color-tone-amber-soft: var(--tone-amber-soft);
+  --color-tone-violet: var(--tone-violet);
+  --color-tone-violet-soft: var(--tone-violet-soft);
+  --color-tone-rose: var(--tone-rose);
+  --color-tone-rose-soft: var(--tone-rose-soft);
+  --color-tone-teal: var(--tone-teal);
+  --color-tone-teal-soft: var(--tone-teal-soft);
 
   --color-asra-ivory: var(--asra-ivory);
+  --color-asra-ivory-200: var(--asra-ivory-200);
+  --color-asra-warm-white: var(--asra-warm-white);
+  --color-asra-ink: var(--asra-ink);
+  --color-asra-sage: var(--asra-sage);
+  --color-asra-sage-strong: var(--asra-sage-strong);
   --color-asra-green-50: var(--asra-green-50);
   --color-asra-green-100: var(--asra-green-100);
+  --color-asra-green-200: var(--asra-green-200);
+  --color-asra-green-500: var(--asra-green-500);
   --color-asra-green-600: var(--asra-green-600);
   --color-asra-green-700: var(--asra-green-700);
   --color-asra-green-800: var(--asra-green-800);
   --color-asra-green-900: var(--asra-green-900);
   --color-asra-green-950: var(--asra-green-950);
+  --color-asra-gold-50: var(--asra-gold-50);
   --color-asra-gold-100: var(--asra-gold-100);
+  --color-asra-gold-200: var(--asra-gold-200);
   --color-asra-gold-500: var(--asra-gold-500);
   --color-asra-gold-600: var(--asra-gold-600);
-  --color-asra-gold-800: var(--asra-gold-800);
   --color-asra-gold-700: var(--asra-gold-700);
+  --color-asra-gold-800: var(--asra-gold-800);
+}
+
+@theme {
+  /* ---- Layout widths: max-w-page, max-w-narrow, max-w-prose-content ------------------------ */
+  --container-page: 76rem; /* 1216px — public pages and dashboards */
+  --container-narrow: 56rem; /* 896px — forms, articles with media */
+  --container-prose-content: 42rem; /* 672px — long-form reading */
+
+  /* ---- Named spacing: py-section, px-gutter, h-control, size-control ---------------------- */
+  --spacing-gutter: clamp(1rem, 4vw, 2rem); /* page side padding: 16px → 32px */
+  --spacing-section: clamp(3.5rem, 7vw, 6rem); /* vertical section rhythm: 56px → 96px */
+  --spacing-control-sm: 2.25rem; /* 36px — dense UI (tables, toolbars) */
+  --spacing-control: 2.75rem; /* 44px — default; meets touch-target guidance */
+  --spacing-control-lg: 3rem; /* 48px — hero / primary CTAs */
+  --spacing-sidebar: 16rem; /* dashboard sidebar width */
+  --spacing-topbar: 4rem; /* sticky header height */
+
+  /* ---- Elevation --------------------------------------------------------------------------- */
+  --shadow-card: 0 1px 2px rgb(1 33 20 / 0.04), 0 1px 3px rgb(1 33 20 / 0.06);
+  --shadow-raised: 0 2px 4px rgb(1 33 20 / 0.04), 0 10px 24px -8px rgb(1 33 20 / 0.14);
+  --shadow-overlay: 0 24px 48px -12px rgb(1 33 20 / 0.28);
+
+  /* ---- Motion ------------------------------------------------------------------------------ */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1.15);
+  --animate-fade-in: fade-in 200ms var(--ease-standard) both;
+  --animate-fade-up: fade-up 300ms var(--ease-standard) both;
+  --animate-scale-in: scale-in 200ms var(--ease-standard) both;
+  --animate-page-in: fade-up 250ms var(--ease-standard) both;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
+}
+
+/* ---- Typography roles ------------------------------------------------------------------------
+ * Display  → landing headlines           type-display
+ * Heading  → page/section/card titles    type-h1 · type-h2 · type-h3 · type-h4
+ * Body     → paragraphs, forms           type-body-lg · type-body · type-body-sm
+ * Caption  → metadata, helper text       type-caption
+ * Label    → form/nav labels, eyebrows   type-label · type-eyebrow
+ * Roles set size, line height, weight, tracking and family. Colour is applied separately.
+ * Fluid sizes use clamp() so headings scale smoothly without extra breakpoints.
+ */
+@utility type-display {
+  font-family: var(--font-display);
+  font-size: clamp(2.125rem, 1.5rem + 3vw, 3.75rem);
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+@utility type-h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.875rem, 1.5rem + 1.6vw, 2.75rem);
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+@utility type-h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 1.3rem + 0.9vw, 2.125rem);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+@utility type-h3 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.35;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+@utility type-h4 {
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+@utility type-body-lg {
+  font-size: 1.125rem;
+  line-height: 1.65;
+  font-weight: 400;
+}
+@utility type-body {
+  font-size: 1rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+@utility type-body-sm {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  font-weight: 400;
+}
+@utility type-caption {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  font-weight: 400;
+}
+@utility type-label {
+  font-size: 0.875rem;
+  line-height: 1.25;
+  font-weight: 550;
+}
+@utility type-eyebrow {
+  font-size: 0.75rem;
+  line-height: 1.3;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---- Motion helpers --------------------------------------------------------------------------
+ * reveal: fades content up as it scrolls into view using CSS scroll-driven animations. Content is
+ * fully visible where unsupported or without JavaScript (progressive enhancement).
+ */
+@utility reveal {
+  @supports (animation-timeline: view()) {
+    animation: fade-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 60%;
+  }
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-padding-top: calc(var(--spacing-topbar) + 1rem); /* keep anchors clear of sticky bars */
   }
   body {
     @apply bg-background text-foreground antialiased;
@@ -131,13 +358,24 @@
   h4 {
     @apply font-display tracking-tight;
   }
+  :lang(ur),
+  :lang(ar) {
+    line-height: 1.9; /* Nastaliq/Naskh scripts need taller lines than Latin */
+  }
 }
 
+/* Reduced motion: transitions and keyframe animations resolve instantly; scroll-linked and
+ * transform-based effects are removed so nothing moves. Components stay fully functional. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal {
+    animation: none !important;
   }
 }

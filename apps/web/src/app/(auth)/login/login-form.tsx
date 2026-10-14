@@ -6,6 +6,7 @@ import * as React from 'react';
 import { AuthCard, AuthLink } from '@/components/auth/auth-card';
 import { useAuth } from '@/components/auth/auth-provider';
 import { FormAlert, FormField, PasswordField, SubmitButton } from '@/components/auth/form-controls';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ApiClientError } from '@/lib/api';
 import { authApi } from '@/lib/auth/auth-api';
@@ -136,9 +137,8 @@ function ResendVerification({ email }: { email: string }) {
         variant="outline"
         size="sm"
         onClick={resend}
-        disabled={state === 'pending'}
+        loading={state === 'pending'}
       >
-        {state === 'pending' ? <Loader2 className="animate-spin" aria-hidden /> : null}
         Resend verification email
       </Button>
       {state === 'error' ? <span className="text-destructive">{message}</span> : null}
@@ -167,7 +167,7 @@ function SignedIn() {
   return (
     <AuthCard title={`Hello, ${user.fullName.split(' ')[0]}`} description="You are signed in.">
       <div className="grid gap-5">
-        <dl className="grid gap-3 rounded-lg bg-asra-green-50 p-4 text-sm">
+        <dl className="grid gap-3 rounded-lg bg-asra-green-50 p-4 type-body-sm">
           <div className="grid grid-cols-[5.5rem_1fr] gap-2">
             <dt className="text-muted-foreground">Email</dt>
             <dd className="font-medium break-all">{user.email}</dd>
@@ -176,34 +176,34 @@ function SignedIn() {
             <dt className="text-muted-foreground">Role</dt>
             <dd className="flex flex-wrap gap-1.5">
               {user.roles.map((role) => (
-                <span
-                  key={role}
-                  className="inline-flex items-center gap-1 rounded-full bg-asra-gold-100 px-2.5 py-0.5 text-xs font-semibold text-asra-gold-800"
-                >
-                  <ShieldCheck className="size-3.5" aria-hidden />
+                <Badge key={role} variant="accent">
+                  <ShieldCheck aria-hidden />
                   {role.replace('_', ' ')}
-                </span>
+                </Badge>
               ))}
             </dd>
           </div>
         </dl>
-        <p className="text-sm text-muted-foreground">Your learning dashboard is coming soon.</p>
+        <p className="type-body-sm text-muted-foreground">
+          Your learning dashboard is coming soon.
+        </p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Button onClick={() => signOut('one')} disabled={pending !== null} size="lg">
-            {pending === 'one' ? (
-              <Loader2 className="animate-spin" aria-hidden />
-            ) : (
-              <LogOut aria-hidden />
-            )}
+          <Button
+            onClick={() => signOut('one')}
+            disabled={pending !== null}
+            loading={pending === 'one'}
+            size="lg"
+          >
+            {pending === 'one' ? null : <LogOut aria-hidden />}
             Sign out
           </Button>
           <Button
             variant="outline"
             onClick={() => signOut('all')}
             disabled={pending !== null}
+            loading={pending === 'all'}
             size="lg"
           >
-            {pending === 'all' ? <Loader2 className="animate-spin" aria-hidden /> : null}
             Sign out everywhere
           </Button>
         </div>
