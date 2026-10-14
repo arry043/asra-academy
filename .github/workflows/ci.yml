@@ -58,6 +58,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Web component tests
+        run: npm run test -w @asra/web
+
       - name: Build
         run: npm run build
 

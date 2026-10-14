@@ -205,23 +205,24 @@ More: [infrastructure/docker/README.md](infrastructure/docker/README.md).
 
 All variables are documented in [`.env.example`](.env.example). A single root `.env` is read by Docker Compose, the API and the web app (the web app loads it in `next.config.ts`).
 
-| Variable                                                             | Used by         | LOCAL                          | DEVELOPMENT / STAGING            | PRODUCTION                             |
-| -------------------------------------------------------------------- | --------------- | ------------------------------ | -------------------------------- | -------------------------------------- |
-| `NODE_ENV`                                                           | api, web        | `development`                  | `production`                     | `production`                           |
-| `PORT`                                                               | api             | `4000`                         | platform-assigned                | platform-assigned                      |
-| `LOG_LEVEL`                                                          | api             | `info`/`debug`                 | `info`                           | `info`                                 |
-| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` | docker          | required                       | —                                | —                                      |
-| `DATABASE_URL`                                                       | api             | Docker Postgres                | Neon **pooled** URL (dev branch) | Neon **pooled** URL                    |
-| `DIRECT_DATABASE_URL`                                                | prisma CLI      | same as `DATABASE_URL`         | Neon **direct** URL              | Neon **direct** URL                    |
-| `REDIS_URL`, `REDIS_PORT`                                            | api, docker     | Docker Redis                   | hosted Redis                     | hosted Redis                           |
-| `JWT_SECRET`                                                         | api             | random ≥ 32 chars              | secret                           | secret (**required**)                  |
-| `NEXT_PUBLIC_APP_URL`                                                | web, api (CORS) | `http://localhost:3000`        | staging URL                      | `https://www.asraacademy.in` (pending) |
-| `NEXT_PUBLIC_API_URL`                                                | web             | `http://localhost:4000/api/v1` | staging API URL                  | production API URL                     |
-| `CORS_ORIGINS`                                                       | api             | empty (defaults to app URL)    | optional                         | optional                               |
-| `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET`                       | api (later)     | optional                       | provider pending                 | provider pending                       |
-| `PAYMENT_KEY`, `PAYMENT_SECRET`                                      | api (later)     | optional                       | sandbox keys                     | live keys                              |
-| `EMAIL_API_KEY`                                                      | api (later)     | optional                       | provider pending                 | provider pending                       |
-| `WHATSAPP_API_KEY`                                                   | api (later)     | optional                       | if Business API chosen           | if Business API chosen                 |
+| Variable                                                             | Used by         | LOCAL                          | DEVELOPMENT / STAGING             | PRODUCTION                             |
+| -------------------------------------------------------------------- | --------------- | ------------------------------ | --------------------------------- | -------------------------------------- |
+| `NODE_ENV`                                                           | api, web        | `development`                  | `production`                      | `production`                           |
+| `PORT`                                                               | api             | `4000`                         | platform-assigned                 | platform-assigned                      |
+| `LOG_LEVEL`                                                          | api             | `info`/`debug`                 | `info`                            | `info`                                 |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` | docker          | required                       | —                                 | —                                      |
+| `DATABASE_URL`                                                       | api             | Docker Postgres                | Neon **pooled** URL (dev branch)  | Neon **pooled** URL                    |
+| `DIRECT_DATABASE_URL`                                                | prisma CLI      | same as `DATABASE_URL`         | Neon **direct** URL               | Neon **direct** URL                    |
+| `REDIS_URL`, `REDIS_PORT`                                            | api, docker     | Docker Redis                   | hosted Redis                      | hosted Redis                           |
+| `JWT_SECRET`                                                         | api             | random ≥ 32 chars              | secret                            | secret (**required**)                  |
+| `NEXT_PUBLIC_APP_URL`                                                | web, api (CORS) | `http://localhost:3000`        | staging URL                       | `https://www.asraacademy.in` (pending) |
+| `NEXT_PUBLIC_API_URL`                                                | web             | `http://localhost:4000/api/v1` | staging API URL                   | production API URL                     |
+| `CORS_ORIGINS`                                                       | api             | empty (defaults to app URL)    | optional                          | optional                               |
+| `ENABLE_DESIGN_SYSTEM`                                               | web (server)    | not needed (always on in dev)  | optional `true` for client review | leave empty (showcase returns 404)     |
+| `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET`                       | api (later)     | optional                       | provider pending                  | provider pending                       |
+| `PAYMENT_KEY`, `PAYMENT_SECRET`                                      | api (later)     | optional                       | sandbox keys                      | live keys                              |
+| `EMAIL_API_KEY`                                                      | api (later)     | optional                       | provider pending                  | provider pending                       |
+| `WHATSAPP_API_KEY`                                                   | api (later)     | optional                       | if Business API chosen            | if Business API chosen                 |
 
 The API validates its environment at startup and exits with a clear message if something is invalid. **Never commit `.env`.**
 
@@ -231,6 +232,14 @@ The API validates its environment at startup and exits with a clear message if s
 npm run dev:web             # builds shared packages, then next dev on :3000
 npm run build -w @asra/web  # production build
 npm run start:web           # serve production build
+```
+
+### Design system (Phase 04)
+
+Tokens, components, education cards, layouts and motion are documented in [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). The interactive showcase runs at **http://localhost:3000/design-system** in development (plus `/design-system/dashboard-preview` and `/design-system/admin-preview`). Production builds return 404 for it unless `ENABLE_DESIGN_SYSTEM=true`.
+
+```bash
+npm run test -w @asra/web   # web component and helper tests (Node test runner, no browser needed)
 ```
 
 ## Running the backend
@@ -298,19 +307,20 @@ Run from the repository root:
 
 ## Development workflow
 
-| Command                | Purpose                                            |
-| ---------------------- | -------------------------------------------------- |
-| `npm run dev`          | Start API (:4000) and web (:3000) together         |
-| `npm run build`        | Build shared packages, API and web                 |
-| `npm run lint`         | ESLint across the monorepo (zero warnings allowed) |
-| `npm run lint:fix`     | ESLint with auto-fix                               |
-| `npm run format`       | Prettier — write                                   |
-| `npm run format:check` | Prettier — check only                              |
-| `npm run typecheck`    | TypeScript strict checks in every workspace        |
+| Command                     | Purpose                                            |
+| --------------------------- | -------------------------------------------------- |
+| `npm run dev`               | Start API (:4000) and web (:3000) together         |
+| `npm run build`             | Build shared packages, API and web                 |
+| `npm run lint`              | ESLint across the monorepo (zero warnings allowed) |
+| `npm run lint:fix`          | ESLint with auto-fix                               |
+| `npm run format`            | Prettier — write                                   |
+| `npm run format:check`      | Prettier — check only                              |
+| `npm run typecheck`         | TypeScript strict checks in every workspace        |
+| `npm run test -w @asra/web` | Web component tests                                |
 
 **Pre-commit hook** (Husky + lint-staged): runs ESLint and a Prettier check on staged files. Type checking runs in CI.
 
-**CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on pushes and PRs to `main`/`develop`: install → format check → lint → Prisma validate → Prisma generate → typecheck → build → `docker compose config`. CI uses placeholder environment values and never connects to Neon.
+**CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on pushes and PRs to `main`/`develop`: install → format check → lint → Prisma validate → Prisma generate → typecheck → web component tests → build → `docker compose config`. CI uses placeholder environment values and never connects to Neon.
 
 ### Adding a shadcn/ui component
 
@@ -345,6 +355,7 @@ Rules:
 **PHASE 00 — Requirement Freeze & Project Preparation:** ✅ complete
 **PHASE 01 — Project Foundation & Architecture:** ✅ complete
 **PHASE 03 — Authentication & RBAC:** ✅ implemented: registration, login, rotating refresh sessions, logout, password reset, email verification, RBAC middleware, rate limiting, auth pages ([docs/AUTHENTICATION.md](docs/AUTHENTICATION.md))
+**PHASE 04 — Design System & Frontend Foundation:** ✅ implemented: ASRA tokens, typography roles, core UI components, education cards, public/dashboard/admin layouts, motion, `/design-system` showcase ([docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md))
 **PHASE 02 — Database & Backend Core:** ✅ implemented: LMS schema, initial migration, RBAC seed, database layer, error mapping, tests ([docs/DATABASE.md](docs/DATABASE.md))
 
 - Monorepo, web and API foundations, shared packages
@@ -385,6 +396,7 @@ Detailed plan: [docs/reference/IMPLEMENTATION-PLAN-PHASES.md](docs/reference/IMP
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)                   | Requirements matrix                 |
 | [docs/DATABASE.md](docs/DATABASE.md)                           | Data model, migrations, seed, reset |
 | [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)               | Auth flows, tokens, RBAC, security  |
+| [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md)                 | Tokens, components, layouts, motion |
 | [docs/CLIENT-CLARIFICATIONS.md](docs/CLIENT-CLARIFICATIONS.md) | Open client questions               |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md)                         | Change history                      |
 | [docs/brand/README.md](docs/brand/README.md)                   | Logo files, colours, usage rules    |

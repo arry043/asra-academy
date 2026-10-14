@@ -1,11 +1,13 @@
-import { CheckCircle2, Database, Mail, Server, XCircle } from 'lucide-react';
+import { CheckCircle2, Database, Mail, Palette, Server, XCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { siteConfig } from '@/config/site';
 import { getApiHealth } from '@/lib/api';
 import { publicEnv } from '@/lib/env';
+import { isDesignSystemEnabled } from '@/lib/feature-flags';
 
 // Foundation page only — the real ASRA homepage is built in the Public Website phase.
 // Rendered per request so the API status is live rather than captured at build time.
@@ -20,6 +22,7 @@ const stack = [
 
 export default async function FoundationPage() {
   const health = await getApiHealth();
+  const showDesignSystem = isDesignSystemEnabled();
   const { logo, contact } = siteConfig;
 
   return (
@@ -36,14 +39,14 @@ export default async function FoundationPage() {
         <h1 className="sr-only">
           {siteConfig.name} — {siteConfig.tagline}
         </h1>
-        <span className="rounded-full bg-asra-gold-100 px-3 py-1 text-xs font-semibold tracking-wide text-asra-gold-800 uppercase">
-          Phase 03 · Authentication
-        </span>
-        <p className="max-w-2xl text-lg text-muted-foreground">
+        <Badge variant="accent" className="rounded-full px-3 py-1 type-eyebrow">
+          Phase 04 · Design system
+        </Badge>
+        <p className="max-w-2xl type-body-lg text-muted-foreground">
           Online learning platform &amp; LMS. This page verifies that the web application, design
           tokens and API connection are working.
         </p>
-        <p className="text-sm font-medium text-asra-green-700">{siteConfig.foundedBy}</p>
+        <p className="type-body-sm font-medium text-asra-green-700">{siteConfig.foundedBy}</p>
         <div className="flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
             <a href={`${publicEnv.NEXT_PUBLIC_API_URL}/health`} target="_blank" rel="noreferrer">
@@ -53,6 +56,13 @@ export default async function FoundationPage() {
           <Button asChild variant="outline" size="lg">
             <Link href="/login">Sign in</Link>
           </Button>
+          {showDesignSystem ? (
+            <Button asChild variant="secondary" size="lg">
+              <Link href="/design-system">
+                <Palette aria-hidden /> Design system
+              </Link>
+            </Button>
+          ) : null}
           <Button variant="accent" size="lg" disabled>
             Explore Courses (coming soon)
           </Button>
@@ -60,9 +70,9 @@ export default async function FoundationPage() {
       </header>
 
       <section className="grid gap-6 md:grid-cols-2">
-        <Card className="rounded-2xl">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle as="h2" className="flex items-center gap-2">
               <Server className="size-5 text-primary" aria-hidden /> API status
             </CardTitle>
             <CardDescription>{publicEnv.NEXT_PUBLIC_API_URL}/health</CardDescription>
@@ -82,15 +92,15 @@ export default async function FoundationPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle as="h2" className="flex items-center gap-2">
               <Database className="size-5 text-primary" aria-hidden /> Technology stack
             </CardTitle>
             <CardDescription>Locked for the ASRA Academy platform</CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="grid gap-2 text-sm">
+            <dl className="grid gap-2 type-body-sm">
               {stack.map((item) => (
                 <div key={item.label} className="grid grid-cols-[7rem_1fr] gap-2">
                   <dt className="font-medium text-foreground">{item.label}</dt>
