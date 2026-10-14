@@ -1,3 +1,4 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { type Express } from 'express';
@@ -43,4 +44,16 @@ export function createApp(): Express {
   app.use(errorHandler);
 
   return app;
+}
+
+let serverlessApp: Express | undefined;
+
+/**
+ * Vercel entrypoint: the Express preset deploys this file (the first one importing `express`) and
+ * calls its default export per request. `server.ts` remains the long-running entrypoint. The app
+ * is built on first request so importing `createApp` elsewhere doesn't construct a second one.
+ */
+export default function serverlessHandler(req: IncomingMessage, res: ServerResponse): void {
+  serverlessApp ??= createApp();
+  serverlessApp(req, res);
 }
