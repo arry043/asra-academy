@@ -221,7 +221,7 @@ All variables are documented in [`.env.example`](.env.example). A single root `.
 | `ENABLE_DESIGN_SYSTEM`                                               | web (server)    | not needed (always on in dev)  | optional `true` for client review | leave empty (showcase returns 404)     |
 | `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET`                       | api (later)     | optional                       | provider pending                  | provider pending                       |
 | `PAYMENT_KEY`, `PAYMENT_SECRET`                                      | api (later)     | optional                       | sandbox keys                      | live keys                              |
-| `EMAIL_API_KEY`                                                      | api (later)     | optional                       | provider pending                  | provider pending                       |
+| `EMAIL_TRANSPORT`, `EMAIL_FROM`, `EMAIL_API_KEY`                     | api             | `console`; key not needed      | `resend` + key, if sending        | `resend` + key + verified sender       |
 | `WHATSAPP_API_KEY`                                                   | api (later)     | optional                       | if Business API chosen            | if Business API chosen                 |
 
 The API validates its environment at startup and exits with a clear message if something is invalid. **Never commit `.env`.**
@@ -262,7 +262,7 @@ API conventions:
 Full design: [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
 - Pages: http://localhost:3000/register, `/login`, `/forgot-password`, `/reset-password`, `/verify-email`.
-- **Email in development:** no provider is configured yet (Q-01). With `EMAIL_TRANSPORT=console`, the verification and reset links are **printed in the API log**. Look for `[DEV EMAIL — not sent]`. Open the link to continue.
+- **Email in development:** with `EMAIL_TRANSPORT=console`, the verification and reset links are **printed in the API log**. Look for `[DEV EMAIL — not sent]`. Open the link to continue. Real delivery uses Resend (`EMAIL_TRANSPORT=resend`).
 - Sign-in requires a verified email.
 - Public registration creates **students only**. Create staff accounts with:
 
@@ -275,7 +275,7 @@ Full design: [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 - **Tokens:**
   - the access token is kept in memory by the web app;
   - the refresh token lives only in an HttpOnly cookie.
-- **Production:** the API will not start with `NODE_ENV=production` until an email provider is implemented, and `AUTH_COOKIE_SECURE` must be true there.
+- **Production:** the API will not start with `NODE_ENV=production` unless `EMAIL_TRANSPORT=resend`, `EMAIL_API_KEY` and a verified-domain `EMAIL_FROM` are set, and `AUTH_COOKIE_SECURE` must be true there.
 
 ## Database setup
 

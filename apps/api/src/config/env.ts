@@ -40,6 +40,17 @@ const optionalString = z.preprocess(emptyToUndefined, z.string().optional());
 
 const postgresUrl = z.url({ protocol: /^postgres(ql)?$/ });
 
+/**
+ * True for `address` or `Display Name <address>` with a syntactically valid address on a real
+ * domain. Whether Resend has verified that domain can only be known by Resend at send time.
+ */
+function isDeliverableSender(from: string): boolean {
+  const match = /^\s*(?:[^<>]*<([^<>\s]+)>|([^<>\s]+))\s*$/.exec(from);
+  const address = match?.[1] ?? match?.[2];
+  if (!address || !z.email().safeParse(address).success) return false;
+  return address.split('@')[1]?.toLowerCase() !== 'localhost';
+}
+
 const envSchema = z
   .object({
     NODE_ENV: appEnvironmentSchema.default('development'),
@@ -83,14 +94,20 @@ const envSchema = z
     ),
     AUTH_COOKIE_DOMAIN: optionalString,
 
-    // --- Email (provider pending — CLIENT-CLARIFICATIONS Q-01) ---------------------------
+    // --- Email (provider: Resend — CLIENT-CLARIFICATIONS Q-01) ----------------------------
     // console: development only — prints messages (including links) to the API log.
     // memory:  automated tests only — keeps messages in process memory.
-    EMAIL_TRANSPORT: z.preprocess(emptyToUndefined, z.enum(['console', 'memory']).optional()),
+    // resend:  real delivery via Resend; requires EMAIL_API_KEY and a verified-domain EMAIL_FROM.
+    EMAIL_TRANSPORT: z.preprocess(
+      emptyToUndefined,
+      z.enum(['console', 'memory', 'resend']).optional(),
+    ),
     EMAIL_FROM: z.preprocess(
       emptyToUndefined,
       z.string().min(3).default('ASRA Academy <no-reply@localhost>'),
     ),
+    // Provider API key (Resend). Secret: never logged or echoed in validation messages.
+    EMAIL_API_KEY: optionalString,
 
     // --- Rate limiting --------------------------------------------------------------------
     // redis: shared across API instances (falls back to per-process memory if Redis is down).
@@ -112,13 +129,35 @@ const envSchema = z
         message: 'Must be true in production (refresh cookie requires HTTPS)',
       });
     }
-    // No production email provider exists yet (CLIENT-CLARIFICATIONS Q-01). Refusing to start
-    // is safer than silently pretending verification/reset emails were delivered.
-    ctx.addIssue({
-      code: 'custom',
-      path: ['EMAIL_TRANSPORT'],
-      message: `"${env.EMAIL_TRANSPORT}" is a development/test transport. Configure a production email provider (pending CLIENT-CLARIFICATIONS Q-01).`,
-    });
+    // console/memory never deliver anything. Refusing to start is safer than silently pretending
+    // verification/reset emails were sent. An unset transport defaults to console, so production
+    // fails closed until Resend is configured explicitly.
+    if (env.EMAIL_TRANSPORT !== 'resend') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EMAIL_TRANSPORT'],
+        message: `"${env.EMAIL_TRANSPORT}" is a development/test transport. Set EMAIL_TRANSPORT=resend in production.`,
+      });
+    }
+  })
+  .superRefine((env, ctx) => {
+    if (env.EMAIL_TRANSPORT !== 'resend') return;
+    // Messages name the variable only — never its value.
+    if (!env.EMAIL_API_KEY?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EMAIL_API_KEY'],
+        message: 'Required when EMAIL_TRANSPORT=resend',
+      });
+    }
+    if (!isDeliverableSender(env.EMAIL_FROM)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EMAIL_FROM'],
+        message:
+          'Must be "address" or "Name <address>" on a domain verified in Resend (not localhost) when EMAIL_TRANSPORT=resend',
+      });
+    }
   })
   .superRefine((env, ctx) => {
     if (env.AUTH_COOKIE_SAME_SITE === 'none' && !env.AUTH_COOKIE_SECURE) {
@@ -130,7 +169,12 @@ const envSchema = z
     }
   });
 
-const parsed = envSchema.safeParse(process.env);
+/** Validates an environment without side effects (tests use this; the module parses process.env). */
+export function parseEnv(source: Record<string, string | undefined>) {
+  return envSchema.safeParse(source);
+}
+
+const parsed = parseEnv(process.env);
 
 if (!parsed.success) {
   console.error('Invalid environment configuration:\n' + z.prettifyError(parsed.error));

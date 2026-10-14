@@ -3,6 +3,8 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import type { AuthSessionData, AuthUser } from '@asra/types';
 import { createApp } from '../src/app.js';
 import { disconnectPrisma, prisma } from '../src/database/prisma.js';
+import { setEmailTransport } from '../src/email/email.service.js';
+import { createResendTransport } from '../src/email/transports.js';
 import { disconnectRedis } from '../src/lib/redis.js';
 import { hashToken } from '../src/utils/crypto.js';
 import {
@@ -30,6 +32,28 @@ beforeEach(() => resetAuthState());
 
 /** Backdates a session/token so it is expired (keeping created_at < expires_at). */
 const past = (hours: number) => new Date(Date.now() - hours * 60 * 60 * 1000);
+
+/** Runs `action` while Resend rejects every message (fake client, no network). */
+async function withRejectingResend<T>(action: () => Promise<T>): Promise<T> {
+  const previous = setEmailTransport(
+    createResendTransport({
+      apiKey: 're_test_dummy',
+      client: {
+        emails: {
+          send: async () => ({
+            data: null,
+            error: { name: 'application_error', statusCode: null, message: 'unreachable' },
+          }),
+        },
+      },
+    }),
+  );
+  try {
+    return await action();
+  } finally {
+    setEmailTransport(previous);
+  }
+}
 
 describe('registration', () => {
   it('creates an unverified STUDENT with a hashed password, profile and hashed token', async () => {
@@ -354,6 +378,22 @@ describe('password recovery', () => {
     assert.equal(outbox().filter((m) => m.template === 'password-reset').length, 1);
   });
 
+  it('stays generic when Resend rejects the reset email, and a retry delivers a working link', async () => {
+    const email = await registerVerifiedStudent(client());
+    const failed = await withRejectingResend(() =>
+      client().request('POST', '/auth/forgot-password', { body: { email } }),
+    );
+    assert.equal(failed.status, 202);
+    assert.equal(outbox().filter((m) => m.template === 'password-reset').length, 0);
+
+    const retried = await client().request('POST', '/auth/forgot-password', { body: { email } });
+    assert.equal(retried.body.message, failed.body.message);
+    const reset = await client().request('POST', '/auth/reset-password', {
+      body: { token: tokenFromEmail(email, 'password-reset'), password: 'a brand new password' },
+    });
+    assert.equal(reset.status, 200);
+  });
+
   it('resets the password with a valid token, revokes all sessions, and the token is single-use', async () => {
     const c = client();
     const email = await registerVerifiedStudent(c);
@@ -513,5 +553,25 @@ describe('email verification', () => {
       body: { email },
     });
     assert.equal(limited.status, 429);
+  });
+
+  it('recovers from a rejected verification email via resend-verification', async () => {
+    const email = uniqueEmail('undelivered');
+    const register = await withRejectingResend(() =>
+      client().request('POST', '/auth/register', {
+        body: { fullName: 'Not Delivered', email, password: PASSWORD },
+      }),
+    );
+    assert.equal(register.status, 202);
+    assert.equal(await prisma.user.count({ where: { email } }), 1);
+    assert.equal(outbox().filter((m) => m.to === email).length, 0);
+
+    const resent = await client().request('POST', '/auth/resend-verification', { body: { email } });
+    assert.equal(resent.status, 202);
+    const verified = await client().request<{ status: string }>('POST', '/auth/verify-email', {
+      body: { token: tokenFromEmail(email, 'email-verification') },
+    });
+    assert.equal(verified.status, 200);
+    assert.equal(verified.body.data.status, 'verified');
   });
 });

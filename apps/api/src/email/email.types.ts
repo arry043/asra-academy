@@ -8,9 +8,9 @@ export interface EmailMessage {
 }
 
 /**
- * Provider adapter. A production implementation (provider pending — CLIENT-CLARIFICATIONS Q-01)
- * must throw when the provider rejects or cannot accept the message, so callers never report a
- * delivery that did not happen.
+ * Provider adapter (console, memory, resend — see transports.ts). Implementations must throw when
+ * the provider rejects or cannot accept the message, so callers never report a delivery that did
+ * not happen.
  */
 export interface EmailTransport {
   readonly name: string;

@@ -17,6 +17,21 @@ Entry template:
 
 ## [Unreleased]
 
+### Added
+
+- Resend email transport (`EMAIL_TRANSPORT=resend`, SDK `resend@6.31.0`). Provider errors, network failures and timeouts (10 s) are raised as delivery failures; errors carry only Resend's code and status.
+- `EMAIL_API_KEY` is now validated: required (non-empty) when `EMAIL_TRANSPORT=resend`, together with an `EMAIL_FROM` on a real, non-localhost domain. `apiKey`/`EMAIL_API_KEY` are redacted from logs.
+- Tests: Resend transport (mocked client, no network), environment validation (`parseEnv`), and recovery after a rejected verification or reset email.
+
+### Changed
+
+- Production startup guard: refuses `console`, `memory` or an unset transport instead of refusing every configuration; it starts only with a complete Resend setup.
+- Q-01 resolved: Resend selected. Q-02 (sender domain and DNS) is still pending.
+
+### Fixed
+
+- Removed the `helmet` `paths` pin from `apps/api/tsconfig.json`: `tsx` applies `paths` at runtime, so the dev server and API tests loaded Helmet's type-only `index.d.mts` and failed. `apps/api/src/app.ts` now types the Helmet default import explicitly, which still satisfies Vercel's Express-builder type check.
+
 ### Planned
 
 - PHASE 05 — Public Website.
