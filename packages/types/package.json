@@ -22,6 +22,7 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "@asra/config": "0.1.0"
+    "@asra/config": "0.1.0",
+    "@types/node": "^24.19.2"
   }
 }
