@@ -1,7 +1,11 @@
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import type { EmailMessage, EmailTransport } from './email.types.js';
-import { createConsoleTransport, createMemoryTransport } from './transports.js';
+import {
+  createConsoleTransport,
+  createMemoryTransport,
+  createResendTransport,
+} from './transports.js';
 
 /** Thrown when a message could not be handed to the provider. Carries no token or address. */
 export class EmailDeliveryError extends Error {
@@ -15,7 +19,17 @@ export class EmailDeliveryError extends Error {
 export const memoryTransport =
   env.EMAIL_TRANSPORT === 'memory' ? createMemoryTransport() : undefined;
 
-let transport: EmailTransport = memoryTransport ?? createConsoleTransport(logger);
+function createConfiguredTransport(): EmailTransport {
+  if (memoryTransport) return memoryTransport;
+  if (env.EMAIL_TRANSPORT === 'resend') {
+    // src/config/env.ts already refuses to start without a key; this guards against drift.
+    if (!env.EMAIL_API_KEY) throw new Error('EMAIL_API_KEY is required for EMAIL_TRANSPORT=resend');
+    return createResendTransport({ apiKey: env.EMAIL_API_KEY });
+  }
+  return createConsoleTransport(logger);
+}
+
+let transport: EmailTransport = createConfiguredTransport();
 
 /** Replaces the transport (tests use this to simulate provider failures). */
 export function setEmailTransport(next: EmailTransport): EmailTransport {

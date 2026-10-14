@@ -1,14 +1,22 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import express, { type Express } from 'express';
-import helmet from 'helmet';
+import express, { type Express, type RequestHandler } from 'express';
+import helmetImport, { type HelmetOptions } from 'helmet';
 import { API_PREFIX } from './config/constants.js';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { apiRouter } from './routes/index.js';
+
+/**
+ * Helmet's default export is its middleware factory. The explicit type keeps that true under
+ * Vercel's Express builder, which type-checks without the ESM resolution mode, picks Helmet's
+ * CommonJS typings (index.d.cts) and would otherwise see the module object (TS2349).
+ * A tsconfig `paths` pin cannot fix this: tsx applies `paths` at runtime too.
+ */
+const helmet = helmetImport as unknown as (options?: Readonly<HelmetOptions>) => RequestHandler;
 
 /** Builds the Express application without binding a port (keeps it testable). */
 export function createApp(): Express {

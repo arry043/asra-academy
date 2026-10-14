@@ -1,14 +1,7 @@
 {
   "extends": "@asra/config/tsconfig.node.json",
   "compilerOptions": {
-    "noEmit": true,
-    // Vercel's Express builder (@vercel/node with EXPERIMENTAL_NODE_TYPESCRIPT_ERRORS) resolves
-    // imports without the ESM resolution mode, so it picks Helmet's CommonJS typings
-    // (index.d.cts) and `helmet()` fails with TS2349. Pin the ESM typings that Node loads at
-    // runtime; if the path is missing, TypeScript falls back to normal resolution.
-    "paths": {
-      "helmet": ["../../node_modules/helmet/index.d.mts"]
-    }
+    "noEmit": true
   },
   "include": ["src", "prisma", "scripts", "tests", "prisma.config.ts"]
 }

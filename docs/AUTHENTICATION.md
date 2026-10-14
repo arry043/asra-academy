@@ -255,9 +255,13 @@ Services call `emailService.sendEmailVerification / sendPasswordReset / sendAcco
 | ----------------- | ---------------------------------------------- | ------------------------------------------------------------------------ |
 | `console`         | **development only** (default there)           | Writes the message, including its link, to the API log. Nothing is sent. |
 | `memory`          | **tests only** (default under `NODE_ENV=test`) | Keeps messages in memory for assertions.                                 |
-| _(provider)_      | production                                     | **Not implemented**: the provider is pending (Q-01).                     |
+| `resend`          | production (any environment that really sends) | Sends via the Resend SDK. Needs `EMAIL_API_KEY` and a verified sender.   |
 
-**The API refuses to start with `NODE_ENV=production`** until a real provider transport exists. This avoids silently "succeeding" without delivering verification or reset emails.
+**The API refuses to start with `NODE_ENV=production`** unless `EMAIL_TRANSPORT=resend`. This avoids silently "succeeding" without delivering verification or reset emails.
+
+With `resend`, startup also requires a non-empty `EMAIL_API_KEY` and an `EMAIL_FROM` of the form `address` or `Name <address>` on a real (non-localhost) domain. Resend only accepts senders on a domain verified in its dashboard (Q-02); that check happens at send time. Validation errors name the variable, never its value.
+
+The Resend SDK returns API and network errors instead of throwing; the transport converts them into a `ResendDeliveryError` that carries only Resend's error code and HTTP status, never the provider message (it can echo the recipient) or the key. Each call times out after 10 seconds. A successful call means Resend accepted the message, not that it reached the inbox. There are no automatic retries.
 
 Delivery failures are logged with the template name and user id only, never the link or token. Forgot-password and resend still return the generic 202; registration still succeeds, and the user can request a new link.
 
@@ -298,7 +302,8 @@ Breached-password screening (e.g. a k-anonymity range API) is recommended but no
 | `AUTH_COOKIE_SAME_SITE`         | `strict`                                                  | `none` requires Secure                              |
 | `AUTH_COOKIE_DOMAIN`            | unset                                                     | Only if the API and web need a shared parent domain |
 | `CORS_ORIGINS`                  | `NEXT_PUBLIC_APP_URL`                                     | Also the CSRF origin allow-list                     |
-| `EMAIL_TRANSPORT`, `EMAIL_FROM` | `console` / `memory`; `ASRA Academy <no-reply@localhost>` | See §8                                              |
+| `EMAIL_TRANSPORT`, `EMAIL_FROM` | `console` / `memory`; `ASRA Academy <no-reply@localhost>` | See §8; production requires `resend`                |
+| `EMAIL_API_KEY`                 | unset                                                     | Resend key; required when `EMAIL_TRANSPORT=resend`  |
 | `RATE_LIMIT_STORE`              | `redis` (`memory` in tests)                               | See §6                                              |
 
 The web app only needs `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_APP_URL`. No auth secret is exposed through `NEXT_PUBLIC_*`.
@@ -318,7 +323,7 @@ The web app only needs `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_APP_URL`. No auth 
 
 | Limitation                                                                        | Mitigation / plan                                                                                   |
 | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| No production email transport; the API will not start in production               | Implement the provider adapter once Q-01 is decided                                                 |
+| Production email needs a Resend-verified sender domain                            | Verify the domain in Resend (Q-02: DNS access for SPF/DKIM/DMARC) before enabling production        |
 | Simultaneous refresh from two tabs can sign the user out (strict reuse detection) | Single-flight per tab; add cross-tab coordination if needed                                         |
 | Forgot-password has a small timing difference for existing accounts               | Move email sending to BullMQ (Phase 11)                                                             |
 | No MFA, no breached-password check, no account lockout notifications              | Future hardening (Phase 13)                                                                         |

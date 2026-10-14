@@ -11,6 +11,8 @@ const SENSITIVE_FIELDS = [
   'refreshToken',
   'secret',
   'cookie',
+  'apiKey',
+  'EMAIL_API_KEY',
 ];
 
 /**

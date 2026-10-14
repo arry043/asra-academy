@@ -274,7 +274,7 @@ interface NotificationChannel {
 | Storage                | Lectures, notes, PDFs, submissions, avatars | Pending (S3-compatible recommended) | `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET` |
 | Payment                | Paid course checkout, refunds, webhooks     | Pending                             | `PAYMENT_KEY`, `PAYMENT_SECRET`                |
 | Live class             | Meeting create/cancel/join links            | Pending                             | Added when provider chosen                     |
-| Notification: email    | Transactional email                         | Pending                             | `EMAIL_API_KEY`                                |
+| Notification: email    | Transactional email                         | Resend (`EMAIL_TRANSPORT=resend`)   | `EMAIL_API_KEY`, `EMAIL_FROM`                  |
 | Notification: WhatsApp | Enquiry / optional notifications            | Pending                             | `WHATSAPP_API_KEY`                             |
 | Notification: in-app   | Stored in PostgreSQL                        | —                                   | —                                              |
 
