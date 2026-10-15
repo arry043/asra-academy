@@ -18,12 +18,22 @@ import {
 } from '@/components/ui/card';
 import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import type { CourseSummary, PublicationStatus } from '@/types/education';
+import type { CategoryTone, CourseSummary, PublicationStatus } from '@/types/education';
 
 // Published is the normal state, so it carries no badge; only exceptions are flagged.
 const STATUS: Partial<Record<PublicationStatus, StatusDefinition>> = {
   DRAFT: { label: 'Draft', variant: 'warning', icon: PencilLine },
   ARCHIVED: { label: 'Archived', variant: 'secondary', icon: Archive },
+};
+
+// Imageless cover tones (same pastel pairs as CourseCategoryCard).
+const TONES: Record<CategoryTone, { panel: string; icon: string }> = {
+  sky: { panel: 'bg-tone-sky-soft', icon: 'text-tone-sky' },
+  mint: { panel: 'bg-tone-mint-soft', icon: 'text-tone-mint' },
+  amber: { panel: 'bg-tone-amber-soft', icon: 'text-tone-amber' },
+  violet: { panel: 'bg-tone-violet-soft', icon: 'text-tone-violet' },
+  rose: { panel: 'bg-tone-rose-soft', icon: 'text-tone-rose' },
+  teal: { panel: 'bg-tone-teal-soft', icon: 'text-tone-teal' },
 };
 
 type CourseCardProps = CourseSummary & {
@@ -49,6 +59,8 @@ export function CourseCard({
   durationLabel,
   language,
   action,
+  icon,
+  tone,
   headingLevel = 'h3',
   priority = false,
   className,
@@ -58,7 +70,7 @@ export function CourseCard({
 
   return (
     <Card className={cn('h-full gap-4 overflow-hidden pt-0 sm:pt-0', className)}>
-      <div className="relative aspect-[16/9] bg-asra-green-50">
+      <div className={cn('relative aspect-[16/9]', tone ? TONES[tone].panel : 'bg-asra-green-50')}>
         {imageSrc ? (
           <Image
             src={imageSrc}
@@ -70,8 +82,13 @@ export function CourseCard({
           />
         ) : (
           <div className="flex size-full items-center justify-center" aria-hidden>
-            <span className="flex size-14 items-center justify-center rounded-full bg-card text-asra-green-700 shadow-card">
-              <BookOpen className="size-6" />
+            <span
+              className={cn(
+                'flex size-14 items-center justify-center rounded-full bg-card shadow-card [&_svg]:size-6',
+                tone ? TONES[tone].icon : 'text-asra-green-700',
+              )}
+            >
+              {icon ?? <BookOpen />}
             </span>
           </div>
         )}

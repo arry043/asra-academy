@@ -219,6 +219,8 @@ All variables are documented in [`.env.example`](.env.example). A single root `.
 | `NEXT_PUBLIC_API_URL`                                                | web             | `http://localhost:4000/api/v1` | staging API URL                   | production API URL                     |
 | `CORS_ORIGINS`                                                       | api             | empty (defaults to app URL)    | optional                          | optional                               |
 | `ENABLE_DESIGN_SYSTEM`                                               | web (server)    | not needed (always on in dev)  | optional `true` for client review | leave empty (showcase returns 404)     |
+| `SITE_INDEXING_ENABLED`                                              | web (build)     | leave empty                    | leave empty (not indexed)         | `true` once domain + legal text ready  |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER`                                        | web             | empty (no WhatsApp button)     | client-confirmed number           | client-confirmed number (P-02)         |
 | `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET`                       | api (later)     | optional                       | provider pending                  | provider pending                       |
 | `PAYMENT_KEY`, `PAYMENT_SECRET`                                      | api (later)     | optional                       | sandbox keys                      | live keys                              |
 | `EMAIL_TRANSPORT`, `EMAIL_FROM`, `EMAIL_API_KEY`                     | api             | `console`; key not needed      | `resend` + key, if sending        | `resend` + key + verified sender       |
@@ -233,6 +235,10 @@ npm run dev:web             # builds shared packages, then next dev on :3000
 npm run build -w @asra/web  # production build
 npm run start:web           # serve production build
 ```
+
+### Public website (Phase 05)
+
+The public site (home, about, courses, classes, special courses, faculty, admission, contact, blog, legal pages) lives in `apps/web/src/app/(public)` and needs no sign-in. Content, data sources, SEO, WhatsApp and contact-form behaviour are documented in [docs/PUBLIC-WEBSITE.md](docs/PUBLIC-WEBSITE.md). Search indexing is off unless `SITE_INDEXING_ENABLED=true` at build time.
 
 ### Design system (Phase 04)
 
@@ -356,6 +362,7 @@ Rules:
 **PHASE 01 — Project Foundation & Architecture:** ✅ complete
 **PHASE 03 — Authentication & RBAC:** ✅ implemented: registration, login, rotating refresh sessions, logout, password reset, email verification, RBAC middleware, rate limiting, auth pages ([docs/AUTHENTICATION.md](docs/AUTHENTICATION.md))
 **PHASE 04 — Design System & Frontend Foundation:** ✅ implemented: ASRA tokens, typography roles, core UI components, education cards, public/dashboard/admin layouts, motion, `/design-system` showcase ([docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md))
+**PHASE 05 — Public Website:** ✅ implemented (uncommitted, pending review): all required public routes, course search and filtering, honest contact/enquiry hand-off, configurable WhatsApp CTA, page metadata, sitemap, robots, structured data ([docs/PUBLIC-WEBSITE.md](docs/PUBLIC-WEBSITE.md)). Client content still pending: faculty, testimonials, legal text, WhatsApp number, subject mapping
 **PHASE 02 — Database & Backend Core:** ✅ implemented: LMS schema, initial migration, RBAC seed, database layer, error mapping, tests ([docs/DATABASE.md](docs/DATABASE.md))
 
 - Monorepo, web and API foundations, shared packages
@@ -397,6 +404,7 @@ Detailed plan: [docs/reference/IMPLEMENTATION-PLAN-PHASES.md](docs/reference/IMP
 | [docs/DATABASE.md](docs/DATABASE.md)                           | Data model, migrations, seed, reset |
 | [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)               | Auth flows, tokens, RBAC, security  |
 | [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md)                 | Tokens, components, layouts, motion |
+| [docs/PUBLIC-WEBSITE.md](docs/PUBLIC-WEBSITE.md)               | Public routes, content, SEO, forms  |
 | [docs/CLIENT-CLARIFICATIONS.md](docs/CLIENT-CLARIFICATIONS.md) | Open client questions               |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md)                         | Change history                      |
 | [docs/brand/README.md](docs/brand/README.md)                   | Logo files, colours, usage rules    |

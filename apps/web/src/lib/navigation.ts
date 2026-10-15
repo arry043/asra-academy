@@ -9,6 +9,19 @@ export interface NavItem {
   badge?: string;
   /** Match only the exact path (use for index routes such as "/" or "/dashboard"). */
   exact?: boolean;
+  /**
+   * Sub-links (public navbar only): shown in a disclosure menu on desktop and as a nested list in
+   * the mobile drawer. The parent counts as active when it or any child is active.
+   */
+  children?: NavItem[];
+}
+
+/** Whether a nav item or any of its children is the current location. */
+export function isActiveNavItem(pathname: string | null, item: NavItem): boolean {
+  return (
+    isActivePath(pathname, item.href, item.exact) ||
+    (item.children ?? []).some((child) => isActivePath(pathname, child.href, child.exact))
+  );
 }
 
 export interface NavGroup {

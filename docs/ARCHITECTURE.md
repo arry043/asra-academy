@@ -87,11 +87,16 @@ asra-academy/
 - API consumption only through a typed API client (`NEXT_PUBLIC_API_URL`). **No direct database access from the frontend.**
 - Client-side form validation with shared Zod schemas (`@asra/validation`) — server re-validates.
 
-### 4.1 Frontend structure (Phase 04)
+### 4.1 Frontend structure (Phase 04, public website added in Phase 05)
 
 ```
 apps/web/src/
 ├── app/
+│   ├── (public)/               Public website (Phase 05): layout (Navbar + main + Footer), template
+│   │                           (page transition), error boundary, home (_home/sections), about,
+│   │                           courses (+ [slug] special courses), classes/[band], faculty, admission,
+│   │                           contact, blog, privacy-policy, terms, refund-policy — see PUBLIC-WEBSITE.md
+│   ├── sitemap.ts, robots.ts   Generated from lib/sitemap + SITE_INDEXING_ENABLED
 │   ├── (auth)/                 Login, register, password and email flows (AuthProvider lives here only)
 │   ├── (internal)/design-system/  Internal showcase + dashboard/admin layout previews (404 in production
 │   │                              unless ENABLE_DESIGN_SYSTEM=true; demo fixtures only)
@@ -103,10 +108,15 @@ apps/web/src/
 │   │                           live-classes, assignments, exams, progress (+ shared card parts)
 │   ├── layout/                 Container, Section, Navbar, Footer, Sidebar, DashboardLayout, AdminLayout,
 │   │                           PageHeader, BrandMark, SkipLink, PageTransition
-│   └── auth/                   Auth-form adapters over the primitives
-├── config/                     siteConfig (confirmed brand/contact), navigation (planned public routes)
+│   ├── auth/                   Auth-form adapters over the primitives
+│   └── public/                 Public-site blocks: PageHero, CtaBand, EmptyState, ProgrammeGrid,
+│                               ProgrammePage, CourseDirectory, ContactForm, LegalPage, WhatsAppLink, JsonLd
+├── config/                     siteConfig (confirmed brand/contact), navigation (public routes)
+├── content/                    Typed public content (programmes, legal outlines) and the empty-until-
+│                               approved lists (faculty, testimonials, live classes, blog)
 ├── lib/                        api client, env, format (dates in Asia/Kolkata), pagination, navigation,
-│                               feature-flags, utils (cn with token-aware tailwind-merge)
+│                               feature-flags, utils (cn with token-aware tailwind-merge), programmes
+│                               (search/filter), seo, sitemap, whatsapp, enquiry
 └── types/education.ts          Presentational view models for education components
 ```
 
@@ -117,6 +127,8 @@ Rules:
 - **Layouts are not access control.** Portal and admin routes are protected by the auth/RBAC layer (§8.1–8.2).
 - **Dates** use an explicit time zone so server and client render identically.
 - **Tests**: `apps/web/tests` (Node test runner + tsx) assert component contracts on server-rendered markup. Interactive behaviour was verified in a real browser during Phase 04 (DESIGN-SYSTEM.md §12).
+- **Public pages need no session (Phase 05).** The `(public)` layout has no auth provider and makes no API calls; only `(auth)` pages talk to `/auth/*`. Public pages are prerendered (static) except `/contact`, which reads `?topic=`.
+- **Public content is a replaceable data source.** Until public read endpoints exist, pages read typed modules in `content/` (programme facts from the Project Development Order only). Swapping in API data means returning the same types — pages do not change. See [PUBLIC-WEBSITE.md](./PUBLIC-WEBSITE.md) §6.
 
 ## 5. Backend Responsibilities (apps/api)
 
@@ -332,25 +344,28 @@ Hosting targets for web and API are pending (CLIENT-CLARIFICATIONS §W).
 
 ## 13. Architecture Decision Log
 
-| ID      | Decision                                                                                                | Status   |
-| ------- | ------------------------------------------------------------------------------------------------------- | -------- |
-| ADR-001 | Modular monolith (single Express app)                                                                   | Accepted |
-| ADR-002 | npm workspaces monorepo                                                                                 | Accepted |
-| ADR-003 | PostgreSQL + Prisma; Neon in production, Docker locally                                                 | Accepted |
-| ADR-004 | REST API with `/api/v1` prefix and uniform envelope                                                     | Accepted |
-| ADR-005 | JWT access tokens + rotating refresh sessions; **Argon2id** hashing (supersedes bcrypt, Phase 03)       | Accepted |
-| ADR-006 | Provider adapters for all external services                                                             | Accepted |
-| ADR-007 | Redis + BullMQ for background jobs (later)                                                              | Accepted |
-| ADR-008 | Prisma driver adapter (`@prisma/adapter-pg`) for runtime connections (Prisma 7 requirement)             | Accepted |
-| ADR-009 | UUID keys generated by PostgreSQL (`gen_random_uuid()`); snake_case tables/columns                      | Accepted |
-| ADR-010 | Roles/permissions as data with many-to-many user roles (pending S-04)                                   | Accepted |
-| ADR-011 | Hand-written CHECK constraints in migration SQL for invariants Prisma cannot express                    | Accepted |
-| ADR-012 | Node built-in test runner + tsx against a local `*_test` database (no new dependencies)                 | Accepted |
-| ADR-013 | Access token in memory + refresh token in HttpOnly SameSite=Strict cookie; same-site deployment         | Accepted |
-| ADR-014 | Authorization from database state on every request (session-bound JWT `sid`), no blacklist              | Accepted |
-| ADR-015 | Redis-backed rate limiting with per-instance memory fallback                                            | Accepted |
-| ADR-016 | Design tokens as CSS variables in `globals.css` (Tailwind v4 `@theme`), semantic names over raw colours | Accepted |
-| ADR-017 | UI primitives on the existing `radix-ui` package (incl. Radix Toast); no extra UI/animation libraries   | Accepted |
-| ADR-018 | CSS-only motion (transitions, keyframes, scroll-driven reveal) with `prefers-reduced-motion` support    | Accepted |
-| ADR-019 | Internal showcase gated server-side per request (`ENABLE_DESIGN_SYSTEM`), 404 in production by default  | Accepted |
-| ADR-020 | Web tests reuse ADR-012 (Node test runner + tsx) with server-rendered markup; no jsdom/Jest/Vitest      | Accepted |
+| ID      | Decision                                                                                                                          | Status   |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| ADR-001 | Modular monolith (single Express app)                                                                                             | Accepted |
+| ADR-002 | npm workspaces monorepo                                                                                                           | Accepted |
+| ADR-003 | PostgreSQL + Prisma; Neon in production, Docker locally                                                                           | Accepted |
+| ADR-004 | REST API with `/api/v1` prefix and uniform envelope                                                                               | Accepted |
+| ADR-005 | JWT access tokens + rotating refresh sessions; **Argon2id** hashing (supersedes bcrypt, Phase 03)                                 | Accepted |
+| ADR-006 | Provider adapters for all external services                                                                                       | Accepted |
+| ADR-007 | Redis + BullMQ for background jobs (later)                                                                                        | Accepted |
+| ADR-008 | Prisma driver adapter (`@prisma/adapter-pg`) for runtime connections (Prisma 7 requirement)                                       | Accepted |
+| ADR-009 | UUID keys generated by PostgreSQL (`gen_random_uuid()`); snake_case tables/columns                                                | Accepted |
+| ADR-010 | Roles/permissions as data with many-to-many user roles (pending S-04)                                                             | Accepted |
+| ADR-011 | Hand-written CHECK constraints in migration SQL for invariants Prisma cannot express                                              | Accepted |
+| ADR-012 | Node built-in test runner + tsx against a local `*_test` database (no new dependencies)                                           | Accepted |
+| ADR-013 | Access token in memory + refresh token in HttpOnly SameSite=Strict cookie; same-site deployment                                   | Accepted |
+| ADR-014 | Authorization from database state on every request (session-bound JWT `sid`), no blacklist                                        | Accepted |
+| ADR-015 | Redis-backed rate limiting with per-instance memory fallback                                                                      | Accepted |
+| ADR-016 | Design tokens as CSS variables in `globals.css` (Tailwind v4 `@theme`), semantic names over raw colours                           | Accepted |
+| ADR-017 | UI primitives on the existing `radix-ui` package (incl. Radix Toast); no extra UI/animation libraries                             | Accepted |
+| ADR-018 | CSS-only motion (transitions, keyframes, scroll-driven reveal) with `prefers-reduced-motion` support                              | Accepted |
+| ADR-019 | Internal showcase gated server-side per request (`ENABLE_DESIGN_SYSTEM`), 404 in production by default                            | Accepted |
+| ADR-020 | Web tests reuse ADR-012 (Node test runner + tsx) with server-rendered markup; no jsdom/Jest/Vitest                                | Accepted |
+| ADR-021 | Public catalogue from typed static content until a public course API exists (PHASE 06)                                            | Accepted |
+| ADR-022 | No enquiry API yet: contact form validates with the shared schema and hands off to the visitor's email app; never claims delivery | Accepted |
+| ADR-023 | Search indexing opt-in per production build (`SITE_INDEXING_ENABLED`); canonical origin = `NEXT_PUBLIC_APP_URL`                   | Accepted |

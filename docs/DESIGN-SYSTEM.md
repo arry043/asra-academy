@@ -271,3 +271,9 @@ The browser scripts are not part of the repository, because they rely on a local
 | Hindi course tile in the reference           | Not in the confirmed course list; not shown                                      | B-07       |
 | Display time zone                            | `Asia/Kolkata` for all dates                                                     | V-09       |
 | UI language / RTL                            | English UI; content in Arabic/Urdu renders RTL                                   | V-05       |
+
+## 14. Phase 05 additions
+
+- `Navbar`: `NavItem.children` render a disclosure menu (desktop) and a grouped list (drawer); `secondaryCta` adds a ghost link-button (Login) beside the CTA.
+- `CourseCard`: optional `icon` and `tone` (a `CategoryTone`) style the cover panel when there is no image.
+- Public-site blocks live in `components/public/` (PageHero, CtaBand, EmptyState, ProgrammeGrid, ProgrammePage, CourseDirectory, ContactForm, LegalPage, WhatsAppLink, JsonLd, CheckList, LearningSteps). They are built only from the tokens and primitives above. See [PUBLIC-WEBSITE.md](./PUBLIC-WEBSITE.md).

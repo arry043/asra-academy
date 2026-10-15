@@ -3,6 +3,7 @@ import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { Toaster } from '@/components/ui/toast';
 import { siteConfig } from '@/config/site';
 import { publicEnv } from '@/lib/env';
+import { isSiteIndexingEnabled } from '@/lib/feature-flags';
 import './globals.css';
 
 const sans = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
@@ -37,8 +38,9 @@ export const metadata: Metadata = {
     description: siteConfig.description,
     images: [siteConfig.ogImage],
   },
-  // Foundation build: keep out of search indexes until the public website phase ships.
-  robots: { index: false, follow: false },
+  // Indexing is opt-in per deployment (SITE_INDEXING_ENABLED=true, production only). Pages that
+  // must never be indexed (auth, design system, empty blog) set their own `noindex`.
+  robots: isSiteIndexingEnabled() ? { index: true, follow: true } : { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
