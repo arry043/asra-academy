@@ -14,6 +14,25 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   INTERNAL_ERROR: 500,
 };
 
+/** One field-level problem, shaped like a Zod issue so clients read both the same way. */
+export interface FieldErrorDetail {
+  path: string[];
+  message: string;
+  code?: string;
+}
+
+/**
+ * An error about one request field, e.g. a duplicate slug (409) or an inactive relation (422).
+ * `details` uses the Zod issue shape, so the web client maps it onto the form field.
+ */
+export function fieldError(
+  code: 'VALIDATION_ERROR' | 'CONFLICT',
+  field: string,
+  message: string,
+): AppError {
+  return new AppError(code, message, [{ path: [field], message }] satisfies FieldErrorDetail[]);
+}
+
 /** Operational error that is safe to expose to API clients. */
 export class AppError extends Error {
   readonly code: ApiErrorCode;

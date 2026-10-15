@@ -9,9 +9,14 @@ import type { TestClient } from './http.js';
 
 export const PASSWORD = 'correct horse battery staple';
 
-/** Fresh state for an auth test: no users/sessions/tokens, seeded RBAC, empty outbox, no limits. */
+/**
+ * Fresh state for an auth test: no users/sessions/tokens, the canonical RBAC grants, empty
+ * outbox, no limits. Grants are rebuilt from the seed definitions (not just topped up — the seed
+ * is additive), so a permission granted at runtime by one test cannot leak into the next suite.
+ */
 export async function resetAuthState(): Promise<void> {
   await cleanDomainTables();
+  await prisma.rolePermission.deleteMany();
   await seedAccessControl(prisma);
   outbox().length = 0;
   await resetRateLimits();

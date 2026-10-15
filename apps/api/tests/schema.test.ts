@@ -74,6 +74,16 @@ describe('Prisma schema & migrations', () => {
       'courses_published_at_required',
       'resources_location_exclusive',
       'modules_position_non_negative',
+      // PHASE 06
+      'courses_duration_minutes_positive',
+      'courses_price_minor_non_negative',
+      'courses_price_currency_consistent',
+      'courses_currency_format',
+      'courses_discount_consistent',
+      'courses_discount_requires_price',
+      'courses_discount_value_valid',
+      'courses_thumbnail_location_exclusive',
+      'courses_thumbnail_url_https',
     ]) {
       assert.ok(names.includes(expected), `missing CHECK constraint ${expected}`);
     }

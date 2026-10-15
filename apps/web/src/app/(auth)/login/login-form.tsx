@@ -2,7 +2,10 @@
 
 import { loginSchema } from '@asra/validation';
 import { Loader2, LogOut, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
+import { canUseAdminPortal } from '@/components/admin/use-admin';
 import { AuthCard, AuthLink } from '@/components/auth/auth-card';
 import { useAuth } from '@/components/auth/auth-provider';
 import { FormAlert, FormField, PasswordField, SubmitButton } from '@/components/auth/form-controls';
@@ -10,19 +13,29 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ApiClientError } from '@/lib/api';
 import { authApi } from '@/lib/auth/auth-api';
+import { safeNextPath } from '@/lib/admin/format';
 import { describeError, validateForm, type FieldErrors } from '@/lib/auth/form-errors';
 
 export function LoginForm() {
   const { status, user } = useAuth();
+  const router = useRouter();
+  // `?next=` is set by protected areas (e.g. /admin). Only same-site paths are honoured.
+  const next = useSearchParams().get('next');
+  const redirectTo = next ? safeNextPath(next, '') : '';
 
-  if (status === 'loading') {
+  React.useEffect(() => {
+    if (status === 'authenticated' && redirectTo) router.replace(redirectTo);
+  }, [status, redirectTo, router]);
+
+  if (status === 'loading' || (status === 'authenticated' && redirectTo)) {
     return (
       <AuthCard title="Sign in">
         <p
           className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"
           role="status"
         >
-          <Loader2 className="size-4 animate-spin" aria-hidden /> Checking your session…
+          <Loader2 className="size-4 animate-spin" aria-hidden />{' '}
+          {status === 'loading' ? 'Checking your session…' : 'Signed in. Redirecting…'}
         </p>
       </AuthCard>
     );
@@ -184,9 +197,15 @@ function SignedIn() {
             </dd>
           </div>
         </dl>
-        <p className="type-body-sm text-muted-foreground">
-          Your learning dashboard is coming soon.
-        </p>
+        {canUseAdminPortal(user) ? (
+          <Button asChild size="lg" variant="accent">
+            <Link href="/admin">Open administration</Link>
+          </Button>
+        ) : (
+          <p className="type-body-sm text-muted-foreground">
+            Your learning dashboard is coming soon.
+          </p>
+        )}
         <div className="grid gap-2 sm:grid-cols-2">
           <Button
             onClick={() => signOut('one')}

@@ -17,6 +17,22 @@ Entry template:
 
 ## [Unreleased]
 
+### Added — PHASE 06 Academic & Course Management (uncommitted, pending review)
+
+- Migration `20261015071102_phase06_course_management` (additive): course `visibility` (`PUBLIC`/`UNLISTED`/`PRIVATE`), `thumbnail_url`, `duration_minutes`, `price_minor` + `currency`, `discount_type` + `discount_value`; lesson types `PDF`, `QUIZ`, `ASSIGNMENT`; nine CHECK constraints; index `courses(status, visibility)`.
+- API modules `academics`, `courses`, `curriculum` under `/api/v1/admin` (permission per route: `academic_structure.manage`, `courses.manage`, `content.manage`; `accessPolicy` per course): CRUD for academic levels, classes, streams, subjects, categories and courses; faculty assignment; publish/unpublish/archive/restore with publication rules; modules, chapters, lessons and resource links with ordering. Public `GET /api/v1/courses` and `/courses/:slug` (published + visibility only).
+- Shared Zod schemas (`@asra/validation`: academics, courses, curriculum; `safeExternalUrlSchema`, `slugify`) and DTO types (`@asra/types` catalog).
+- Admin portal `/admin` (route group `(admin)`): overview, catalogue managers, course list/form/detail with Publishing, Details, Faculty and Curriculum tabs; `Textarea` primitive; `/login?next=` redirect (same-site paths only).
+- Public site: "Available courses" on `/courses`; published course pages at `/courses/<slug>`.
+- Tests: 62 API tests (academics, courses, curriculum, public catalogue, end-to-end acceptance) and 21 web tests. Docs: COURSE-MANAGEMENT.md; client clarifications Z-01…Z-11.
+
+### Changed — PHASE 06
+
+- `/courses` and `/courses/[slug]` render per request (previously static); programme slugs are reserved for programme pages.
+- `resourceInputSchema` accepts only `https://` URLs on public domains without credentials (was http/https).
+- `ApiClientError.fieldErrors` also reads 409 field conflicts; `apiRequest` re-throws Next.js control-flow errors instead of reporting them as network errors.
+- API test reset rebuilds role grants from the seed, so a runtime grant in one suite no longer leaks into later suites.
+
 ### Added
 
 - Resend email transport (`EMAIL_TRANSPORT=resend`, SDK `resend@6.31.0`). Provider errors, network failures and timeouts (10 s) are raised as delivery failures; errors carry only Resend's code and status.

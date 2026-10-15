@@ -77,6 +77,10 @@ export function CourseCard({
             alt={imageAlt ?? ''}
             fill
             priority={priority}
+            // Course thumbnails are administrator-supplied HTTPS URLs on any host (no storage
+            // provider yet, R-01). They are shown as-is instead of allow-listing every host for
+            // the optimiser.
+            unoptimized={/^https?:\/\//.test(imageSrc)}
             sizes="(min-width: 1280px) 22rem, (min-width: 768px) 45vw, 100vw"
             className="object-cover"
           />

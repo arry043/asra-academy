@@ -7,6 +7,11 @@ import { CtaBand } from '@/components/public/cta-band';
 import { PageHero } from '@/components/public/page-hero';
 import { ProgrammeGrid } from '@/components/public/programme-grid';
 import { getProgrammeVisual } from '@/components/public/programme-visuals';
+import {
+  COURSES_PAGE_PARAM,
+  PublishedCourses,
+  PublishedCoursesSkeleton,
+} from '@/components/public/published-courses';
 import { programmes } from '@/content/programmes';
 import { buildPageMetadata } from '@/lib/seo';
 
@@ -17,7 +22,12 @@ export const metadata = buildPageMetadata({
   path: '/courses',
 });
 
-export default function CoursesPage() {
+export default async function CoursesPage({ searchParams }: PageProps<'/courses'>) {
+  const raw = (await searchParams)[COURSES_PAGE_PARAM];
+  const requested = Number(Array.isArray(raw) ? raw[0] : raw);
+  const coursesPage =
+    Number.isInteger(requested) && requested >= 1 && requested <= 1000 ? requested : 1;
+
   return (
     <>
       <PageHero
@@ -52,6 +62,21 @@ export default function CoursesPage() {
             ))}
           </ul>
         </nav>
+
+        <section aria-labelledby="published-courses-title" className="grid gap-6">
+          <div className="grid gap-2">
+            <h2 id="published-courses-title" className="type-h2 text-heading">
+              Available courses
+            </h2>
+            <p className="type-body text-muted-foreground">
+              Courses the academy has published, with their full outline.
+            </p>
+          </div>
+          {/* Rendered per request from the public API: unpublished courses disappear at once. */}
+          <Suspense fallback={<PublishedCoursesSkeleton />}>
+            <PublishedCourses page={coursesPage} />
+          </Suspense>
+        </section>
 
         <section aria-labelledby="directory-title" className="grid gap-6">
           <h2 id="directory-title" className="type-h2 text-heading">

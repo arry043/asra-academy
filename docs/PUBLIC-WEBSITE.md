@@ -81,17 +81,17 @@ Shared Phase 04 components are reused: `Navbar` (now with a Courses disclosure m
 
 ## 8. Data sources and future integration
 
-| Data         | Source today                                      | Future source                                                                                                                                                                                   |
-| ------------ | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Programmes   | `content/programmes.ts` (Order §2 facts)          | Public catalogue endpoint over Prisma `Course`/`CourseCategory`/`Subject` (PHASE 06), returning the `Programme` shape or mapped to it; published courses only                                   |
-| Faculty      | `content/faculty.ts` (empty)                      | Public endpoint returning only `FacultyProfile.isPublic = true` rows and only public fields (name, designation, subjects, bio, photo URL) — never email, phone, roles, status or `employeeCode` |
-| Live classes | `content/live-classes.ts` (empty)                 | Public schedule summary without join links (PHASE 11)                                                                                                                                           |
-| Testimonials | `content/testimonials.ts` (empty)                 | Approved, consented entries (U-04)                                                                                                                                                              |
-| Blog         | `content/blog.ts` (empty)                         | A CMS or blog model to be decided (X-03); add `/blog/[slug]` and sitemap entries together                                                                                                       |
-| Legal text   | `content/legal.ts` (outlines, `pending-approval`) | Client-approved text; set `status: 'approved'` and `effectiveDate`                                                                                                                              |
-| Enquiries    | Email hand-off (§5)                               | `POST /api/v1/enquiries` (Y-05)                                                                                                                                                                 |
+| Data         | Source today                                      | Future source                                                                                                                                                                                                 |
+| ------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Programmes   | `content/programmes.ts` (Order §2 facts)          | Unchanged. Real courses are a separate source since Phase 06: `GET /api/v1/courses` via `lib/catalog.ts` (“Available courses” on `/courses`, course pages at `/courses/<slug>`) — see COURSE-MANAGEMENT.md §5 |
+| Faculty      | `content/faculty.ts` (empty)                      | Public endpoint returning only `FacultyProfile.isPublic = true` rows and only public fields (name, designation, subjects, bio, photo URL) — never email, phone, roles, status or `employeeCode`               |
+| Live classes | `content/live-classes.ts` (empty)                 | Public schedule summary without join links (PHASE 11)                                                                                                                                                         |
+| Testimonials | `content/testimonials.ts` (empty)                 | Approved, consented entries (U-04)                                                                                                                                                                            |
+| Blog         | `content/blog.ts` (empty)                         | A CMS or blog model to be decided (X-03); add `/blog/[slug]` and sitemap entries together                                                                                                                     |
+| Legal text   | `content/legal.ts` (outlines, `pending-approval`) | Client-approved text; set `status: 'approved'` and `effectiveDate`                                                                                                                                            |
+| Enquiries    | Email hand-off (§5)                               | `POST /api/v1/enquiries` (Y-05)                                                                                                                                                                               |
 
-Pages depend only on the types, so swapping a source does not change page code. No backend endpoints, database schema or RBAC rules were changed in Phase 05.
+Pages depend only on the types, so swapping a source does not change page code. No backend endpoints, database schema or RBAC rules were changed in Phase 05. Phase 06 made `/courses` and `/courses/[slug]` render per request (published courses must disappear immediately when unpublished); the five programme slugs are reserved so courses cannot shadow them.
 
 ## 9. Verification (Phase 05)
 
