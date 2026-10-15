@@ -363,6 +363,7 @@ Rules:
 **PHASE 03 — Authentication & RBAC:** ✅ implemented: registration, login, rotating refresh sessions, logout, password reset, email verification, RBAC middleware, rate limiting, auth pages ([docs/AUTHENTICATION.md](docs/AUTHENTICATION.md))
 **PHASE 04 — Design System & Frontend Foundation:** ✅ implemented: ASRA tokens, typography roles, core UI components, education cards, public/dashboard/admin layouts, motion, `/design-system` showcase ([docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md))
 **PHASE 05 — Public Website:** ✅ implemented (uncommitted, pending review): all required public routes, course search and filtering, honest contact/enquiry hand-off, configurable WhatsApp CTA, page metadata, sitemap, robots, structured data ([docs/PUBLIC-WEBSITE.md](docs/PUBLIC-WEBSITE.md)). Client content still pending: faculty, testimonials, legal text, WhatsApp number, subject mapping
+**PHASE 06 — Academic & Course Management:** ✅ implemented (uncommitted, pending review): admin portal at `/admin` (academic levels, classes, streams, subjects, categories, courses, faculty assignment, curriculum editor, publish/unpublish), `/api/v1/admin/*` and public `/api/v1/courses` endpoints, migration `20261015071102_phase06_course_management`, published courses on `/courses` ([docs/COURSE-MANAGEMENT.md](docs/COURSE-MANAGEMENT.md)). Sign in at `/login` with an Admin account created by `npm run auth:create-user -- --role ADMIN`
 **PHASE 02 — Database & Backend Core:** ✅ implemented: LMS schema, initial migration, RBAC seed, database layer, error mapping, tests ([docs/DATABASE.md](docs/DATABASE.md))
 
 - Monorepo, web and API foundations, shared packages
@@ -395,19 +396,20 @@ Detailed plan: [docs/reference/IMPLEMENTATION-PLAN-PHASES.md](docs/reference/IMP
 
 ## Documentation
 
-| Document                                                       | Purpose                             |
-| -------------------------------------------------------------- | ----------------------------------- |
-| [docs/PRD.md](docs/PRD.md)                                     | Product requirements                |
-| [docs/SRS.md](docs/SRS.md)                                     | Software requirements specification |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   | System architecture                 |
-| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)                   | Requirements matrix                 |
-| [docs/DATABASE.md](docs/DATABASE.md)                           | Data model, migrations, seed, reset |
-| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)               | Auth flows, tokens, RBAC, security  |
-| [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md)                 | Tokens, components, layouts, motion |
-| [docs/PUBLIC-WEBSITE.md](docs/PUBLIC-WEBSITE.md)               | Public routes, content, SEO, forms  |
-| [docs/CLIENT-CLARIFICATIONS.md](docs/CLIENT-CLARIFICATIONS.md) | Open client questions               |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md)                         | Change history                      |
-| [docs/brand/README.md](docs/brand/README.md)                   | Logo files, colours, usage rules    |
+| Document                                                       | Purpose                                                        |
+| -------------------------------------------------------------- | -------------------------------------------------------------- |
+| [docs/PRD.md](docs/PRD.md)                                     | Product requirements                                           |
+| [docs/COURSE-MANAGEMENT.md](docs/COURSE-MANAGEMENT.md)         | Phase 06: academic & course management, publication rules, API |
+| [docs/SRS.md](docs/SRS.md)                                     | Software requirements specification                            |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   | System architecture                                            |
+| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)                   | Requirements matrix                                            |
+| [docs/DATABASE.md](docs/DATABASE.md)                           | Data model, migrations, seed, reset                            |
+| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)               | Auth flows, tokens, RBAC, security                             |
+| [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md)                 | Tokens, components, layouts, motion                            |
+| [docs/PUBLIC-WEBSITE.md](docs/PUBLIC-WEBSITE.md)               | Public routes, content, SEO, forms                             |
+| [docs/CLIENT-CLARIFICATIONS.md](docs/CLIENT-CLARIFICATIONS.md) | Open client questions                                          |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md)                         | Change history                                                 |
+| [docs/brand/README.md](docs/brand/README.md)                   | Logo files, colours, usage rules                               |
 
 ---
 

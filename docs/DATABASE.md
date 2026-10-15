@@ -2,8 +2,8 @@
 
 | Field   | Value                                                                |
 | ------- | -------------------------------------------------------------------- |
-| Version | 0.2.0                                                                |
-| Status  | Phase 02 — initial relational model implemented                      |
+| Version | 0.6.0                                                                |
+| Status  | Phase 06 — course fields, visibility and lesson types added          |
 | Schema  | [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma)  |
 | Engine  | PostgreSQL 17 (Docker, local) · Neon PostgreSQL (staging/production) |
 | ORM     | Prisma 7.10 with the `@prisma/adapter-pg` driver adapter             |
@@ -96,9 +96,11 @@ Registration fields, date of birth, guardian details and parental consent are **
 ### 2.4 Courses
 
 - `status` (`DRAFT` | `PUBLISHED` | `ARCHIVED`). `published_at` is required once a course is published (CHECK).
+- `visibility` (`PUBLIC` | `UNLISTED` | `PRIVATE`, Phase 06) is independent of `status`; see [COURSE-MANAGEMENT.md §3](./COURSE-MANAGEMENT.md#3-publication-and-visibility).
 - `category_id`, `class_id`, `stream_id` and `subject_id` are all optional. Special courses have no class, and school courses do not require a category.
-- **Not modelled yet:** price, discounts, language, level, duration, batches and validity. These are pending (B-02…B-04, M-01…M-06) and belong to Phases 06 and 10.
-- `course_instructors` links to `faculty_profiles`, not `users`, so only faculty can be instructors. "At most one primary instructor per course" is a **service-layer rule** (Phase 06). Prisma 7.10 cannot declare the partial unique index this would need without the index being reported as drift.
+- **Phase 06 fields:** `thumbnail_url` (HTTPS, exclusive with `thumbnail_key`), `duration_minutes` (estimated learning time, minutes), `price_minor` + `currency` (minor units, ISO 4217; `0` = free), `discount_type` + `discount_value` (percentage 1–100 or fixed amount ≤ price). Price data is administration-only; no checkout price is derived (PHASE 10).
+- **Not modelled yet:** language, level, batches and validity (B-02…B-04, A-06).
+- `course_instructors` links to `faculty_profiles`, not `users`, so only faculty can be instructors. "Exactly one primary instructor when any are assigned" is a **service-layer rule**, implemented in Phase 06 (`courseInstructorsSchema`). Prisma 7.10 cannot declare the partial unique index this would need without the index being reported as drift.
 
 ### 2.5 Curriculum and content
 
@@ -108,12 +110,12 @@ Course ──< Module ──< Chapter ──< Lesson ──< Resource
 
 - Each level has a 0-based `position`, unique within its parent (`@@unique([parentId, position])`) and non-negative (CHECK).
 - To **reorder** siblings, do it inside one transaction. The unique index is not deferrable, so first move the affected rows to temporary positions (e.g. negative values are rejected, so use `position + 10000`), then write their final positions.
-- `Lesson`: `content_type` (`VIDEO` | `DOCUMENT` | `TEXT` | `LINK`), optional `body`, `status`, `duration_seconds`, `is_preview` (H-04 assumption) and `published_at` (required when published).
+- `Lesson`: `content_type` (`VIDEO` | `DOCUMENT` | `TEXT` | `LINK`, plus `PDF` | `QUIZ` | `ASSIGNMENT` from Phase 06 — quiz/assignment are placeholders until PHASE 09), optional `body`, `status`, `duration_seconds`, `is_preview` (H-04 assumption) and `published_at` (required when published).
 - `Resource` never stores binary data. It points to **exactly one** location:
   - a stored object: `storage_provider` + `storage_key` (provider-neutral, e.g. `s3`, `r2` or `vimeo` with the object key); or
   - an external URL: `external_url`.
 
-  The CHECK `resources_location_exclusive` enforces this, and `EXTERNAL_LINK` resources must use a URL. The Zod schema `resourceInputSchema` in `@asra/validation` mirrors the same rule for API input. Upload and signed URLs come in a later phase (storage provider pending, R-01 and G-01).
+  The CHECK `resources_location_exclusive` enforces this, and `EXTERNAL_LINK` resources must use a URL. The Zod schema `resourceInputSchema` in `@asra/validation` mirrors the same rule for API input. Since Phase 06 external URLs must be `https://` on a public domain, and the API refuses stored-object locations while no storage provider is configured (`apps/api/src/config/storage.ts`). Upload and signed URLs come in a later phase (R-01, G-01).
 
 ## 3. Conventions
 
@@ -177,6 +179,22 @@ Prisma cannot declare CHECK constraints. They are appended to `20261013042559_in
 | `auth_sessions_expires_after_created`, `one_time_tokens_expires_after_created`                                     | `expires_at > created_at`                                                |
 
 Unique: `auth_sessions.token_hash`, `auth_sessions.previous_token_hash`, `one_time_tokens.token_hash`. Indexes: `(user_id, revoked_at)`, `(user_id, purpose)`, `expires_at` (future cleanup job). Both tables `CASCADE` from `users`. Design rationale: [AUTHENTICATION.md](./AUTHENTICATION.md).
+
+### 4.2.2 Phase 06 CHECK constraints (`20261015071102_phase06_course_management`)
+
+| Constraint                             | Rule                                               |
+| -------------------------------------- | -------------------------------------------------- |
+| `courses_duration_minutes_positive`    | `duration_minutes IS NULL OR > 0`                  |
+| `courses_price_minor_non_negative`     | `price_minor IS NULL OR >= 0`                      |
+| `courses_price_currency_consistent`    | price and currency both set or both null           |
+| `courses_currency_format`              | `currency ~ '^[A-Z]{3}$'`                          |
+| `courses_discount_consistent`          | discount type and value both set or both null      |
+| `courses_discount_requires_price`      | a discount needs `price_minor > 0`                 |
+| `courses_discount_value_valid`         | `PERCENTAGE` 1–100; `FIXED_AMOUNT` 1–`price_minor` |
+| `courses_thumbnail_location_exclusive` | not both `thumbnail_key` and `thumbnail_url`       |
+| `courses_thumbnail_url_https`          | `thumbnail_url ~ '^https://'`                      |
+
+The same rules are validated first by the Zod schemas in `@asra/validation` (`courses.ts`) so clients get field-level errors; the CHECKs are the backstop. New index: `courses(status, visibility)` for the public catalogue.
 
 ### 4.3 Indexes
 
@@ -298,7 +316,7 @@ Properties:
 - **Additive.** The seed never removes grants, so permissions an administrator adds later survive a re-seed. Removing a permission from the definitions requires an explicit migration or admin action.
 - **Atomic.** The seed runs in one interactive transaction (~18 sequential round trips: one upsert per permission and role, then one grant insert). Its limits are raised above Prisma's 5 s default (`SEED_TRANSACTION_OPTIONS`) because, run from a workstation against remote Neon, each round trip can take a few hundred milliseconds.
 - **No accounts.** No administrator, test user, password or email is seeded. Staff accounts (including the first Super Admin) are created explicitly with `npm run auth:create-user -- --email … --name "…" --role SUPER_ADMIN` (password via hidden prompt or `NEW_USER_PASSWORD`) — see [AUTHENTICATION.md §7](./AUTHENTICATION.md#7-provisioning-staff-accounts).
-- **No academic catalogue.** The final classes, streams, subjects and courses are pending client confirmation.
+- **No academic catalogue.** The final classes, streams, subjects and courses are pending client confirmation; administrators create them in the Phase 06 admin portal.
 
 ## 9. Neon (staging / production)
 
@@ -335,9 +353,12 @@ Production rules:
 
 Before the tests run, `npm run test:db:prepare -w @asra/api` creates the test database if needed and applies migrations with `migrate deploy`.
 
-| File                     | Covers                                                                                                               |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `tests/schema.test.ts`   | `prisma validate`, migration status, migrations ≡ schema (no drift), generated models, CHECK constraints present     |
-| `tests/seed.test.ts`     | Roles and permissions created, per-role grants, idempotency, additive behaviour                                      |
-| `tests/database.test.ts` | Connectivity (up/down), unique/FK/CHECK enforcement, cascades, RESTRICT, UUIDs, UTC timestamps, error mapping        |
-| `tests/http.test.ts`     | Health/readiness, 404, malformed JSON, Zod validation → 422, Prisma errors → 409/422 without leaking SQL or row data |
+| File                     | Covers                                                                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/schema.test.ts`   | `prisma validate`, migration status, migrations ≡ schema (no drift), generated models, CHECK constraints present                                              |
+| `tests/seed.test.ts`     | Roles and permissions created, per-role grants, idempotency, additive behaviour                                                                               |
+| `tests/database.test.ts` | Connectivity (up/down), unique/FK/CHECK enforcement, cascades, RESTRICT, UUIDs, UTC timestamps, error mapping                                                 |
+| `tests/http.test.ts`     | Health/readiness, 404, malformed JSON, Zod validation → 422, Prisma errors → 409/422 without leaking SQL or row data                                          |
+| Phase 06 suites          | `academics`, `courses`, `curriculum`, `public-catalog`, `acceptance-phase06` — see [COURSE-MANAGEMENT.md §9](./COURSE-MANAGEMENT.md#9-tests-and-verification) |
+
+`resetAuthState()` (tests/support/auth.ts) rebuilds role grants from the seed definitions before each test, so a permission granted at runtime by one test cannot leak into another suite (the seed itself stays additive).

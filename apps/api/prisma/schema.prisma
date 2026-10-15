@@ -1,4 +1,4 @@
-// ASRA Academy — Prisma schema (PHASE 02 — Database & Backend Core)
+// ASRA Academy — Prisma schema (PHASE 02 — Database & Backend Core; PHASE 06 course fields)
 //
 // Conventions (see docs/DATABASE.md):
 // - Models are PascalCase singular; tables are snake_case plural via @@map.
@@ -48,12 +48,40 @@ enum PublicationStatus {
   @@map("publication_status")
 }
 
+/// Who can see a PUBLISHED course on the public website (docs/COURSE-MANAGEMENT.md §3).
+/// Independent of `status`: a course that is not PUBLISHED is never public, whatever this says.
+enum CourseVisibility {
+  /// Listed in the public catalogue and reachable by its slug.
+  PUBLIC
+  /// Not listed; reachable only by its slug (shareable link), and `noindex`.
+  UNLISTED
+  /// Never exposed by public endpoints (reserved for enrolled-only access, PHASE 10).
+  PRIVATE
+
+  @@map("course_visibility")
+}
+
+/// How `Course.discountValue` is interpreted (CLIENT-CLARIFICATIONS M-06 pending).
+enum DiscountType {
+  /// Whole percent, 1–100.
+  PERCENTAGE
+  /// Amount in the course currency's minor unit, 1–price.
+  FIXED_AMOUNT
+
+  @@map("discount_type")
+}
+
 /// Primary kind of content a lesson delivers.
+/// LINK = "External resource". QUIZ and ASSIGNMENT are placeholders (instructions + optional
+/// resources) until the assessment engine exists (PHASE 09).
 enum LessonContentType {
   VIDEO
   DOCUMENT
   TEXT
   LINK
+  PDF
+  QUIZ
+  ASSIGNMENT
 
   @@map("lesson_content_type")
 }
@@ -386,23 +414,35 @@ model CourseCategory {
 }
 
 /// An enrollable unit of learning: a subject for a class (optionally a stream), or a special course.
-/// Pricing, enrolment and batches are deliberately absent (PHASE 10; CLIENT-CLARIFICATIONS B, M).
+/// Enrolment and batches are deliberately absent (PHASE 10; CLIENT-CLARIFICATIONS B, M). Price and
+/// discount are stored for administration only; no checkout price is derived from them (PHASE 10).
 model Course {
-  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title        String            @db.VarChar(200)
-  slug         String            @unique @db.VarChar(220)
-  summary      String?           @db.VarChar(500)
-  description  String?           @db.Text
-  status       PublicationStatus @default(DRAFT)
-  categoryId   String?           @map("category_id") @db.Uuid
-  classId      String?           @map("class_id") @db.Uuid
-  streamId     String?           @map("stream_id") @db.Uuid
-  subjectId    String?           @map("subject_id") @db.Uuid
-  /// Provider-neutral storage key of the cover image.
-  thumbnailKey String?           @map("thumbnail_key") @db.VarChar(1024)
-  publishedAt  DateTime?         @map("published_at") @db.Timestamptz(3)
-  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title           String            @db.VarChar(200)
+  slug            String            @unique @db.VarChar(220)
+  summary         String?           @db.VarChar(500)
+  description     String?           @db.Text
+  status          PublicationStatus @default(DRAFT)
+  visibility      CourseVisibility  @default(PUBLIC)
+  categoryId      String?           @map("category_id") @db.Uuid
+  classId         String?           @map("class_id") @db.Uuid
+  streamId        String?           @map("stream_id") @db.Uuid
+  subjectId       String?           @map("subject_id") @db.Uuid
+  /// Provider-neutral storage key of the cover image (storage provider pending, R-01).
+  thumbnailKey    String?           @map("thumbnail_key") @db.VarChar(1024)
+  /// HTTPS URL of an externally hosted cover image. At most one of key/URL (CHECK).
+  thumbnailUrl    String?           @map("thumbnail_url") @db.VarChar(2048)
+  /// Estimated total learning time in MINUTES (CHECK > 0). Not a validity period (B-02).
+  durationMinutes Int?              @map("duration_minutes")
+  /// Price in the currency's minor unit (paise for INR); 0 = free. Set together with `currency`.
+  priceMinor      Int?              @map("price_minor")
+  /// ISO 4217 code, e.g. "INR" (M-03 pending: INR only is the current assumption).
+  currency        String?           @db.Char(3)
+  discountType    DiscountType?     @map("discount_type")
+  discountValue   Int?              @map("discount_value")
+  publishedAt     DateTime?         @map("published_at") @db.Timestamptz(3)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   category    CourseCategory?    @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   class       Class?             @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -412,6 +452,7 @@ model Course {
   modules     Module[]
 
   @@index([status, publishedAt])
+  @@index([status, visibility])
   @@index([categoryId])
   @@index([classId, subjectId])
   @@index([streamId])

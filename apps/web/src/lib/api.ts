@@ -1,4 +1,5 @@
 import type { ApiErrorCode, ApiResponse, HealthData } from '@asra/types';
+import { unstable_rethrow } from 'next/navigation';
 import { publicEnv } from './env';
 
 /** Client-side error codes for failures that never reached the API's envelope. */
@@ -16,9 +17,14 @@ export class ApiClientError extends Error {
     this.name = 'ApiClientError';
   }
 
-  /** Field → first message, from a 422 response's Zod issues. */
+  /**
+   * Field → first message, from a 422 response's Zod issues or a 409 field conflict (e.g. a
+   * duplicate slug), which the API reports in the same `{ path, message }` shape.
+   */
   get fieldErrors(): Record<string, string> {
-    if (this.code !== 'VALIDATION_ERROR' || !Array.isArray(this.details)) return {};
+    if (!['VALIDATION_ERROR', 'CONFLICT'].includes(this.code) || !Array.isArray(this.details)) {
+      return {};
+    }
     const errors: Record<string, string> = {};
     for (const issue of this.details as { path?: unknown[]; message?: string }[]) {
       const field = issue.path?.[0];
@@ -61,7 +67,11 @@ export async function apiRequest<TData>(
       cache: 'no-store',
       signal: options.signal ?? AbortSignal.timeout(options.timeoutMs ?? 15_000),
     });
-  } catch {
+  } catch (error) {
+    // On the server, Next.js may throw from a `no-store` fetch to switch a route to request-time
+    // rendering (e.g. /courses/<slug> pages that were not prerendered). That is control flow, not
+    // a network failure, and must reach Next.js untouched. A no-op for every other error.
+    unstable_rethrow(error);
     throw new ApiClientError(
       0,
       'NETWORK_ERROR',
