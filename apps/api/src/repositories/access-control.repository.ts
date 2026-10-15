@@ -12,6 +12,11 @@ export interface PermissionInput {
   description: string;
 }
 
+export interface RolePermissionGrant {
+  roleId: string;
+  permissionId: string;
+}
+
 /**
  * Data access for roles, permissions and their grants. Only repositories talk to Prisma.
  *
@@ -31,11 +36,14 @@ export function createAccessControlRepository(db: DbClient) {
       return db.permission.upsert({ where: { key }, create: input, update: fields });
     },
 
-    /** Grants permissions to a role; existing grants are left untouched. Returns grants added. */
-    async grantPermissions(roleId: string, permissionIds: readonly string[]): Promise<number> {
-      if (permissionIds.length === 0) return 0;
+    /**
+     * Inserts role → permission grants in one statement; existing grants are left untouched.
+     * Returns grants added.
+     */
+    async grantPermissions(grants: readonly RolePermissionGrant[]): Promise<number> {
+      if (grants.length === 0) return 0;
       const { count } = await db.rolePermission.createMany({
-        data: permissionIds.map((permissionId) => ({ roleId, permissionId })),
+        data: grants.map(({ roleId, permissionId }) => ({ roleId, permissionId })),
         skipDuplicates: true,
       });
       return count;

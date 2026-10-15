@@ -3,7 +3,12 @@ import { after, before, describe, it } from 'node:test';
 import { PERMISSIONS, USER_ROLES } from '@asra/types';
 import { disconnectPrisma, prisma } from '../src/database/prisma.js';
 import { PERMISSION_DEFINITIONS, SYSTEM_ROLES } from '../src/database/seed/access-control.data.js';
-import { seedAccessControl } from '../src/database/seed/access-control.seed.js';
+import {
+  SEED_TRANSACTION_OPTIONS,
+  seedAccessControl,
+} from '../src/database/seed/access-control.seed.js';
+
+type TransactionArgs = Parameters<typeof prisma.$transaction>;
 
 async function snapshot() {
   const [roles, permissions, grants] = await Promise.all([
@@ -69,6 +74,21 @@ describe('access-control seed', () => {
     assert.deepEqual(await snapshot(), first);
   });
 
+  it('runs in one transaction with limits above Prisma defaults (remote Neon latency)', async () => {
+    let options: unknown;
+    const recorder = {
+      $transaction: (work: TransactionArgs[0], opts: TransactionArgs[1]) => {
+        options = opts;
+        return prisma.$transaction(work, opts);
+      },
+    } as unknown as typeof prisma;
+
+    await seedAccessControl(recorder);
+    assert.deepEqual(options, SEED_TRANSACTION_OPTIONS);
+    assert.ok(SEED_TRANSACTION_OPTIONS.timeout > 5_000);
+    assert.ok(SEED_TRANSACTION_OPTIONS.maxWait > 2_000);
+  });
+
   it('keeps grants added outside the seed (additive sync)', async () => {
     const student = await prisma.role.findUniqueOrThrow({ where: { key: 'STUDENT' } });
     const extra = await prisma.permission.findUniqueOrThrow({
@@ -84,5 +104,34 @@ describe('access-control seed', () => {
     await prisma.rolePermission.delete({
       where: { roleId_permissionId: { roleId: student.id, permissionId: extra.id } },
     });
+  });
+
+  it('is atomic: a failure on the last statement leaves no partial RBAC data', async () => {
+    await prisma.rolePermission.deleteMany();
+    await prisma.role.deleteMany();
+    await prisma.permission.deleteMany();
+
+    // Fail the final grant insert, after every role and permission upsert has run.
+    const failing = {
+      $transaction: (work: TransactionArgs[0], opts: TransactionArgs[1]) =>
+        prisma.$transaction(
+          (tx) =>
+            work(
+              new Proxy(tx, {
+                get: (target, property, receiver) =>
+                  property === 'rolePermission'
+                    ? { createMany: () => Promise.reject(new Error('simulated failure')) }
+                    : Reflect.get(target, property, receiver),
+              }),
+            ),
+          opts,
+        ),
+    } as unknown as typeof prisma;
+
+    await assert.rejects(seedAccessControl(failing), /simulated failure/);
+    assert.deepEqual(await snapshot(), { roles: 0, permissions: 0, grants: 0 });
+
+    await seedAccessControl(prisma);
+    assert.equal((await snapshot()).roles, SYSTEM_ROLES.length);
   });
 });
