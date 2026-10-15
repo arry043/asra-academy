@@ -1,31 +1,38 @@
+import { programmes } from '@/content/programmes';
 import type { NavItem } from '@/lib/navigation';
 
 /**
- * Public website navigation, from the documented page list (REQUIREMENTS REQ-PUB-001…015 and the
- * Phase 05 route plan). These pages are built in PHASE 05 — until then, only the design-system
- * showcase renders this navigation.
+ * Public website navigation (REQUIREMENTS REQ-PUB-001…015). The brand mark links home, so "Home"
+ * is not repeated. Programme links are generated from the catalogue so they never drift from the
+ * pages that exist.
  */
+const programmeLinks: NavItem[] = programmes.map((programme) => ({
+  label: programme.title,
+  href: programme.href,
+}));
+
 export const publicNavigation: NavItem[] = [
-  { label: 'Home', href: '/', exact: true },
   { label: 'About', href: '/about' },
-  { label: 'Courses', href: '/courses' },
+  {
+    label: 'Courses',
+    href: '/courses',
+    children: [{ label: 'All courses', href: '/courses', exact: true }, ...programmeLinks],
+  },
   { label: 'Faculty', href: '/faculty' },
   { label: 'Admission', href: '/admission' },
   { label: 'Contact', href: '/contact' },
 ];
 
+/** Header actions: sign-in for existing students, enquiry for visitors. */
+export const publicHeaderActions = {
+  login: { label: 'Login', href: '/login' },
+  cta: { label: 'Enquire now', href: '/contact' },
+} as const;
+
 export const footerNavigation: { title: string; links: NavItem[] }[] = [
   {
     title: 'Learn',
-    links: [
-      { label: 'Classes 6–10', href: '/classes/6-10' },
-      { label: 'Classes 11–12', href: '/classes/11-12' },
-      { label: 'English Language', href: '/courses/english' },
-      { label: 'Entrepreneurship & Business', href: '/courses/entrepreneurship' },
-      { label: 'Quranic Studies', href: '/courses/quranic-studies' },
-      { label: 'Arabic', href: '/courses/arabic' },
-      { label: 'Urdu', href: '/courses/urdu' },
-    ],
+    links: [{ label: 'All courses', href: '/courses' }, ...programmeLinks],
   },
   {
     title: 'Academy',
@@ -33,7 +40,9 @@ export const footerNavigation: { title: string; links: NavItem[] }[] = [
       { label: 'About', href: '/about' },
       { label: 'Faculty', href: '/faculty' },
       { label: 'Admission', href: '/admission' },
+      { label: 'Blog', href: '/blog' },
       { label: 'Contact', href: '/contact' },
+      { label: 'Student login', href: '/login' },
     ],
   },
 ];

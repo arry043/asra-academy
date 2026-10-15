@@ -41,10 +41,10 @@ describe('Button', () => {
   it('renders the child element with asChild', () => {
     const out = html(
       <Button asChild>
-        <a href="/courses">Courses</a>
+        <a href="https://example.com/docs">Docs</a>
       </Button>,
     );
-    assert.match(out, /^<a [^>]*href="\/courses"/);
+    assert.match(out, /^<a [^>]*href="https:\/\/example\.com\/docs"/);
     assert.doesNotMatch(out, /<button/);
   });
 });

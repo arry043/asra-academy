@@ -32,9 +32,28 @@ Entry template:
 
 - Removed the `helmet` `paths` pin from `apps/api/tsconfig.json`: `tsx` applies `paths` at runtime, so the dev server and API tests loaded Helmet's type-only `index.d.mts` and failed. `apps/api/src/app.ts` now types the Helmet default import explicitly, which still satisfies Vercel's Express-builder type check.
 
-### Planned
+### Added — PHASE 05 Public Website (uncommitted, pending review)
 
-- PHASE 05 — Public Website.
+- Public route group `apps/web/src/app/(public)`: shared layout (Navbar, `<main id="main-content">`, Footer), page transition template and error boundary. No auth provider, so public pages make no API calls.
+- Routes: `/`, `/about`, `/courses`, `/classes/6-10`, `/classes/11-12`, `/courses/{english,entrepreneurship,quranic-studies,arabic,urdu}`, `/faculty`, `/admission`, `/contact`, `/blog`, `/privacy-policy`, `/terms`, `/refund-policy`. The existing `/login` is unchanged and linked from the header. Special courses and class bands share one `ProgrammePage` template via `courses/[slug]` and `classes/[band]` (`generateStaticParams`, `dynamicParams = false`, so unknown slugs return 404).
+- Homepage sections in reference order: Hero, Platform Highlights, Courses, Why ASRA, Live Classes, Faculty, Learning Process, Testimonials, CTA.
+- Typed public content in `src/content/`: programme catalogue from the Project Development Order §2 only; empty lists for faculty, testimonials, live classes and blog (honest empty states); legal outlines marked "pending approval" with no commitments.
+- Course directory: case/accent-insensitive multi-word search plus category filter, combined; URL-synced (`?q=`, `?category=`) without history spam; result count live region; clear-filters; empty state; server-rendered full list as the Suspense fallback.
+- Contact form: shared `enquirySchema` (new in `@asra/validation`), inline accessible errors with focus on the first invalid field, `?topic=` preselection. There is no enquiry API, so a valid form opens the visitor's email app addressed to the confirmed email and the page never claims delivery.
+- WhatsApp click-to-chat (`WhatsAppLink`, `lib/whatsapp.ts`), configured by `NEXT_PUBLIC_WHATSAPP_NUMBER` (validated). It renders nothing while unset.
+- SEO: `buildPageMetadata` (unique title and description, canonical, Open Graph, Twitter per page), `app/sitemap.ts` (16 indexable routes; excludes auth pages, design system and the empty blog), `app/robots.ts`, and JSON-LD (EducationalOrganization and WebSite on home, BreadcrumbList on inner pages) from confirmed facts only, escaped against `</script>`.
+- `SITE_INDEXING_ENABLED` (build-time, default off): controls root `meta robots` and robots.txt so preview/staging builds are never indexed.
+- Navbar: optional `children` on `NavItem` render a keyboard-accessible disclosure menu on desktop (Escape, outside click and focus-out close it) and a grouped list in the drawer; new `secondaryCta` prop (Login). Existing props are unchanged.
+- CourseCard: optional `icon` and `tone` for the imageless cover panel. Defaults are unchanged.
+- Tests: `apps/web/tests/public-website.test.tsx` adds 38 tests: filter logic, URL state, WhatsApp/mailto encoding, enquiry schema, metadata, JSON-LD escaping, sitemap and robots, no dead navigation links, and pending legal/provisional programme content.
+- Docs: new `docs/PUBLIC-WEBSITE.md`; ARCHITECTURE (structure, ADR-021–023), REQUIREMENTS statuses, CLIENT-CLARIFICATIONS section Y (Y-01–Y-06), README and `.env.example`.
+
+### Changed
+
+- The Phase 04 foundation page (`app/page.tsx`, API status card) is replaced by the real homepage in `app/(public)/page.tsx`.
+- Root layout `robots` is env-driven (previously always `noindex`).
+- `config/navigation.ts`: Home removed from the header (the brand mark links home); Courses has sub-links generated from the catalogue; the footer gains Blog and Student login.
+- Web test fixture in `components.test.tsx` now uses an external URL for the `Button asChild` case, because `/courses` now exists and `@next/next/no-html-link-for-pages` flags a raw `<a href="/courses">`.
 
 ---
 

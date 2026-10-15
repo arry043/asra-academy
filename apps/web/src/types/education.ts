@@ -34,6 +34,10 @@ export interface CourseSummary {
   /** Language of instruction, e.g. "English", "Urdu" (A-06 pending). */
   language?: string;
   action?: CardLink;
+  /** Icon element for the cover panel when there is no image (defaults to a book). */
+  icon?: React.ReactNode;
+  /** Pastel tone of the imageless cover panel (defaults to brand green). */
+  tone?: CategoryTone;
 }
 
 export interface FacultySummary {

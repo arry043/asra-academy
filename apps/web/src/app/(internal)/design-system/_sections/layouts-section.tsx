@@ -19,7 +19,7 @@ export function LayoutsSection() {
       tone="muted"
       eyebrow="D · Layouts"
       title="Shared layouts"
-      description="Public and authenticated shells. Public routes in the navigation are planned for Phase 05 and do not exist yet."
+      description="Public and authenticated shells. The public navigation links to the live Phase 05 pages."
     >
       <ShowcaseBlock
         title="Navbar"

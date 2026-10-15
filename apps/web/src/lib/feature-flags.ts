@@ -12,3 +12,14 @@
 export function isDesignSystemEnabled(): boolean {
   return process.env.NODE_ENV !== 'production' || process.env.ENABLE_DESIGN_SYSTEM === 'true';
 }
+
+/**
+ * Search-engine indexing of the public website. OFF unless `SITE_INDEXING_ENABLED=true`, so local,
+ * preview and staging deployments are never indexed by accident. Unlike the flag above, this is
+ * read when pages are PRERENDERED (metadata and robots.txt of static routes), so set it in the
+ * build environment of the production deployment only — after the domain is live (W-04) and
+ * the legal pages carry approved text (U-01).
+ */
+export function isSiteIndexingEnabled(): boolean {
+  return process.env.SITE_INDEXING_ENABLED === 'true';
+}
