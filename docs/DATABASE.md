@@ -187,17 +187,18 @@ Besides the unique indexes above, there are B-tree indexes on:
 
 ## 5. Connections: local vs. Neon
 
-| Variable              | Used by                                                | Local (Docker)                               | Neon (staging/production)                                |
-| --------------------- | ------------------------------------------------------ | -------------------------------------------- | -------------------------------------------------------- |
-| `DATABASE_URL`        | Running API (`pg` pool via `@prisma/adapter-pg`)       | `postgresql://…@localhost:5432/asra_academy` | **Pooled** endpoint (`…-pooler…`) with `sslmode=require` |
-| `DIRECT_DATABASE_URL` | Prisma CLI (`prisma.config.ts`): migrate, studio, seed | same as `DATABASE_URL`                       | **Direct** endpoint with `sslmode=require`               |
-| `DATABASE_POOL_MAX`   | API pool size per process (default 10)                 | default                                      | keep small; the Neon pooler multiplexes                  |
-| `TEST_DATABASE_URL`   | Automated tests (optional)                             | defaults to `<DATABASE_URL db>_test`         | **never** Neon (refused by the test harness)             |
+| Variable              | Used by                                          | Local (Docker)                               | Neon (staging/production)                                |
+| --------------------- | ------------------------------------------------ | -------------------------------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`        | Running API (`pg` pool via `@prisma/adapter-pg`) | `postgresql://…@localhost:5432/asra_academy` | **Pooled** endpoint (`…-pooler…`) with `sslmode=require` |
+| `DIRECT_DATABASE_URL` | Prisma CLI (`prisma.config.ts`): migrate, studio | same as `DATABASE_URL`                       | **Direct** endpoint with `sslmode=require`               |
+| `DATABASE_POOL_MAX`   | API pool size per process (default 10)           | default                                      | keep small; the Neon pooler multiplexes                  |
+| `TEST_DATABASE_URL`   | Automated tests (optional)                       | defaults to `<DATABASE_URL db>_test`         | **never** Neon (refused by the test harness)             |
 
 In Prisma 7 the schema's `datasource` block holds no URL:
 
 - `prisma.config.ts` supplies the CLI URL (`DIRECT_DATABASE_URL`, falling back to `DATABASE_URL`);
 - the runtime client receives `DATABASE_URL` through the driver adapter (`apps/api/src/database/prisma.ts`).
+- the seed (`prisma db seed` → `prisma/seed.ts`) uses that same runtime client, so it connects through `DATABASE_URL`.
 
 Migrations go over the direct connection because they take advisory locks, which PgBouncer transaction pooling does not support.
 
@@ -295,7 +296,7 @@ Properties:
 
 - **Idempotent.** Roles and permissions are upserted by `key`, and grants use `createMany({ skipDuplicates: true })`. Re-running changes nothing (this is covered by tests).
 - **Additive.** The seed never removes grants, so permissions an administrator adds later survive a re-seed. Removing a permission from the definitions requires an explicit migration or admin action.
-- **Atomic.** The seed runs in one transaction.
+- **Atomic.** The seed runs in one interactive transaction (~18 sequential round trips: one upsert per permission and role, then one grant insert). Its limits are raised above Prisma's 5 s default (`SEED_TRANSACTION_OPTIONS`) because, run from a workstation against remote Neon, each round trip can take a few hundred milliseconds.
 - **No accounts.** No administrator, test user, password or email is seeded. Staff accounts (including the first Super Admin) are created explicitly with `npm run auth:create-user -- --email … --name "…" --role SUPER_ADMIN` (password via hidden prompt or `NEW_USER_PASSWORD`) — see [AUTHENTICATION.md §7](./AUTHENTICATION.md#7-provisioning-staff-accounts).
 - **No academic catalogue.** The final classes, streams, subjects and courses are pending client confirmation.
 
