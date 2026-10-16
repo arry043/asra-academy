@@ -36,32 +36,38 @@ This document covers the data model, its conventions and constraints, and how to
                       ├──< Module ──< Chapter ──< Lesson ──< Resource
                       │                             │
  User ──< Enrollment >┘          User ──< LessonProgress >── Lesson   (Phase 07)
+
+ Lesson (ASSIGNMENT) ──1:1── Assignment ──< AssignmentSubmission >── User (student)  (Phase 08)
+ Course ──< LiveClassSession >── FacultyProfile (host)                               (Phase 08)
 ```
 
 `A ──< B` = one A has many B. `?` = optional (nullable foreign key).
 
-| Model              | Table                | Purpose                                                                                |
-| ------------------ | -------------------- | -------------------------------------------------------------------------------------- |
-| `User`             | `users`              | Central identity: email, password hash (Phase 03), name, status, email verification    |
-| `Role`             | `roles`              | Named permission set (`SUPER_ADMIN`, `ADMIN`, `FACULTY`, `STUDENT`; more can be added) |
-| `Permission`       | `permissions`        | Grantable capability with a stable key, e.g. `courses.manage`                          |
-| `UserRole`         | `user_roles`         | **Additional join model** — User ↔ Role (many-to-many)                                 |
-| `RolePermission`   | `role_permissions`   | **Additional join model** — Role ↔ Permission (many-to-many)                           |
-| `StudentProfile`   | `student_profiles`   | Student academic data, 1:1 with User                                                   |
-| `FacultyProfile`   | `faculty_profiles`   | Faculty professional data, 1:1 with User                                               |
-| `AcademicLevel`    | `academic_levels`    | Band of school education, e.g. "Classes 6–10", "Classes 11–12"                         |
-| `Class`            | `classes`            | School grade, e.g. "Class 10"; belongs to one academic level                           |
-| `Stream`           | `streams`            | Stream within a level, e.g. Science (Classes 11–12); list pending                      |
-| `Subject`          | `subjects`           | Reusable subject, e.g. Mathematics                                                     |
-| `CourseCategory`   | `course_categories`  | Admin-managed course grouping                                                          |
-| `Course`           | `courses`            | Enrollable unit: a subject for a class (± stream), or a special course                 |
-| `CourseInstructor` | `course_instructors` | Course ↔ FacultyProfile assignment with `isPrimary`                                    |
-| `Module`           | `modules`            | Ordered section of a course                                                            |
-| `Chapter`          | `chapters`           | Ordered section of a module                                                            |
-| `Lesson`           | `lessons`            | Ordered learning item in a chapter (video, document, text, link)                       |
-| `Resource`         | `resources`          | Learning material attached to a lesson (storage object or external URL)                |
-| `Enrollment`       | `enrollments`        | Phase 07: a student's entitlement to a course (ACTIVE/CANCELLED, FREE/ADMIN source)    |
-| `LessonProgress`   | `lesson_progress`    | Phase 07: one student's progress in one lesson (viewed, completed, video telemetry)    |
+| Model                  | Table                    | Purpose                                                                                |
+| ---------------------- | ------------------------ | -------------------------------------------------------------------------------------- |
+| `User`                 | `users`                  | Central identity: email, password hash (Phase 03), name, status, email verification    |
+| `Role`                 | `roles`                  | Named permission set (`SUPER_ADMIN`, `ADMIN`, `FACULTY`, `STUDENT`; more can be added) |
+| `Permission`           | `permissions`            | Grantable capability with a stable key, e.g. `courses.manage`                          |
+| `UserRole`             | `user_roles`             | **Additional join model** — User ↔ Role (many-to-many)                                 |
+| `RolePermission`       | `role_permissions`       | **Additional join model** — Role ↔ Permission (many-to-many)                           |
+| `StudentProfile`       | `student_profiles`       | Student academic data, 1:1 with User                                                   |
+| `FacultyProfile`       | `faculty_profiles`       | Faculty professional data, 1:1 with User                                               |
+| `AcademicLevel`        | `academic_levels`        | Band of school education, e.g. "Classes 6–10", "Classes 11–12"                         |
+| `Class`                | `classes`                | School grade, e.g. "Class 10"; belongs to one academic level                           |
+| `Stream`               | `streams`                | Stream within a level, e.g. Science (Classes 11–12); list pending                      |
+| `Subject`              | `subjects`               | Reusable subject, e.g. Mathematics                                                     |
+| `CourseCategory`       | `course_categories`      | Admin-managed course grouping                                                          |
+| `Course`               | `courses`                | Enrollable unit: a subject for a class (± stream), or a special course                 |
+| `CourseInstructor`     | `course_instructors`     | Course ↔ FacultyProfile assignment with `isPrimary`                                    |
+| `Module`               | `modules`                | Ordered section of a course                                                            |
+| `Chapter`              | `chapters`               | Ordered section of a module                                                            |
+| `Lesson`               | `lessons`                | Ordered learning item in a chapter (video, document, text, link)                       |
+| `Resource`             | `resources`              | Learning material attached to a lesson (storage object or external URL)                |
+| `Enrollment`           | `enrollments`            | Phase 07: a student's entitlement to a course (ACTIVE/CANCELLED, FREE/ADMIN source)    |
+| `LessonProgress`       | `lesson_progress`        | Phase 07: one student's progress in one lesson (viewed, completed, video telemetry)    |
+| `Assignment`           | `assignments`            | Phase 08: submission settings (max marks, due date) of one ASSIGNMENT lesson           |
+| `AssignmentSubmission` | `assignment_submissions` | Phase 08: a student's work, marks, feedback, reviewer and result release               |
+| `LiveClassSession`     | `live_class_sessions`    | Phase 08: a scheduled live class of a course (provider-neutral, optional manual link)  |
 
 ### Why the two additional models
 
@@ -211,6 +217,22 @@ The same rules are validated first by the Zod schemas in `@asra/validation` (`co
 
 Unique: `enrollments(user_id, course_id)` (one enrolment per student and course; re-enrolment reactivates the row) and `lesson_progress(user_id, lesson_id)` (one current progress row per student and lesson). Indexes: `enrollments(user_id, status, last_activity_at)` (dashboard/continue learning), `enrollments(course_id, status)` (admin lists), `lesson_progress(user_id, last_viewed_at)` (history), plus the foreign keys. Referential actions: student deleted → their enrolments and progress `CASCADE`; course with enrolments → `RESTRICT` (archive instead); lesson deleted → its progress `CASCADE`, `enrollments.last_lesson_id` `SET NULL`; administrator deleted → `enrolled_by_id` `SET NULL`. Rules and rationale: [STUDENT-LMS.md](./STUDENT-LMS.md).
 
+### 4.2.4 Phase 08 constraints (`20261016102329_phase08_faculty_portal`)
+
+| Constraint                                      | Rule                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------- |
+| `assignments_max_marks_range`                   | `max_marks BETWEEN 1 AND 1000`                                            |
+| `assignment_submissions_marks_non_negative`     | `marks_awarded IS NULL OR >= 0` (upper bound = max marks, in the service) |
+| `assignment_submissions_graded_consistent`      | `status = 'GRADED'` ⇔ marks and `graded_at` recorded                      |
+| `assignment_submissions_release_requires_grade` | `result_released_at` only on a GRADED submission                          |
+| `assignment_submissions_body_not_blank`         | the submitted text is not empty                                           |
+| `assignment_submissions_attachment_https`       | `attachment_url` is null or starts with `https://`                        |
+| `live_class_sessions_duration_range`            | `duration_minutes BETWEEN 15 AND 480`                                     |
+| `live_class_sessions_cancelled_at_consistent`   | `status = 'CANCELLED'` ⇔ `cancelled_at IS NOT NULL`                       |
+| `live_class_sessions_join_url_https`            | `join_url` is null, or `https://…` with a `provider` recorded             |
+
+Unique: `assignments(lesson_id)` (one settings row per lesson) and `assignment_submissions(assignment_id, user_id)` (one submission per student, I-02). Indexes: `assignment_submissions(assignment_id, status)` (review queue/counts), `(user_id, result_released_at)` (student results), `live_class_sessions(course_id, starts_at)` and `(host_faculty_profile_id, starts_at)` (schedules), plus the foreign keys. Referential actions: lesson deleted → its `assignments` row `CASCADE`, but `assignment_submissions → assignments` is `RESTRICT`, so a lesson with submitted work cannot be deleted (the service answers 409 first); student deleted → their submissions `CASCADE`; reviewer/creator deleted → `SET NULL`; course deleted → its live classes `CASCADE` (courses are deletable only while empty drafts). Rules: [FACULTY-PORTAL.md](./FACULTY-PORTAL.md).
+
 ### 4.3 Indexes
 
 Besides the unique indexes above, there are B-tree indexes on:
@@ -309,22 +331,25 @@ Nothing resets the database automatically: not `npm run dev`, not API startup, a
 
 `apps/api/prisma/seed.ts` calls `seedAccessControl()` (`apps/api/src/database/seed/`). The seed creates **only** RBAC reference data:
 
-| Permission                  | Requirement                 | SUPER_ADMIN | ADMIN | FACULTY | STUDENT |
-| --------------------------- | --------------------------- | :---------: | :---: | :-----: | :-----: |
-| `system.manage`             | SRS §4                      |      ✓      |       |         |         |
-| `admins.manage`             | FR-ADM-014                  |      ✓      |       |         |         |
-| `roles.manage`              | FR-RBAC-005                 |      ✓      |       |         |         |
-| `students.manage`           | FR-ADM-001                  |      ✓      |   ✓   |         |         |
-| `faculty.manage`            | FR-ADM-002                  |      ✓      |   ✓   |         |         |
-| `academic_structure.manage` | FR-ADM-003, FR-ACA-003      |      ✓      |   ✓   |         |         |
-| `courses.manage`            | FR-ADM-004                  |      ✓      |   ✓   |         |         |
-| `content.manage`            | FR-ADM-009                  |      ✓      |   ✓   |         |         |
-| `content.manage_assigned`   | FR-FAC-003/004, FR-RBAC-003 |      ✓      |       |    ✓    |         |
-| `enrollments.manage`        | Phase 07 (manual enrolment) |      ✓      |   ✓   |         |         |
-| `content.view_enrolled`     | FR-RBAC-004                 |      ✓      |       |         |    ✓    |
-| `profile.manage_own`        | FR-STU-008                  |      ✓      |   ✓   |    ✓    |    ✓    |
+| Permission                     | Requirement                 | SUPER_ADMIN | ADMIN | FACULTY | STUDENT |
+| ------------------------------ | --------------------------- | :---------: | :---: | :-----: | :-----: |
+| `system.manage`                | SRS §4                      |      ✓      |       |         |         |
+| `admins.manage`                | FR-ADM-014                  |      ✓      |       |         |         |
+| `roles.manage`                 | FR-RBAC-005                 |      ✓      |       |         |         |
+| `students.manage`              | FR-ADM-001                  |      ✓      |   ✓   |         |         |
+| `faculty.manage`               | FR-ADM-002                  |      ✓      |   ✓   |         |         |
+| `academic_structure.manage`    | FR-ADM-003, FR-ACA-003      |      ✓      |   ✓   |         |         |
+| `courses.manage`               | FR-ADM-004                  |      ✓      |   ✓   |         |         |
+| `content.manage`               | FR-ADM-009                  |      ✓      |   ✓   |         |         |
+| `content.manage_assigned`      | FR-FAC-003/004, FR-RBAC-003 |      ✓      |       |    ✓    |         |
+| `students.view_assigned`       | FR-FAC-007 (Phase 08)       |      ✓      |       |    ✓    |         |
+| `submissions.grade_assigned`   | FR-FAC-006 (Phase 08)       |      ✓      |       |    ✓    |         |
+| `live_classes.manage_assigned` | FR-FAC-005 (Phase 08)       |      ✓      |       |    ✓    |         |
+| `enrollments.manage`           | Phase 07 (manual enrolment) |      ✓      |   ✓   |         |         |
+| `content.view_enrolled`        | FR-RBAC-004                 |      ✓      |       |         |    ✓    |
+| `profile.manage_own`           | FR-STU-008                  |      ✓      |   ✓   |    ✓    |    ✓    |
 
-Permission keys are shared with the web app as `PERMISSIONS` in `@asra/types`. Permissions for later modules (payments, assessments, certificates, notifications and reports) will be added in their phases. Because the seed is additive, run `npm run db:seed` once on existing databases to grant `enrollments.manage` (Phase 07).
+Permission keys are shared with the web app as `PERMISSIONS` in `@asra/types`. Permissions for later modules (payments, assessments, certificates, notifications and reports) will be added in their phases. Because the seed is additive, run `npm run db:seed` once on existing databases to grant `enrollments.manage` (Phase 07) and the three faculty permissions (Phase 08). The `*_assigned` permissions always also require a `CourseInstructor` assignment (FACULTY-PORTAL.md §2).
 
 Properties:
 

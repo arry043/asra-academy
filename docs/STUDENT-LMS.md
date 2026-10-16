@@ -8,18 +8,18 @@ Open decisions are listed in [CLIENT-CLARIFICATIONS.md](./CLIENT-CLARIFICATIONS.
 
 ## 1. What exists and what does not
 
-| Capability                 | Status in Phase 07                                                                                                                                        |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Enrolment / course access  | **Implemented.** `Enrollment` model; free self-enrolment; manual enrolment by administrators; access policy on every content endpoint                     |
-| Course player              | **Implemented.** Curriculum sidebar, lesson content by type, previous/next, resume                                                                        |
-| Lesson progress            | **Implemented.** `LessonProgress` model; mark complete / not complete; course percentage; last activity; learning history                                 |
-| Video progress             | **Implemented** for directly playable files (server-bounded heartbeats). YouTube/Vimeo embeds and other links have **no telemetry** (§5)                  |
-| Study materials            | **Implemented** for external HTTPS links. Stored files are shown as unavailable: no storage provider exists (R-01, G-01)                                  |
-| Quizzes / assignments      | Lessons of type QUIZ/ASSIGNMENT are listed and their instructions shown. **No attempts, submissions, scoring or grading** — assessment engine is PHASE 09 |
-| Examinations, results      | **Not available** (PHASE 09). Honest unavailable state                                                                                                    |
-| Live classes               | **Not available** (PHASE 11, provider F-01 pending). Recorded lectures = video lessons                                                                    |
-| Payments / payment history | **Not available** (PHASE 10, M-01/M-02 pending). No payment record is ever created or implied                                                             |
-| Certificates               | **Not issued** (PHASE 13, L-01/L-02 pending). Completed courses are listed as "No certificate issued"                                                     |
+| Capability                 | Status in Phase 07                                                                                                                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Enrolment / course access  | **Implemented.** `Enrollment` model; free self-enrolment; manual enrolment by administrators; access policy on every content endpoint                                                    |
+| Course player              | **Implemented.** Curriculum sidebar, lesson content by type, previous/next, resume                                                                                                       |
+| Lesson progress            | **Implemented.** `LessonProgress` model; mark complete / not complete; course percentage; last activity; learning history                                                                |
+| Video progress             | **Implemented** for directly playable files (server-bounded heartbeats). YouTube/Vimeo embeds and other links have **no telemetry** (§5)                                                 |
+| Study materials            | **Implemented** for external HTTPS links. Stored files are shown as unavailable: no storage provider exists (R-01, G-01)                                                                 |
+| Quizzes / assignments      | QUIZ lessons: instructions only (PHASE 09). ASSIGNMENT lessons: **online submission, faculty grading and released results since PHASE 08** ([FACULTY-PORTAL.md](./FACULTY-PORTAL.md) §5) |
+| Examinations, results      | Exams **not available** (PHASE 09). Released **assignment** results are listed on `/student/results` (PHASE 08)                                                                          |
+| Live classes               | Classes **scheduled by faculty** are listed (PHASE 08; no provider, F-01). Recorded lectures = video lessons                                                                             |
+| Payments / payment history | **Not available** (PHASE 10, M-01/M-02 pending). No payment record is ever created or implied                                                                                            |
+| Certificates               | **Not issued** (PHASE 13, L-01/L-02 pending). Completed courses are listed as "No certificate issued"                                                                                    |
 
 Unavailable capabilities are reported by the API (`GET /student/features`, also in the dashboard) with the message the portal displays, so the UI never invents records.
 

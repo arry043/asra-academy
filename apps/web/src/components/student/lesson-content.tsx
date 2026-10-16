@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { detectVideoSource, formatBytes } from '@/lib/student/learning';
 
+import { AssignmentPanel } from './assignment-panel';
 import { VideoPlayer } from './video-player';
 
 const hostOf = (url: string) => {
@@ -93,7 +94,7 @@ export function LessonContent({
         >
           <p>
             {lesson.contentType === 'QUIZ' ? features.quiz.message : features.assignment.message}{' '}
-            This lesson does not count towards your course progress yet.
+            This lesson does not count towards your course progress.
           </p>
         </Alert>
       ) : null}
@@ -113,6 +114,10 @@ export function LessonContent({
         </section>
       ) : lesson.contentType === 'TEXT' ? (
         <Unavailable text="This lesson has no text yet." />
+      ) : null}
+
+      {lesson.contentType === 'ASSIGNMENT' ? (
+        <AssignmentPanel key={lesson.id} lessonId={lesson.id} />
       ) : null}
 
       {lesson.resources.length > 0 ? (

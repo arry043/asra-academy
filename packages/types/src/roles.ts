@@ -31,6 +31,12 @@ export const PERMISSIONS = {
   CONTENT_MANAGE: 'content.manage',
   /** Manage learning content of courses the faculty member is assigned to — FR-FAC-003/004, FR-RBAC-003. */
   CONTENT_MANAGE_ASSIGNED: 'content.manage_assigned',
+  /** View progress and work of students enrolled in assigned courses — FR-FAC-007 (PHASE 08). */
+  STUDENTS_VIEW_ASSIGNED: 'students.view_assigned',
+  /** Review, grade and release assignment submissions of assigned courses — FR-FAC-006 (PHASE 08). */
+  SUBMISSIONS_GRADE_ASSIGNED: 'submissions.grade_assigned',
+  /** Schedule and manage live classes of assigned courses — FR-FAC-005 (PHASE 08). */
+  LIVE_CLASSES_MANAGE_ASSIGNED: 'live_classes.manage_assigned',
   /** Enrol students in courses and cancel enrolments (manual/offline enrolment, PHASE 07). */
   ENROLLMENTS_MANAGE: 'enrollments.manage',
   /** View learning content of courses the student is enrolled in — FR-RBAC-004. */

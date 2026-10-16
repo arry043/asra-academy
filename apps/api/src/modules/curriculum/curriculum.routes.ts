@@ -1,4 +1,4 @@
-import { PERMISSIONS } from '@asra/types';
+import { PERMISSIONS, type PermissionKey } from '@asra/types';
 import {
   chapterCreateSchema,
   chapterUpdateSchema,
@@ -18,43 +18,51 @@ import { idParamsSchema } from '../../validators/common.validators.js';
 import { curriculumController as c } from './curriculum.controller.js';
 
 /**
- * `/api/v1/admin/...` curriculum routes — `content.manage` at the route, plus the per-course
- * `accessPolicy` check in the service. `:id` is always the PARENT for collection routes
- * (`/courses/:id/modules`) and the item itself for item routes (`/modules/:id`).
+ * Curriculum routes, mounted twice over ONE service:
+ *   - `/api/v1/admin/...`   with `content.manage` (any course),
+ *   - `/api/v1/faculty/...` with `content.manage_assigned` (PHASE 08).
+ * The per-course `accessPolicy.assertCanManageCourseContent` check in the service decides which
+ * courses a caller may touch, so faculty reach only the courses they are assigned to. `:id` is
+ * always the PARENT for collection routes (`/courses/:id/modules`) and the item itself for item
+ * routes (`/modules/:id`).
  */
-export const curriculumAdminRouter = Router();
+function buildCurriculumRouter(permission: PermissionKey): Router {
+  const r = Router();
+  const allowed = requirePermission(permission);
+  const byId = validateRequest({ params: idParamsSchema });
+  const withBody = (body: ZodType): RequestHandler =>
+    validateRequest({ params: idParamsSchema, body });
+  const reorder = withBody(reorderSchema);
 
-const allowed = requirePermission(PERMISSIONS.CONTENT_MANAGE);
-const byId = validateRequest({ params: idParamsSchema });
-const withBody = (body: ZodType): RequestHandler =>
-  validateRequest({ params: idParamsSchema, body });
-const reorder = withBody(reorderSchema);
+  r.get('/courses/:id/curriculum', allowed, byId, c.tree);
 
-const r = curriculumAdminRouter;
+  r.get('/courses/:id/modules', allowed, byId, c.listModules);
+  r.post('/courses/:id/modules', allowed, withBody(moduleCreateSchema), c.createModule);
+  r.put('/courses/:id/modules/order', allowed, reorder, c.reorderModules);
+  r.patch('/modules/:id', allowed, withBody(moduleUpdateSchema), c.updateModule);
+  r.delete('/modules/:id', allowed, byId, c.deleteModule);
 
-r.get('/courses/:id/curriculum', allowed, byId, c.tree);
+  r.get('/modules/:id/chapters', allowed, byId, c.listChapters);
+  r.post('/modules/:id/chapters', allowed, withBody(chapterCreateSchema), c.createChapter);
+  r.put('/modules/:id/chapters/order', allowed, reorder, c.reorderChapters);
+  r.patch('/chapters/:id', allowed, withBody(chapterUpdateSchema), c.updateChapter);
+  r.delete('/chapters/:id', allowed, byId, c.deleteChapter);
 
-r.get('/courses/:id/modules', allowed, byId, c.listModules);
-r.post('/courses/:id/modules', allowed, withBody(moduleCreateSchema), c.createModule);
-r.put('/courses/:id/modules/order', allowed, reorder, c.reorderModules);
-r.patch('/modules/:id', allowed, withBody(moduleUpdateSchema), c.updateModule);
-r.delete('/modules/:id', allowed, byId, c.deleteModule);
+  r.get('/chapters/:id/lessons', allowed, byId, c.listLessons);
+  r.post('/chapters/:id/lessons', allowed, withBody(lessonCreateSchema), c.createLesson);
+  r.put('/chapters/:id/lessons/order', allowed, reorder, c.reorderLessons);
+  r.get('/lessons/:id', allowed, byId, c.getLesson);
+  r.patch('/lessons/:id', allowed, withBody(lessonUpdateSchema), c.updateLesson);
+  r.delete('/lessons/:id', allowed, byId, c.deleteLesson);
 
-r.get('/modules/:id/chapters', allowed, byId, c.listChapters);
-r.post('/modules/:id/chapters', allowed, withBody(chapterCreateSchema), c.createChapter);
-r.put('/modules/:id/chapters/order', allowed, reorder, c.reorderChapters);
-r.patch('/chapters/:id', allowed, withBody(chapterUpdateSchema), c.updateChapter);
-r.delete('/chapters/:id', allowed, byId, c.deleteChapter);
+  r.get('/lessons/:id/resources', allowed, byId, c.listResources);
+  r.post('/lessons/:id/resources', allowed, withBody(resourceInputSchema), c.createResource);
+  r.put('/lessons/:id/resources/order', allowed, reorder, c.reorderResources);
+  r.patch('/resources/:id', allowed, withBody(resourceUpdateSchema), c.updateResource);
+  r.delete('/resources/:id', allowed, byId, c.deleteResource);
 
-r.get('/chapters/:id/lessons', allowed, byId, c.listLessons);
-r.post('/chapters/:id/lessons', allowed, withBody(lessonCreateSchema), c.createLesson);
-r.put('/chapters/:id/lessons/order', allowed, reorder, c.reorderLessons);
-r.get('/lessons/:id', allowed, byId, c.getLesson);
-r.patch('/lessons/:id', allowed, withBody(lessonUpdateSchema), c.updateLesson);
-r.delete('/lessons/:id', allowed, byId, c.deleteLesson);
+  return r;
+}
 
-r.get('/lessons/:id/resources', allowed, byId, c.listResources);
-r.post('/lessons/:id/resources', allowed, withBody(resourceInputSchema), c.createResource);
-r.put('/lessons/:id/resources/order', allowed, reorder, c.reorderResources);
-r.patch('/resources/:id', allowed, withBody(resourceUpdateSchema), c.updateResource);
-r.delete('/resources/:id', allowed, byId, c.deleteResource);
+export const curriculumAdminRouter = buildCurriculumRouter(PERMISSIONS.CONTENT_MANAGE);
+export const curriculumFacultyRouter = buildCurriculumRouter(PERMISSIONS.CONTENT_MANAGE_ASSIGNED);

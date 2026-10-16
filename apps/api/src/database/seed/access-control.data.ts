@@ -15,6 +15,11 @@ export const PERMISSION_DEFINITIONS: Record<PermissionKey, string> = {
   [PERMISSIONS.COURSES_MANAGE]: 'Manage courses, course categories and instructor assignments',
   [PERMISSIONS.CONTENT_MANAGE]: 'Manage learning content of any course',
   [PERMISSIONS.CONTENT_MANAGE_ASSIGNED]: 'Manage learning content of assigned courses',
+  [PERMISSIONS.STUDENTS_VIEW_ASSIGNED]: 'View progress and work of students in assigned courses',
+  [PERMISSIONS.SUBMISSIONS_GRADE_ASSIGNED]:
+    'Review, grade and release assignment submissions in assigned courses',
+  [PERMISSIONS.LIVE_CLASSES_MANAGE_ASSIGNED]:
+    'Schedule and manage live classes of assigned courses',
   [PERMISSIONS.ENROLLMENTS_MANAGE]: 'Enrol students in courses and cancel enrolments',
   [PERMISSIONS.CONTENT_VIEW_ENROLLED]: 'View learning content of enrolled courses',
   [PERMISSIONS.PROFILE_MANAGE_OWN]: 'View and update own profile',
@@ -54,7 +59,13 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
     key: 'FACULTY',
     name: 'Faculty',
     description: 'Teacher allocated to subjects and courses',
-    permissions: [PERMISSIONS.CONTENT_MANAGE_ASSIGNED, PERMISSIONS.PROFILE_MANAGE_OWN],
+    permissions: [
+      PERMISSIONS.CONTENT_MANAGE_ASSIGNED,
+      PERMISSIONS.STUDENTS_VIEW_ASSIGNED,
+      PERMISSIONS.SUBMISSIONS_GRADE_ASSIGNED,
+      PERMISSIONS.LIVE_CLASSES_MANAGE_ASSIGNED,
+      PERMISSIONS.PROFILE_MANAGE_OWN,
+    ],
   },
   {
     key: 'STUDENT',

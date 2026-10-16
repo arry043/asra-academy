@@ -244,6 +244,10 @@ The public site (home, about, courses, classes, special courses, faculty, admiss
 
 Signed-in students use `/student/*` (dashboard, courses, course player, progress, profile and records). Access to course content requires an active enrolment: free courses (price 0) can be joined from **My courses → Find courses**; administrators enrol students in other courses from the course's **Enrolments** tab. Rules, API and limitations: [docs/STUDENT-LMS.md](docs/STUDENT-LMS.md). After pulling Phase 07, run `npm run db:migrate:deploy` and `npm run db:seed` (grants the new `enrollments.manage` permission).
 
+### Faculty portal (Phase 08)
+
+Faculty accounts (created with `npm run auth:create-user -- --role FACULTY` until staff management exists) use `/faculty/*` once an administrator assigns them to a course (admin portal → course → **Faculty** tab). They manage the curriculum of their courses, create assignments, review and grade submissions and release results, schedule live classes (no provider connected — links are entered manually) and see student progress. Rules, API and limitations: [docs/FACULTY-PORTAL.md](docs/FACULTY-PORTAL.md). After pulling Phase 08, run `npm run db:migrate:deploy` and `npm run db:seed` (grants the three new faculty permissions).
+
 ### Design system (Phase 04)
 
 Tokens, components, education cards, layouts and motion are documented in [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). The interactive showcase runs at **http://localhost:3000/design-system** in development (plus `/design-system/dashboard-preview` and `/design-system/admin-preview`). Production builds return 404 for it unless `ENABLE_DESIGN_SYSTEM=true`.

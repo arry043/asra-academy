@@ -235,9 +235,9 @@ export function accessStateFor(
  */
 export const STUDENT_FEATURES: StudentFeatures = {
   liveClasses: {
-    available: false,
+    available: true,
     message:
-      'Live classes are not scheduled online yet. Your academy will share class timings with you directly.',
+      'Classes scheduled by your faculty appear here (times in IST). A joining link is shown when your faculty has added one.',
   },
   quizAttempts: {
     available: false,
@@ -245,17 +245,18 @@ export const STUDENT_FEATURES: StudentFeatures = {
       'Online quiz attempts are not available yet. Quiz lessons show your faculty’s instructions.',
   },
   assignmentSubmissions: {
-    available: false,
+    available: true,
     message:
-      'Online assignment submission is not available yet. Follow the instructions in each assignment lesson.',
+      'Submit your answer as text (and optionally a link) in each assignment lesson where your faculty has opened online submission.',
   },
   exams: {
     available: false,
     message: 'Online examinations and mock tests are not available yet.',
   },
   results: {
-    available: false,
-    message: 'Marks and results are not published online yet.',
+    available: true,
+    message:
+      'Assignment marks and feedback appear here once your faculty releases them. Quiz and exam results are not available online yet.',
   },
   certificates: {
     available: false,
