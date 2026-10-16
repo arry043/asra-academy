@@ -1,6 +1,8 @@
 {
   "extends": "@asra/config/tsconfig.node.json",
   "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "noEmit": true
   },
   "include": ["src", "prisma", "scripts", "tests", "prisma.config.ts"]
