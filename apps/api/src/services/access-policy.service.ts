@@ -55,6 +55,40 @@ export const accessPolicy = {
   },
 
   /**
+   * Faculty teaching access (PHASE 08, docs/FACULTY-PORTAL.md §2): the permission AND a
+   * `CourseInstructor` assignment of THIS user to the course. Unlike content management there is
+   * no "any course" bypass — student work, grades and live classes are reached only through an
+   * assignment made by an administrator. `courseId` must come from the database.
+   */
+  async assertTeachesCourse(
+    auth: AuthContext,
+    courseId: string,
+    permission: PermissionKey,
+    db: DbClient = prisma,
+  ): Promise<void> {
+    if (!auth.permissions.has(permission)) {
+      throw new AppError('FORBIDDEN', 'You do not have permission to perform this action');
+    }
+    if (
+      !(await createCourseInstructorRepository(db).isUserAssignedToCourse(auth.userId, courseId))
+    ) {
+      throw new AppError('FORBIDDEN', 'You are not assigned to this course');
+    }
+  },
+
+  /** Courses the faculty member teaches, for list endpoints (empty without the permission). */
+  async taughtCourseIds(
+    auth: AuthContext,
+    permission: PermissionKey,
+    db: DbClient = prisma,
+  ): Promise<string[]> {
+    if (!auth.permissions.has(permission)) {
+      throw new AppError('FORBIDDEN', 'You do not have permission to perform this action');
+    }
+    return createCourseInstructorRepository(db).assignedCourseIds(auth.userId);
+  },
+
+  /**
    * Student entitlement to a course's protected content (docs/STUDENT-LMS.md §2):
    * `content.view_enrolled` + the course is PUBLISHED + an ACTIVE enrolment for THIS user.
    * Visibility only governs the public website; a PRIVATE course is open to its enrolled students.

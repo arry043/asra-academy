@@ -187,6 +187,30 @@ function locationColumns(location: ResourceLocation) {
       };
 }
 
+/**
+ * Removes a lesson's assignment settings, refusing (409) while students have submitted work for
+ * it: submissions are records of student work and are never deleted by a curriculum edit
+ * (FK `assignment_submissions → assignments` is RESTRICT as a second line of defence).
+ */
+async function releaseAssignmentSettings(
+  tx: DbClient,
+  lessonId: string,
+  action: 'delete' | 'change the type of',
+): Promise<void> {
+  const assignment = await tx.assignment.findUnique({
+    where: { lessonId },
+    select: { id: true, _count: { select: { submissions: true } } },
+  });
+  if (!assignment) return;
+  if (assignment._count.submissions > 0) {
+    throw new AppError(
+      'CONFLICT',
+      `Students have submitted work for this assignment, so you cannot ${action} this lesson. Unpublish it instead.`,
+    );
+  }
+  await tx.assignment.delete({ where: { id: assignment.id } });
+}
+
 /** `publishedAt` follows `status` (CHECK lessons_published_at_required). */
 function lessonStatusColumns(status: 'DRAFT' | 'PUBLISHED' | undefined, previous?: string) {
   if (status === undefined || status === previous) return {};
@@ -355,19 +379,31 @@ export const curriculumService = {
   async updateLesson(auth: AuthContext, id: string, input: LessonUpdateInput): Promise<LessonDto> {
     const owner = (await createCurriculumRepository(prisma).lessonOwner(id)) ?? notFound('Lesson');
     const { status, ...fields } = input;
-    return mutate(auth, owner.chapter.module.courseId, async (repo) =>
-      toLessonDto(
+    return mutate(auth, owner.chapter.module.courseId, async (repo, tx) => {
+      // An assignment that stops being an assignment loses its submission settings — never its
+      // students' work (PHASE 08).
+      if (
+        owner.contentType === 'ASSIGNMENT' &&
+        fields.contentType !== undefined &&
+        fields.contentType !== 'ASSIGNMENT'
+      ) {
+        await releaseAssignmentSettings(tx, id, 'change the type of');
+      }
+      return toLessonDto(
         await repo.lessons.update(id, {
           ...withoutUndefined(fields),
           ...lessonStatusColumns(status, owner.status),
         }),
-      ),
-    );
+      );
+    });
   },
 
   async deleteLesson(auth: AuthContext, id: string): Promise<void> {
     const owner = (await createCurriculumRepository(prisma).lessonOwner(id)) ?? notFound('Lesson');
-    await mutate(auth, owner.chapter.module.courseId, (repo) => repo.lessons.delete(id));
+    await mutate(auth, owner.chapter.module.courseId, async (repo, tx) => {
+      await releaseAssignmentSettings(tx, id, 'delete');
+      await repo.lessons.delete(id);
+    });
   },
 
   async reorderLessons(

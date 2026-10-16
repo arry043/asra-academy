@@ -34,6 +34,7 @@ import { describeError, validateForm, type FieldErrors } from '@/lib/auth/form-e
 import { formatDuration } from '@/lib/format';
 
 import { ConfirmDialog, ErrorPanel, LoadingPanel, StatusBadge } from './admin-ui';
+import { useCurriculumBase } from './curriculum-api';
 import { LessonDialog } from './lesson-dialog';
 import { errorMessage, useAdminApi, useApiResource, type AdminApi } from './use-admin';
 
@@ -64,7 +65,8 @@ export function CurriculumEditor({
   onChanged: () => void;
 }) {
   const api = useAdminApi();
-  const path = `/admin/courses/${courseId}/curriculum`;
+  const base = useCurriculumBase();
+  const path = `${base}/courses/${courseId}/curriculum`;
   const tree = useApiResource(path, () => api.get<CurriculumTreeDto>(path));
   const [section, setSection] = React.useState<SectionTarget | null>(null);
   const [lesson, setLesson] = React.useState<LessonTarget | null>(null);
@@ -91,7 +93,7 @@ export function CurriculumEditor({
   }
 
   async function remove(target: DeleteTarget) {
-    const url = `/admin/${target.kind === 'module' ? 'modules' : target.kind === 'chapter' ? 'chapters' : 'lessons'}/${target.item.id}`;
+    const url = `${base}/${target.kind === 'module' ? 'modules' : target.kind === 'chapter' ? 'chapters' : 'lessons'}/${target.item.id}`;
     try {
       await api.del(url);
       toast.success(`${target.kind[0]!.toUpperCase()}${target.kind.slice(1)} deleted`, {
@@ -123,7 +125,8 @@ export function CurriculumEditor({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl type-body-sm text-muted-foreground">
           Organise the course into modules, chapters and lessons. Only lessons marked{' '}
-          <strong>Published</strong> are shown to the public outline; draft lessons stay private.
+          <strong>Published</strong> are shown to students and the public outline; draft lessons
+          stay private.
         </p>
         <Button onClick={() => setSection({ kind: 'module', mode: 'create', courseId })}>
           <FolderPlus aria-hidden /> Add module
@@ -167,14 +170,14 @@ export function CurriculumEditor({
                 onUp={() =>
                   reorder(
                     `module-${module.id}`,
-                    `/admin/courses/${courseId}/modules/order`,
+                    `${base}/courses/${courseId}/modules/order`,
                     moveIds(modules, moduleIndex, -1),
                   )
                 }
                 onDown={() =>
                   reorder(
                     `module-${module.id}`,
-                    `/admin/courses/${courseId}/modules/order`,
+                    `${base}/courses/${courseId}/modules/order`,
                     moveIds(modules, moduleIndex, 1),
                   )
                 }
@@ -203,14 +206,14 @@ export function CurriculumEditor({
                           onUp={() =>
                             reorder(
                               `chapter-${chapter.id}`,
-                              `/admin/modules/${module.id}/chapters/order`,
+                              `${base}/modules/${module.id}/chapters/order`,
                               moveIds(module.chapters, chapterIndex, -1),
                             )
                           }
                           onDown={() =>
                             reorder(
                               `chapter-${chapter.id}`,
-                              `/admin/modules/${module.id}/chapters/order`,
+                              `${base}/modules/${module.id}/chapters/order`,
                               moveIds(module.chapters, chapterIndex, 1),
                             )
                           }
@@ -232,7 +235,7 @@ export function CurriculumEditor({
                           onMove={(index, delta) =>
                             reorder(
                               `lesson-${chapter.lessons[index]?.id}`,
-                              `/admin/chapters/${chapter.id}/lessons/order`,
+                              `${base}/chapters/${chapter.id}/lessons/order`,
                               moveIds(chapter.lessons, index, delta),
                             )
                           }
@@ -472,6 +475,7 @@ function SectionDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const base = useCurriculumBase();
   const existing = target.mode === 'edit' ? target.item : undefined;
   const [title, setTitle] = React.useState(existing?.title ?? '');
   const [description, setDescription] = React.useState(existing?.description ?? '');
@@ -495,12 +499,12 @@ function SectionDialog({
       if (target.mode === 'create') {
         const url =
           target.kind === 'module'
-            ? `/admin/courses/${target.courseId}/modules`
-            : `/admin/modules/${target.moduleId}/chapters`;
+            ? `${base}/courses/${target.courseId}/modules`
+            : `${base}/modules/${target.moduleId}/chapters`;
         await api.post(url, parsed.data);
       } else {
         await api.patch(
-          `/admin/${target.kind === 'module' ? 'modules' : 'chapters'}/${target.item.id}`,
+          `${base}/${target.kind === 'module' ? 'modules' : 'chapters'}/${target.item.id}`,
           parsed.data,
         );
       }

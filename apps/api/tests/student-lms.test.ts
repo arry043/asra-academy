@@ -717,6 +717,12 @@ describe('profile and records', () => {
       'GET',
       '/student/features',
     );
-    assert.ok(Object.values(features.body.data).every((feature) => feature.available === false));
+    // PHASE 08 made assignment submission, assignment results and scheduled classes available;
+    // everything else is still reported as unavailable.
+    const available = Object.entries(features.body.data)
+      .filter(([, feature]) => feature.available)
+      .map(([key]) => key)
+      .sort();
+    assert.deepEqual(available, ['assignmentSubmissions', 'liveClasses', 'results']);
   });
 });

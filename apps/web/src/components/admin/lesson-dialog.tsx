@@ -46,6 +46,7 @@ import {
 import { describeError, validateForm, type FieldErrors } from '@/lib/auth/form-errors';
 
 import { SelectField } from './admin-ui';
+import { useCurriculumBase } from './curriculum-api';
 import { errorMessage, useAdminApi } from './use-admin';
 
 const BODY_LABELS: Partial<Record<LessonContentType, string>> = {
@@ -72,6 +73,7 @@ export function LessonDialog({
   onChanged: () => void;
 }) {
   const api = useAdminApi();
+  const base = useCurriculumBase();
   const [lesson, setLesson] = React.useState<LessonDto | undefined>(initialLesson);
   const [title, setTitle] = React.useState(initialLesson?.title ?? '');
   const [contentType, setContentType] = React.useState<LessonContentType>(
@@ -114,8 +116,8 @@ export function LessonDialog({
     setPending(true);
     try {
       const saved = lesson
-        ? await api.patch<LessonDto>(`/admin/lessons/${lesson.id}`, parsed.data)
-        : await api.post<LessonDto>(`/admin/chapters/${chapterId}/lessons`, parsed.data);
+        ? await api.patch<LessonDto>(`${base}/lessons/${lesson.id}`, parsed.data)
+        : await api.post<LessonDto>(`${base}/chapters/${chapterId}/lessons`, parsed.data);
       setLesson(saved);
       toast.success(lesson ? 'Lesson saved' : 'Lesson created', {
         description: lesson ? saved.title : 'Now add its content below.',
@@ -132,7 +134,7 @@ export function LessonDialog({
 
   async function reloadLesson(id: string) {
     try {
-      setLesson(await api.get<LessonDto>(`/admin/lessons/${id}`));
+      setLesson(await api.get<LessonDto>(`${base}/lessons/${id}`));
     } catch (error) {
       toast.error('Could not refresh the lesson', { description: errorMessage(error) });
     }
@@ -195,12 +197,20 @@ export function LessonDialog({
               />
             </Field>
           </div>
-          {contentType === 'QUIZ' || contentType === 'ASSIGNMENT' ? (
-            <Alert tone="info" title={`${LESSON_TYPE_LABELS[contentType]} placeholder`}>
+          {contentType === 'QUIZ' ? (
+            <Alert tone="info" title="Quiz placeholder">
               <p>
-                Questions, submissions and grading arrive with the assessment system (PHASE 09). For
-                now this lesson holds the instructions
-                {contentType === 'ASSIGNMENT' ? ' and any worksheet or question-paper links' : ''}.
+                Questions, online attempts and scoring arrive with the assessment system (PHASE 09).
+                For now this lesson holds the instructions.
+              </p>
+            </Alert>
+          ) : null}
+          {contentType === 'ASSIGNMENT' ? (
+            <Alert tone="info" title="Assignment">
+              <p>
+                This lesson holds the instructions and any worksheet links. Online submission
+                (maximum marks, due date), review and grading are set up by the course’s faculty in
+                the faculty portal under Assignments.
               </p>
             </Alert>
           ) : null}
@@ -286,6 +296,7 @@ function ResourceManager({
   onChanged: () => Promise<void>;
 }) {
   const api = useAdminApi();
+  const base = useCurriculumBase();
   const [editing, setEditing] = React.useState<ResourceDto | 'new' | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
 
@@ -346,7 +357,7 @@ function ResourceManager({
                     act(
                       resource.id,
                       () =>
-                        api.put(`/admin/lessons/${lesson.id}/resources/order`, {
+                        api.put(`${base}/lessons/${lesson.id}/resources/order`, {
                           orderedIds: moveItem(resources, index, -1)!.map((item) => item.id),
                         }),
                       'Order saved',
@@ -364,7 +375,7 @@ function ResourceManager({
                     act(
                       resource.id,
                       () =>
-                        api.put(`/admin/lessons/${lesson.id}/resources/order`, {
+                        api.put(`${base}/lessons/${lesson.id}/resources/order`, {
                           orderedIds: moveItem(resources, index, 1)!.map((item) => item.id),
                         }),
                       'Order saved',
@@ -390,7 +401,7 @@ function ResourceManager({
                   onClick={() =>
                     act(
                       `delete-${resource.id}`,
-                      () => api.del(`/admin/resources/${resource.id}`),
+                      () => api.del(`${base}/resources/${resource.id}`),
                       'Resource removed',
                     )
                   }
@@ -439,6 +450,7 @@ function ResourceForm({
   onSaved: () => Promise<void>;
 }) {
   const api = useAdminApi();
+  const base = useCurriculumBase();
   const [title, setTitle] = React.useState(resource?.title ?? '');
   const [type, setType] = React.useState<ResourceKind>(resource?.type ?? defaultType);
   const [url, setUrl] = React.useState(
@@ -469,8 +481,8 @@ function ResourceForm({
     setErrors({});
     setPending(true);
     try {
-      if (resource) await api.patch(`/admin/resources/${resource.id}`, parsed.data);
-      else await api.post(`/admin/lessons/${lessonId}/resources`, parsed.data);
+      if (resource) await api.patch(`${base}/resources/${resource.id}`, parsed.data);
+      else await api.post(`${base}/lessons/${lessonId}/resources`, parsed.data);
       toast.success(resource ? 'Resource saved' : 'Resource added', { description: title });
       await onSaved();
     } catch (error) {

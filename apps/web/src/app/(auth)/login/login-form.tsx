@@ -15,6 +15,7 @@ import { ApiClientError } from '@/lib/api';
 import { authApi } from '@/lib/auth/auth-api';
 import { safeNextPath } from '@/lib/admin/format';
 import { describeError, validateForm, type FieldErrors } from '@/lib/auth/form-errors';
+import { isFaculty } from '@/lib/faculty/portal';
 import { isStudent } from '@/lib/student/learning';
 
 export function LoginForm() {
@@ -70,8 +71,12 @@ function SignInForm() {
     setPending(true);
     try {
       const user = await login(parsed.data);
-      // Students go straight to their dashboard (a `?next=` target is handled by LoginForm).
+      // Students and faculty go straight to their portal (a `?next=` target is handled by
+      // LoginForm). Administrators stay on the signed-in card, which links to /admin.
       if (!hasNext && isStudent(user)) router.replace('/student/dashboard');
+      else if (!hasNext && isFaculty(user) && !canUseAdminPortal(user)) {
+        router.replace('/faculty/dashboard');
+      }
     } catch (error) {
       if (error instanceof ApiClientError && error.code === 'EMAIL_NOT_VERIFIED') {
         setUnverifiedEmail(parsed.data.email);
@@ -209,6 +214,11 @@ function SignedIn() {
         ) : isStudent(user) ? (
           <Button asChild size="lg" variant="accent">
             <Link href="/student/dashboard">Go to my dashboard</Link>
+          </Button>
+        ) : null}
+        {isFaculty(user) ? (
+          <Button asChild size="lg" variant="accent">
+            <Link href="/faculty/dashboard">Open the faculty portal</Link>
           </Button>
         ) : null}
         <div className="grid gap-2 sm:grid-cols-2">

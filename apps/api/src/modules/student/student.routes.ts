@@ -4,7 +4,9 @@ import {
   studentCatalogQuerySchema,
   studentEnrollmentListQuerySchema,
   studentLessonListQuerySchema,
+  studentLiveClassQuerySchema,
   studentProfileUpdateSchema,
+  studentSubmissionSchema,
   videoProgressSchema,
 } from '@asra/validation';
 import { Router } from 'express';
@@ -62,6 +64,22 @@ r.put(
   learn,
   validateRequest({ params: idParamsSchema, body: videoProgressSchema }),
   c.videoProgress,
+);
+
+// Assignments, results and live classes (PHASE 08, docs/FACULTY-PORTAL.md §5–6).
+r.get('/lessons/:id/assignment', learn, byId, c.assignment);
+r.post(
+  '/lessons/:id/submission',
+  learn,
+  validateRequest({ params: idParamsSchema, body: studentSubmissionSchema }),
+  c.submit,
+);
+r.get('/results', learn, paged, c.results);
+r.get(
+  '/live-classes',
+  learn,
+  validateRequest({ query: studentLiveClassQuerySchema }),
+  c.liveClasses,
 );
 
 r.get('/history', learn, paged, c.history);

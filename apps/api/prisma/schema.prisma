@@ -128,6 +128,11 @@ model User {
   enrollmentsByUser Enrollment[]     @relation("EnrollmentEnrolledBy")
   lessonProgress    LessonProgress[]
 
+  assignmentsCreated   Assignment[]           @relation("AssignmentCreatedBy")
+  submissions          AssignmentSubmission[] @relation("SubmissionStudent")
+  submissionsGraded    AssignmentSubmission[] @relation("SubmissionGradedBy")
+  liveClassesScheduled LiveClassSession[]     @relation("LiveClassCreatedBy")
+
   @@index([status])
   @@map("users")
 }
@@ -300,8 +305,9 @@ model FacultyProfile {
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  courses CourseInstructor[]
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  courses     CourseInstructor[]
+  liveClasses LiveClassSession[]
 
   @@index([isPublic])
   @@map("faculty_profiles")
@@ -454,6 +460,7 @@ model Course {
   instructors CourseInstructor[]
   modules     Module[]
   enrollments Enrollment[]
+  liveClasses LiveClassSession[]
 
   @@index([status, publishedAt])
   @@index([status, visibility])
@@ -540,6 +547,8 @@ model Lesson {
   resources        Resource[]
   progress         LessonProgress[]
   lastInEnrollment Enrollment[]
+  /// Submission settings when `contentType` is ASSIGNMENT (PHASE 08).
+  assignment       Assignment?
 
   @@unique([chapterId, position])
   @@index([status])
@@ -656,4 +665,116 @@ model LessonProgress {
   @@index([userId, lastViewedAt])
   @@index([lessonId])
   @@map("lesson_progress")
+}
+
+// =============================================================================
+// Faculty portal (PHASE 08) — see docs/FACULTY-PORTAL.md
+// Assignments reuse the curriculum: an ASSIGNMENT lesson holds the title, instructions (body),
+// attachments (resources) and publication status; `Assignment` adds only the submission
+// settings. Student work is never deleted by curriculum edits (RESTRICT + service guards).
+// =============================================================================
+
+/// Review state of a submission. Whether the student can SEE the grade is a separate decision
+/// (`resultReleasedAt`), so saving a grade never publishes it by itself.
+enum SubmissionStatus {
+  /// Handed in, waiting for faculty review.
+  SUBMITTED
+  /// Marks (and optional feedback) recorded by faculty.
+  GRADED
+
+  @@map("submission_status")
+}
+
+/// Lifecycle of a scheduled live class. "Upcoming"/"past" are derived from the time; the
+/// platform never claims a class is live (no provider reports it, F-01).
+enum LiveClassStatus {
+  SCHEDULED
+  CANCELLED
+
+  @@map("live_class_status")
+}
+
+/// Submission settings of one ASSIGNMENT lesson (1:1). Grading scale is numeric marks out of
+/// `maxMarks` (I-03 assumption). Late-submission and resubmission rules are pending (I-02).
+model Assignment {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lessonId    String    @unique @map("lesson_id") @db.Uuid
+  /// Whole marks, 1–1000 (CHECK).
+  maxMarks    Int       @map("max_marks")
+  /// Optional deadline (UTC). Submissions after it are accepted and flagged late (I-02 pending).
+  dueAt       DateTime? @map("due_at") @db.Timestamptz(3)
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lesson      Lesson                 @relation(fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdBy   User?                  @relation("AssignmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  submissions AssignmentSubmission[]
+
+  @@index([createdById])
+  @@map("assignments")
+}
+
+/// One student's work for one assignment (one row per student and assignment; I-02 pending).
+/// The submitted text/link and `submittedAt` are never changed after submission.
+model AssignmentSubmission {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignmentId     String           @map("assignment_id") @db.Uuid
+  userId           String           @map("user_id") @db.Uuid
+  /// The student's answer as plain text (rendered as text, never HTML).
+  body             String           @db.Text
+  /// Optional https:// link to the student's work (no file storage yet, R-01). CHECK https.
+  attachmentUrl    String?          @map("attachment_url") @db.VarChar(2048)
+  submittedAt      DateTime         @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  status           SubmissionStatus @default(SUBMITTED)
+  /// 0–maxMarks, validated by the service; set together with `gradedAt` (CHECK).
+  marksAwarded     Int?             @map("marks_awarded")
+  feedback         String?          @db.Text
+  gradedById       String?          @map("graded_by_id") @db.Uuid
+  gradedAt         DateTime?        @map("graded_at") @db.Timestamptz(3)
+  /// When the grade became visible to the student. Only a GRADED submission can be released.
+  resultReleasedAt DateTime?        @map("result_released_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  student    User       @relation("SubmissionStudent", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  gradedBy   User?      @relation("SubmissionGradedBy", fields: [gradedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([assignmentId, userId])
+  @@index([assignmentId, status])
+  @@index([userId, resultReleasedAt])
+  @@index([gradedById])
+  @@map("assignment_submissions")
+}
+
+/// A live online class scheduled for a course. Provider-neutral: no meeting is created through
+/// any provider API (F-01 pending). `joinUrl` is only ever a link entered by faculty
+/// (`provider = 'manual'`) and is returned only to the course's faculty and enrolled students.
+model LiveClassSession {
+  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId             String          @map("course_id") @db.Uuid
+  /// Faculty member who hosts the class (the one who scheduled it).
+  hostFacultyProfileId String?         @map("host_faculty_profile_id") @db.Uuid
+  title                String          @db.VarChar(200)
+  description          String?         @db.Text
+  startsAt             DateTime        @map("starts_at") @db.Timestamptz(3)
+  /// 15–480 minutes (CHECK).
+  durationMinutes      Int             @map("duration_minutes")
+  status               LiveClassStatus @default(SCHEDULED)
+  /// Adapter id; "manual" = link typed by faculty. Null = no meeting link.
+  provider             String?         @db.VarChar(50)
+  joinUrl              String?         @map("join_url") @db.VarChar(2048)
+  cancelledAt          DateTime?       @map("cancelled_at") @db.Timestamptz(3)
+  createdById          String?         @map("created_by_id") @db.Uuid
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  course    Course          @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  host      FacultyProfile? @relation(fields: [hostFacultyProfileId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdBy User?           @relation("LiveClassCreatedBy", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([courseId, startsAt])
+  @@index([hostFacultyProfileId, startsAt])
+  @@index([createdById])
+  @@map("live_class_sessions")
 }

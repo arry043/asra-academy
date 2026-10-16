@@ -17,6 +17,22 @@ Entry template:
 
 ## [Unreleased]
 
+### Added — PHASE 08 Faculty Portal (uncommitted, pending review)
+
+- Faculty portal `/faculty/*` (dashboard, courses + course workspace, content, students, live classes, assignments, submissions + review, quizzes/exams status, performance, profile) on the existing design system; faculty land on `/faculty/dashboard` after sign-in. See [FACULTY-PORTAL.md](./FACULTY-PORTAL.md).
+- API `/api/v1/faculty/*` (FACULTY role + per-route permission + `CourseInstructor` assignment via `accessPolicy.assertTeachesCourse`); curriculum routes mounted for faculty over the existing curriculum service (`content.manage_assigned`).
+- Assignments → submissions → marks + feedback → explicit result release; student submission panel in assignment lessons, `/student/results`, scheduled classes on `/student/classes` (`/student/lessons/:id/assignment`, `/student/lessons/:id/submission`, `/student/results`, `/student/live-classes`).
+- Provider-neutral live-class scheduling (IST input, optional manual meeting link, cancel; no provider API, no fabricated links).
+- Migration `20261016102329_phase08_faculty_portal` (additive): `assignments`, `assignment_submissions`, `live_class_sessions`, enums `submission_status`, `live_class_status`, nine CHECK constraints. Permissions `students.view_assigned`, `submissions.grade_assigned`, `live_classes.manage_assigned` (FACULTY, SUPER_ADMIN; re-run `npm run db:seed`).
+- Tests: `apps/api/tests/faculty-portal.test.ts` (17), `apps/web/tests/faculty-portal.test.tsx`.
+
+### Changed — PHASE 08
+
+- Curriculum: deleting an assignment lesson or changing its type is refused (409) while students have submitted work.
+- Curriculum editor and lesson dialog take their API prefix from `CurriculumApiBase` (`/admin` default, `/faculty` in the portal) — one editor for both portals.
+- `GET /student/features`: `assignmentSubmissions`, `results` and `liveClasses` are now available (test updated accordingly).
+- Client clarifications §AB added.
+
 ### Added — PHASE 07 Student LMS (uncommitted, pending review)
 
 - Migration `20261016083843_phase07_student_lms` (additive): `enrollments` (ACTIVE/CANCELLED, FREE/ADMIN source, resume lesson, last activity, completion date) and `lesson_progress` (viewed/completed timestamps, server-bounded video telemetry); unique `(user, course)` and `(user, lesson)`; four CHECK constraints. Permission `enrollments.manage` (ADMIN, SUPER_ADMIN; re-run `npm run db:seed`).

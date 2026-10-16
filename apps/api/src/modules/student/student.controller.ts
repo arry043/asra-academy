@@ -3,11 +3,15 @@ import type {
   StudentCatalogQuery,
   StudentEnrollmentListQuery,
   StudentLessonListQuery,
+  StudentLiveClassQuery,
   StudentProfileUpdateInput,
+  StudentSubmissionInput,
   VideoProgressInput,
 } from '@asra/validation';
 import type { Request, Response } from 'express';
 import { sendSuccess } from '../../utils/api-response.js';
+import { studentAssignmentService } from '../assignments/assignments.service.js';
+import { liveClassService } from '../live-classes/live-classes.service.js';
 import { studentService } from './student.service.js';
 
 /**
@@ -90,6 +94,30 @@ export const studentController = {
       res,
       await studentService.recordVideoProgress(auth(req), id(req), body<VideoProgressInput>(req)),
       'Progress saved',
+    );
+  },
+
+  async assignment(req: Request, res: Response) {
+    sendSuccess(res, await studentAssignmentService.get(auth(req), id(req)));
+  },
+  async submit(req: Request, res: Response) {
+    const data = await studentAssignmentService.submit(
+      auth(req),
+      id(req),
+      body<StudentSubmissionInput>(req),
+    );
+    sendSuccess(res, data, 'Assignment submitted', 201);
+  },
+  async results(req: Request, res: Response) {
+    sendSuccess(
+      res,
+      await studentAssignmentService.results(auth(req), query<PaginationQuery>(req)),
+    );
+  },
+  async liveClasses(req: Request, res: Response) {
+    sendSuccess(
+      res,
+      await liveClassService.forStudent(auth(req), query<StudentLiveClassQuery>(req)),
     );
   },
 

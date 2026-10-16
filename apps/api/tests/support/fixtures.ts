@@ -12,6 +12,9 @@ export function uniqueSuffix(): string {
  */
 export async function cleanDomainTables(): Promise<void> {
   await prisma.$transaction([
+    prisma.assignmentSubmission.deleteMany(),
+    prisma.assignment.deleteMany(),
+    prisma.liveClassSession.deleteMany(),
     prisma.lessonProgress.deleteMany(),
     prisma.enrollment.deleteMany(),
     prisma.resource.deleteMany(),

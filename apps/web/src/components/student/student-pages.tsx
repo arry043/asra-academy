@@ -2,12 +2,14 @@
 
 import type {
   LearningHistoryItem,
+  LiveClassDto,
   LessonContentType,
   Paginated,
   StudentCourseCard,
   StudentEnrollmentRecord,
   StudentFeatures,
   StudentLessonListItem,
+  StudentResultItem,
 } from '@asra/types';
 import {
   Award,
@@ -160,14 +162,22 @@ export function ClassesPage() {
           Upcoming live classes
         </h2>
         {features.data ? (
-          <FeatureUnavailable
-            title="No live classes scheduled online"
-            feature={features.data.liveClasses}
-            icon={<MonitorPlay />}
-          />
-        ) : (
-          <LoadingPanel rows={2} />
-        )}
+          <p className="type-body-sm text-muted-foreground">{features.data.liveClasses.message}</p>
+        ) : null}
+        <PagedList<LiveClassDto>
+          path="/student/live-classes"
+          extra={{ when: 'upcoming' }}
+          label="live classes"
+          empty={
+            <EmptyState
+              icon={<MonitorPlay />}
+              title="No upcoming live classes"
+              description="When your faculty schedule a class for one of your courses, it appears here."
+            />
+          }
+        >
+          {(items) => <LiveClassItems items={items} />}
+        </PagedList>
       </section>
       <section aria-labelledby="recorded-heading" className="grid gap-3">
         <h2 id="recorded-heading" className="type-h2 text-heading">
@@ -214,22 +224,99 @@ export function ResultsPage() {
   const features = useFeatures();
   return (
     <>
-      <PageHeader title="Results" breadcrumbs={[home, { label: 'Results' }]} />
-      {features.data ? (
-        <FeatureUnavailable
-          title="No results published"
-          feature={features.data.results}
-          icon={<GraduationCap />}
-          action={
-            <Button asChild variant="outline">
-              <Link href="/student/progress">See your course progress</Link>
-            </Button>
-          }
-        />
-      ) : (
-        <LoadingPanel rows={2} />
-      )}
+      <PageHeader
+        title="Results"
+        breadcrumbs={[home, { label: 'Results' }]}
+        description={features.data?.results.message}
+      />
+      <PagedList<StudentResultItem>
+        path="/student/results"
+        label="results"
+        empty={
+          <EmptyState
+            icon={<GraduationCap />}
+            title="No results released yet"
+            description="When your faculty release the marks for an assignment you submitted, they appear here."
+            action={
+              <Button asChild variant="outline">
+                <Link href="/student/progress">See your course progress</Link>
+              </Button>
+            }
+          />
+        }
+      >
+        {(items) => (
+          <ul className="grid gap-3">
+            {items.map((item) => (
+              <li key={item.submissionId}>
+                <Card className="gap-3">
+                  <CardHeader className="gap-1">
+                    <CardTitle
+                      as="h2"
+                      className="flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <Link
+                        href={learnHref(item.course.id, item.lesson.lessonId)}
+                        className="rounded-sm hover:text-primary hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                      >
+                        {item.lesson.lessonTitle}
+                      </Link>
+                      <Badge variant="success" className="tabular-nums">
+                        {item.marksAwarded} / {item.maxMarks}
+                      </Badge>
+                    </CardTitle>
+                    <p className="type-caption text-muted-foreground">
+                      {item.course.title} · released {formatDate(item.releasedAt)}
+                    </p>
+                  </CardHeader>
+                  {item.feedback ? (
+                    <CardContent>
+                      <p className="type-body-sm whitespace-pre-line">{item.feedback}</p>
+                    </CardContent>
+                  ) : null}
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PagedList>
     </>
+  );
+}
+
+function LiveClassItems({ items }: { items: LiveClassDto[] }) {
+  return (
+    <ul className="grid gap-3">
+      {items.map((item) => (
+        <li key={item.id} className="grid gap-1 rounded-xl border bg-card p-4">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="type-label text-heading">{item.title}</span>
+            {item.status === 'CANCELLED' ? <Badge variant="destructive">Cancelled</Badge> : null}
+          </span>
+          <span className="type-body-sm text-muted-foreground">
+            {item.course.title} · {formatDateTime(item.startsAt)} IST · {item.durationMinutes} min
+            {item.host ? ` · ${item.host}` : ''}
+          </span>
+          {item.description ? (
+            <p className="type-body-sm whitespace-pre-line">{item.description}</p>
+          ) : null}
+          {item.status === 'CANCELLED' ? null : item.joinUrl ? (
+            <a
+              href={item.joinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 type-body-sm text-primary underline-offset-2 hover:underline"
+            >
+              Join link shared by your faculty
+            </a>
+          ) : (
+            <span className="type-caption text-muted-foreground">
+              Your faculty has not added a joining link yet.
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
