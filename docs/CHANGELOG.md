@@ -17,6 +17,20 @@ Entry template:
 
 ## [Unreleased]
 
+### Added — PHASE 07 Student LMS (uncommitted, pending review)
+
+- Migration `20261016083843_phase07_student_lms` (additive): `enrollments` (ACTIVE/CANCELLED, FREE/ADMIN source, resume lesson, last activity, completion date) and `lesson_progress` (viewed/completed timestamps, server-bounded video telemetry); unique `(user, course)` and `(user, lesson)`; four CHECK constraints. Permission `enrollments.manage` (ADMIN, SUPER_ADMIN; re-run `npm run db:seed`).
+- `accessPolicy.assertCanViewCourseContent`: `content.view_enrolled` + PUBLISHED course + ACTIVE enrolment, resolved from the database on every protected lesson/resource/progress endpoint.
+- API module `student` under `/api/v1/student` (role STUDENT): dashboard, features, courses, enrolment records, catalogue, free self-enrolment, course overview/curriculum/progress, lessons (player payload, resources, activity, complete/reopen, video heartbeat), lessons by type, history, profile (name/phone only). Admin `enrollments` endpoints: list, enrol by email, cancel.
+- Student portal `(student)`: `/student/dashboard`, `courses`, `courses/[courseId]`, `learn/[courseId]`, `classes`, `assignments`, `quizzes`, `exams`, `progress`, `results`, `certificates`, `profile`, `payments`, `history`. Course player with curriculum sidebar/drawer, video player with throttled heartbeats, study materials, mark complete, previous/next, resume. Admin course detail gains an **Enrolments** tab. Students are sent to their dashboard after sign-in.
+- Deferred with honest unavailable states (no fake data): quiz attempts, assignment submissions, exams, results (PHASE 09), payments (PHASE 10), live classes (PHASE 11), certificates (PHASE 13).
+- Tests: 25 API tests (`student-lms`, `progress-rules`) and 15 web tests. Docs: STUDENT-LMS.md; client clarifications AA-01…AA-10.
+
+### Changed — PHASE 07
+
+- Course deletion is refused (409) while enrolments exist.
+- `/login` signed-in card links students to their dashboard (was "coming soon").
+
 ### Added — PHASE 06 Academic & Course Management (uncommitted, pending review)
 
 - Migration `20261015071102_phase06_course_management` (additive): course `visibility` (`PUBLIC`/`UNLISTED`/`PRIVATE`), `thumbnail_url`, `duration_minutes`, `price_minor` + `currency`, `discount_type` + `discount_value`; lesson types `PDF`, `QUIZ`, `ASSIGNMENT`; nine CHECK constraints; index `courses(status, visibility)`.

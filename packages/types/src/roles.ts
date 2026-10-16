@@ -31,6 +31,8 @@ export const PERMISSIONS = {
   CONTENT_MANAGE: 'content.manage',
   /** Manage learning content of courses the faculty member is assigned to — FR-FAC-003/004, FR-RBAC-003. */
   CONTENT_MANAGE_ASSIGNED: 'content.manage_assigned',
+  /** Enrol students in courses and cancel enrolments (manual/offline enrolment, PHASE 07). */
+  ENROLLMENTS_MANAGE: 'enrollments.manage',
   /** View learning content of courses the student is enrolled in — FR-RBAC-004. */
   CONTENT_VIEW_ENROLLED: 'content.view_enrolled',
   /** View and update one's own profile — FR-STU-008. */

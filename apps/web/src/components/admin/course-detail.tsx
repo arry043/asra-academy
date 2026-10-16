@@ -1,10 +1,11 @@
 'use client';
 
-import type { AdminCourseDetail } from '@asra/types';
-import { BookOpen, ClipboardCheck, PencilLine, Users } from 'lucide-react';
+import { PERMISSIONS, type AdminCourseDetail } from '@asra/types';
+import { BookOpen, ClipboardCheck, PencilLine, UserCheck, Users } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 
+import { useAuth } from '@/components/auth/auth-provider';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,16 +13,19 @@ import { ApiClientError } from '@/lib/api';
 
 import { ErrorPanel, LoadingPanel, StatusBadge, VisibilityBadge } from './admin-ui';
 import { FacultyPanel } from './course-faculty';
+import { EnrollmentsPanel } from './course-enrollments';
 import { CourseForm } from './course-form';
 import { PublishingPanel } from './course-publishing';
 import { CurriculumEditor } from './curriculum-editor';
-import { errorMessage, useAdminApi, useApiResource } from './use-admin';
+import { errorMessage, hasPermission, useAdminApi, useApiResource } from './use-admin';
 
-type Tab = 'overview' | 'details' | 'faculty' | 'curriculum';
+type Tab = 'overview' | 'details' | 'faculty' | 'curriculum' | 'enrollments';
 
-/** One course: publishing, details, faculty and curriculum, each saved independently. */
+/** One course: publishing, details, faculty, curriculum and enrolments, each saved independently. */
 export function CourseDetail({ id }: { id: string }) {
   const api = useAdminApi();
+  const { user } = useAuth();
+  const canManageEnrollments = hasPermission(user, PERMISSIONS.ENROLLMENTS_MANAGE);
   const path = `/admin/courses/${id}`;
   const course = useApiResource(path, () => api.get<AdminCourseDetail>(path));
   const [tab, setTab] = React.useState<Tab>('overview');
@@ -90,6 +94,11 @@ export function CourseDetail({ id }: { id: string }) {
           <TabsTrigger value="curriculum">
             <BookOpen aria-hidden /> Curriculum
           </TabsTrigger>
+          {canManageEnrollments ? (
+            <TabsTrigger value="enrollments">
+              <UserCheck aria-hidden /> Enrolments
+            </TabsTrigger>
+          ) : null}
         </TabsList>
         <TabsContent value="overview">
           <PublishingPanel
@@ -108,6 +117,11 @@ export function CourseDetail({ id }: { id: string }) {
           {/* Curriculum changes alter the counts and the publication checklist: reload the course. */}
           <CurriculumEditor courseId={data.id} onChanged={course.reload} />
         </TabsContent>
+        {canManageEnrollments ? (
+          <TabsContent value="enrollments">
+            <EnrollmentsPanel course={data} />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </>
   );

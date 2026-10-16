@@ -240,6 +240,10 @@ npm run start:web           # serve production build
 
 The public site (home, about, courses, classes, special courses, faculty, admission, contact, blog, legal pages) lives in `apps/web/src/app/(public)` and needs no sign-in. Content, data sources, SEO, WhatsApp and contact-form behaviour are documented in [docs/PUBLIC-WEBSITE.md](docs/PUBLIC-WEBSITE.md). Search indexing is off unless `SITE_INDEXING_ENABLED=true` at build time.
 
+### Student portal (Phase 07)
+
+Signed-in students use `/student/*` (dashboard, courses, course player, progress, profile and records). Access to course content requires an active enrolment: free courses (price 0) can be joined from **My courses → Find courses**; administrators enrol students in other courses from the course's **Enrolments** tab. Rules, API and limitations: [docs/STUDENT-LMS.md](docs/STUDENT-LMS.md). After pulling Phase 07, run `npm run db:migrate:deploy` and `npm run db:seed` (grants the new `enrollments.manage` permission).
+
 ### Design system (Phase 04)
 
 Tokens, components, education cards, layouts and motion are documented in [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). The interactive showcase runs at **http://localhost:3000/design-system** in development (plus `/design-system/dashboard-preview` and `/design-system/admin-preview`). Production builds return 404 for it unless `ENABLE_DESIGN_SYSTEM=true`.

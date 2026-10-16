@@ -200,12 +200,12 @@ router.post(
 
 A role or permission says "may do this **kind** of thing". It does not say "on **this** course". Every business service must **also** check ownership or assignment with the resource id, using `accessPolicy` (`apps/api/src/services/access-policy.service.ts`):
 
-| Actor       | Rule                                                                      | Status                                                        |
-| ----------- | ------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Faculty     | `content.manage_assigned` **and** a `CourseInstructor` row for the course | Implemented: `accessPolicy.canManageCourseContent()` (tested) |
-| Admin       | `content.manage` → any course                                             | Implemented (same policy)                                     |
-| Student     | `content.view_enrolled` **and** an active enrolment                       | Phase 10, when the Enrolment model exists                     |
-| Super Admin | `admins.manage` / `system.manage` for admin and system actions            | Permission checks available; endpoints in later phases        |
+| Actor       | Rule                                                                      | Status                                                                                              |
+| ----------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Faculty     | `content.manage_assigned` **and** a `CourseInstructor` row for the course | Implemented: `accessPolicy.canManageCourseContent()` (tested)                                       |
+| Admin       | `content.manage` → any course                                             | Implemented (same policy)                                                                           |
+| Student     | `content.view_enrolled` **and** an ACTIVE enrolment in a PUBLISHED course | Implemented (Phase 07): `accessPolicy.assertCanViewCourseContent()` (tested); see STUDENT-LMS.md §2 |
+| Super Admin | `admins.manage` / `system.manage` for admin and system actions            | Permission checks available; endpoints in later phases                                              |
 
 Checklist for a new protected endpoint:
 
