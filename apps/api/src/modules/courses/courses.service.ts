@@ -344,6 +344,13 @@ export const courseService = {
           'This course has curriculum content. Archive it instead, or delete its modules first.',
         );
       }
+      // Enrolment history is kept (enrollments.course_id is RESTRICT): archive instead.
+      if ((await tx.enrollment.count({ where: { courseId: id } })) > 0) {
+        throw new AppError(
+          'CONFLICT',
+          'Students have enrolled in this course. Archive it instead.',
+        );
+      }
       await repo.delete(id);
     });
   },

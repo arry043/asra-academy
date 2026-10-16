@@ -119,11 +119,14 @@ model User {
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  roles          UserRole[]
-  studentProfile StudentProfile?
-  facultyProfile FacultyProfile?
-  sessions       AuthSession[]
-  oneTimeTokens  OneTimeToken[]
+  roles             UserRole[]
+  studentProfile    StudentProfile?
+  facultyProfile    FacultyProfile?
+  sessions          AuthSession[]
+  oneTimeTokens     OneTimeToken[]
+  enrollments       Enrollment[]     @relation("EnrollmentStudent")
+  enrollmentsByUser Enrollment[]     @relation("EnrollmentEnrolledBy")
+  lessonProgress    LessonProgress[]
 
   @@index([status])
   @@map("users")
@@ -450,6 +453,7 @@ model Course {
   subject     Subject?           @relation(fields: [subjectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   instructors CourseInstructor[]
   modules     Module[]
+  enrollments Enrollment[]
 
   @@index([status, publishedAt])
   @@index([status, visibility])
@@ -532,8 +536,10 @@ model Lesson {
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  chapter   Chapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  resources Resource[]
+  chapter          Chapter          @relation(fields: [chapterId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  resources        Resource[]
+  progress         LessonProgress[]
+  lastInEnrollment Enrollment[]
 
   @@unique([chapterId, position])
   @@index([status])
@@ -563,4 +569,91 @@ model Resource {
 
   @@unique([lessonId, position])
   @@map("resources")
+}
+
+// =============================================================================
+// Student learning (PHASE 07) — see docs/STUDENT-LMS.md
+// Entitlement is an ACTIVE enrolment in a PUBLISHED course; progress is per student per lesson.
+// Orders/payments (PHASE 10) will add a PAYMENT source; they never live in these tables.
+// =============================================================================
+
+/// Whether an enrolment currently grants access. Completion is recorded in `completedAt`, not as
+/// a status, because new lessons can be added to a course after a student has finished it.
+enum EnrollmentStatus {
+  ACTIVE
+  CANCELLED
+
+  @@map("enrollment_status")
+}
+
+/// How the enrolment was created. PAYMENT is added with verified payments (PHASE 10).
+enum EnrollmentSource {
+  /// Self-enrolment on a course whose price is explicitly 0.
+  FREE
+  /// Created by an administrator (e.g. offline payment or scholarship, M-07).
+  ADMIN
+
+  @@map("enrollment_source")
+}
+
+/// A student's entitlement to one course. One row per (student, course): re-enrolling after a
+/// cancellation reactivates the same row, so history and progress are never duplicated.
+model Enrollment {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  courseId       String           @map("course_id") @db.Uuid
+  status         EnrollmentStatus @default(ACTIVE)
+  source         EnrollmentSource
+  /// Administrator who created/reactivated an ADMIN enrolment (null for FREE).
+  enrolledById   String?          @map("enrolled_by_id") @db.Uuid
+  enrolledAt     DateTime         @default(now()) @map("enrolled_at") @db.Timestamptz(3)
+  cancelledAt    DateTime?        @map("cancelled_at") @db.Timestamptz(3)
+  /// First time every eligible lesson was completed (docs/STUDENT-LMS.md §4). Never cleared.
+  completedAt    DateTime?        @map("completed_at") @db.Timestamptz(3)
+  /// Resume point: the last lesson opened or progressed. SET NULL when that lesson is deleted.
+  lastLessonId   String?          @map("last_lesson_id") @db.Uuid
+  lastActivityAt DateTime?        @map("last_activity_at") @db.Timestamptz(3)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User    @relation("EnrollmentStudent", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  course     Course  @relation(fields: [courseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  enrolledBy User?   @relation("EnrollmentEnrolledBy", fields: [enrolledById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  lastLesson Lesson? @relation(fields: [lastLessonId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId, status, lastActivityAt])
+  @@index([courseId, status])
+  @@index([lastLessonId])
+  @@index([enrolledById])
+  @@map("enrollments")
+}
+
+/// One student's progress in one lesson. Video fields are server-accumulated from throttled
+/// heartbeats (docs/STUDENT-LMS.md §5); the client never sends a percentage or a completion flag.
+model LessonProgress {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String    @map("user_id") @db.Uuid
+  lessonId             String    @map("lesson_id") @db.Uuid
+  firstViewedAt        DateTime  @default(now()) @map("first_viewed_at") @db.Timestamptz(3)
+  lastViewedAt         DateTime  @default(now()) @map("last_viewed_at") @db.Timestamptz(3)
+  /// Set by the explicit "Mark complete" action; cleared only by "Mark incomplete".
+  completedAt          DateTime? @map("completed_at") @db.Timestamptz(3)
+  /// Last playback position reported by the player, for resuming (CHECK >= 0).
+  videoPositionSeconds Int?      @map("video_position_seconds")
+  /// Seconds of playback credited by the server (bounded by wall-clock time between heartbeats).
+  videoWatchedSeconds  Int       @default(0) @map("video_watched_seconds")
+  /// Server time of the last accepted heartbeat; bounds the next credit.
+  videoHeartbeatAt     DateTime? @map("video_heartbeat_at") @db.Timestamptz(3)
+  /// Set when credited playback reaches the threshold of the lesson's configured duration.
+  videoCompletedAt     DateTime? @map("video_completed_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId, lastViewedAt])
+  @@index([lessonId])
+  @@map("lesson_progress")
 }

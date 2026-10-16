@@ -100,6 +100,9 @@ apps/web/src/
 │   ├── (auth)/                 Login, register, password and email flows (AuthProvider here and in (admin))
 │   ├── (admin)/admin/          Admin portal (Phase 06): academic structure, categories, courses, curriculum —
 │   │                           client pages over /api/v1/admin, guarded by AdminShell (UI only; API enforces)
+│   ├── (student)/student/      Student portal (Phase 07): dashboard, courses, course player (learn/[courseId]),
+│   │                           progress, records — client pages over /api/v1/student, StudentShell gate;
+│   │                           see STUDENT-LMS.md
 │   ├── (internal)/design-system/  Internal showcase + dashboard/admin layout previews (404 in production
 │   │                              unless ENABLE_DESIGN_SYSTEM=true; demo fixtures only)
 │   ├── globals.css             Design tokens (colour, type roles, spacing, radius, elevation, motion)
@@ -112,6 +115,7 @@ apps/web/src/
 │   │                           PageHeader, BrandMark, SkipLink, PageTransition
 │   ├── auth/                   Auth-form adapters over the primitives
 │   ├── admin/                  Admin portal screens, useAdminApi/useApiResource data hooks (Phase 06)
+│   ├── student/                Student portal screens, course player, video player (Phase 07)
 │   └── public/                 Public-site blocks: PageHero, CtaBand, EmptyState, ProgrammeGrid,
 │                               ProgrammePage, CourseDirectory, ContactForm, LegalPage, WhatsAppLink, JsonLd
 ├── config/                     siteConfig (confirmed brand/contact), navigation (public routes)
@@ -164,7 +168,7 @@ apps/api/src/
 └── server.ts      process entry: listen + graceful shutdown
 ```
 
-Business modules live in `src/modules/<module>/` (Phase 06: `academics`, `courses`, `curriculum`, plus `shared` route/controller helpers), each with its own routes, controller, service and repository; request schemas are shared from `@asra/validation`. The shared layers above remain for cross-cutting code. Admin routers are mounted under `/api/v1/admin` behind `authenticate`, and **each route** requires its own permission, so routers mounted side by side never apply each other's requirements. The curriculum module calls the courses module only through `coursePublicationGuard` (a service interface).
+Business modules live in `src/modules/<module>/` (Phase 06: `academics`, `courses`, `curriculum`, plus `shared` route/controller helpers), each with its own routes, controller, service and repository; request schemas are shared from `@asra/validation`. The shared layers above remain for cross-cutting code. Admin routers are mounted under `/api/v1/admin` behind `authenticate`, and **each route** requires its own permission, so routers mounted side by side never apply each other's requirements. The curriculum module calls the courses module only through `coursePublicationGuard` (a service interface). Phase 07 adds `student` (mounted at `/api/v1/student` behind `authenticate` + `requireRole('STUDENT')`; course content additionally through `accessPolicy.assertCanViewCourseContent`) and `enrollments` (admin, `enrollments.manage`), which reuses the student module's progress rules and repository — see [STUDENT-LMS.md](./STUDENT-LMS.md).
 
 ## 6. Database Responsibilities
 

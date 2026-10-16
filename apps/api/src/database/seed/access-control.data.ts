@@ -15,6 +15,7 @@ export const PERMISSION_DEFINITIONS: Record<PermissionKey, string> = {
   [PERMISSIONS.COURSES_MANAGE]: 'Manage courses, course categories and instructor assignments',
   [PERMISSIONS.CONTENT_MANAGE]: 'Manage learning content of any course',
   [PERMISSIONS.CONTENT_MANAGE_ASSIGNED]: 'Manage learning content of assigned courses',
+  [PERMISSIONS.ENROLLMENTS_MANAGE]: 'Enrol students in courses and cancel enrolments',
   [PERMISSIONS.CONTENT_VIEW_ENROLLED]: 'View learning content of enrolled courses',
   [PERMISSIONS.PROFILE_MANAGE_OWN]: 'View and update own profile',
 };
@@ -45,6 +46,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       PERMISSIONS.ACADEMIC_STRUCTURE_MANAGE,
       PERMISSIONS.COURSES_MANAGE,
       PERMISSIONS.CONTENT_MANAGE,
+      PERMISSIONS.ENROLLMENTS_MANAGE,
       PERMISSIONS.PROFILE_MANAGE_OWN,
     ],
   },

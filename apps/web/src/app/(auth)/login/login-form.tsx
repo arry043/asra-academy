@@ -15,6 +15,7 @@ import { ApiClientError } from '@/lib/api';
 import { authApi } from '@/lib/auth/auth-api';
 import { safeNextPath } from '@/lib/admin/format';
 import { describeError, validateForm, type FieldErrors } from '@/lib/auth/form-errors';
+import { isStudent } from '@/lib/student/learning';
 
 export function LoginForm() {
   const { status, user } = useAuth();
@@ -45,6 +46,8 @@ export function LoginForm() {
 
 function SignInForm() {
   const { login } = useAuth();
+  const router = useRouter();
+  const hasNext = Boolean(useSearchParams().get('next'));
   const [pending, setPending] = React.useState(false);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [alert, setAlert] = React.useState<{ tone: 'error' | 'info'; message: string } | null>(
@@ -66,7 +69,9 @@ function SignInForm() {
     setErrors({});
     setPending(true);
     try {
-      await login(parsed.data);
+      const user = await login(parsed.data);
+      // Students go straight to their dashboard (a `?next=` target is handled by LoginForm).
+      if (!hasNext && isStudent(user)) router.replace('/student/dashboard');
     } catch (error) {
       if (error instanceof ApiClientError && error.code === 'EMAIL_NOT_VERIFIED') {
         setUnverifiedEmail(parsed.data.email);
@@ -160,8 +165,8 @@ function ResendVerification({ email }: { email: string }) {
 }
 
 /**
- * Shown after a successful sign-in. PHASE 03 has no dashboards, so this card confirms the
- * session (identity, roles) and offers sign-out.
+ * Shown when an already signed-in user opens /login: confirms the session (identity, roles),
+ * links to the user's portal and offers sign-out.
  */
 function SignedIn() {
   const { user, logout, logoutAllDevices } = useAuth();
@@ -201,11 +206,11 @@ function SignedIn() {
           <Button asChild size="lg" variant="accent">
             <Link href="/admin">Open administration</Link>
           </Button>
-        ) : (
-          <p className="type-body-sm text-muted-foreground">
-            Your learning dashboard is coming soon.
-          </p>
-        )}
+        ) : isStudent(user) ? (
+          <Button asChild size="lg" variant="accent">
+            <Link href="/student/dashboard">Go to my dashboard</Link>
+          </Button>
+        ) : null}
         <div className="grid gap-2 sm:grid-cols-2">
           <Button
             onClick={() => signOut('one')}

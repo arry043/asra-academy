@@ -33,7 +33,9 @@ This document covers the data model, its conventions and constraints, and how to
           ▼         ▼        ▼                        │
  CourseCategory ──< Course >──────< CourseInstructor >┘
                       │
-                      └──< Module ──< Chapter ──< Lesson ──< Resource
+                      ├──< Module ──< Chapter ──< Lesson ──< Resource
+                      │                             │
+ User ──< Enrollment >┘          User ──< LessonProgress >── Lesson   (Phase 07)
 ```
 
 `A ──< B` = one A has many B. `?` = optional (nullable foreign key).
@@ -58,6 +60,8 @@ This document covers the data model, its conventions and constraints, and how to
 | `Chapter`          | `chapters`           | Ordered section of a module                                                            |
 | `Lesson`           | `lessons`            | Ordered learning item in a chapter (video, document, text, link)                       |
 | `Resource`         | `resources`          | Learning material attached to a lesson (storage object or external URL)                |
+| `Enrollment`       | `enrollments`        | Phase 07: a student's entitlement to a course (ACTIVE/CANCELLED, FREE/ADMIN source)    |
+| `LessonProgress`   | `lesson_progress`    | Phase 07: one student's progress in one lesson (viewed, completed, video telemetry)    |
 
 ### Why the two additional models
 
@@ -196,6 +200,17 @@ Unique: `auth_sessions.token_hash`, `auth_sessions.previous_token_hash`, `one_ti
 
 The same rules are validated first by the Zod schemas in `@asra/validation` (`courses.ts`) so clients get field-level errors; the CHECKs are the backstop. New index: `courses(status, visibility)` for the public catalogue.
 
+### 4.2.3 Phase 07 constraints (`20261016083843_phase07_student_lms`)
+
+| Constraint                                    | Rule                                                |
+| --------------------------------------------- | --------------------------------------------------- |
+| `enrollments_cancelled_at_consistent`         | `status = 'CANCELLED'` ⇔ `cancelled_at IS NOT NULL` |
+| `enrollments_free_has_no_enroller`            | a `FREE` enrolment never names an administrator     |
+| `lesson_progress_video_position_non_negative` | `video_position_seconds IS NULL OR >= 0`            |
+| `lesson_progress_video_watched_non_negative`  | `video_watched_seconds >= 0`                        |
+
+Unique: `enrollments(user_id, course_id)` (one enrolment per student and course; re-enrolment reactivates the row) and `lesson_progress(user_id, lesson_id)` (one current progress row per student and lesson). Indexes: `enrollments(user_id, status, last_activity_at)` (dashboard/continue learning), `enrollments(course_id, status)` (admin lists), `lesson_progress(user_id, last_viewed_at)` (history), plus the foreign keys. Referential actions: student deleted → their enrolments and progress `CASCADE`; course with enrolments → `RESTRICT` (archive instead); lesson deleted → its progress `CASCADE`, `enrollments.last_lesson_id` `SET NULL`; administrator deleted → `enrolled_by_id` `SET NULL`. Rules and rationale: [STUDENT-LMS.md](./STUDENT-LMS.md).
+
 ### 4.3 Indexes
 
 Besides the unique indexes above, there are B-tree indexes on:
@@ -305,10 +320,11 @@ Nothing resets the database automatically: not `npm run dev`, not API startup, a
 | `courses.manage`            | FR-ADM-004                  |      ✓      |   ✓   |         |         |
 | `content.manage`            | FR-ADM-009                  |      ✓      |   ✓   |         |         |
 | `content.manage_assigned`   | FR-FAC-003/004, FR-RBAC-003 |      ✓      |       |    ✓    |         |
+| `enrollments.manage`        | Phase 07 (manual enrolment) |      ✓      |   ✓   |         |         |
 | `content.view_enrolled`     | FR-RBAC-004                 |      ✓      |       |         |    ✓    |
 | `profile.manage_own`        | FR-STU-008                  |      ✓      |   ✓   |    ✓    |    ✓    |
 
-Permission keys are shared with the web app as `PERMISSIONS` in `@asra/types`. Permissions for later modules (enrolments, payments, assessments, certificates, notifications and reports) will be added in their phases.
+Permission keys are shared with the web app as `PERMISSIONS` in `@asra/types`. Permissions for later modules (payments, assessments, certificates, notifications and reports) will be added in their phases. Because the seed is additive, run `npm run db:seed` once on existing databases to grant `enrollments.manage` (Phase 07).
 
 Properties:
 
@@ -360,5 +376,6 @@ Before the tests run, `npm run test:db:prepare -w @asra/api` creates the test da
 | `tests/database.test.ts` | Connectivity (up/down), unique/FK/CHECK enforcement, cascades, RESTRICT, UUIDs, UTC timestamps, error mapping                                                 |
 | `tests/http.test.ts`     | Health/readiness, 404, malformed JSON, Zod validation → 422, Prisma errors → 409/422 without leaking SQL or row data                                          |
 | Phase 06 suites          | `academics`, `courses`, `curriculum`, `public-catalog`, `acceptance-phase06` — see [COURSE-MANAGEMENT.md §9](./COURSE-MANAGEMENT.md#9-tests-and-verification) |
+| Phase 07 suites          | `student-lms`, `progress-rules` — see [STUDENT-LMS.md §9](./STUDENT-LMS.md#9-tests-and-verification)                                                          |
 
 `resetAuthState()` (tests/support/auth.ts) rebuilds role grants from the seed definitions before each test, so a permission granted at runtime by one test cannot leak into another suite (the seed itself stays additive).

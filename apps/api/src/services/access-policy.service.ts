@@ -54,6 +54,39 @@ export const accessPolicy = {
     }
   },
 
-  // Student entitlement (`content.view_enrolled` + an active enrolment for the course) is added
-  // with the Enrolment model in PHASE 10 — there is no enrolment data to check yet.
+  /**
+   * Student entitlement to a course's protected content (docs/STUDENT-LMS.md §2):
+   * `content.view_enrolled` + the course is PUBLISHED + an ACTIVE enrolment for THIS user.
+   * Visibility only governs the public website; a PRIVATE course is open to its enrolled students.
+   * Publication alone never grants access, and nothing from the request body is consulted.
+   *
+   * Throws 404 when the course is not published (or PRIVATE without enrolment) so its existence
+   * is not disclosed, and 403 when a visible course exists but the student is not enrolled.
+   * Returns the enrolment, which callers use for resume/last-activity updates.
+   */
+  async assertCanViewCourseContent(
+    auth: AuthContext,
+    courseId: string,
+    db: DbClient = prisma,
+  ): Promise<{ id: string; completedAt: Date | null; lastLessonId: string | null }> {
+    if (!auth.permissions.has(PERMISSIONS.CONTENT_VIEW_ENROLLED)) {
+      throw new AppError('FORBIDDEN', 'You do not have permission to perform this action');
+    }
+    const course = await db.course.findUnique({
+      where: { id: courseId },
+      select: { status: true, visibility: true },
+    });
+    if (!course || course.status !== 'PUBLISHED') {
+      throw new AppError('NOT_FOUND', 'Course not found');
+    }
+    const enrollment = await db.enrollment.findUnique({
+      where: { userId_courseId: { userId: auth.userId, courseId } },
+      select: { id: true, status: true, completedAt: true, lastLessonId: true },
+    });
+    if (!enrollment || enrollment.status !== 'ACTIVE') {
+      if (course.visibility === 'PRIVATE') throw new AppError('NOT_FOUND', 'Course not found');
+      throw new AppError('FORBIDDEN', 'You are not enrolled in this course');
+    }
+    return enrollment;
+  },
 };
