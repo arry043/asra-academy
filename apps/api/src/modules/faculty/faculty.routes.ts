@@ -1,16 +1,27 @@
 import { PERMISSIONS } from '@asra/types';
 import {
+  answerGradeSchema,
+  assessmentTransitionSchema,
   assignmentCreateSchema,
   assignmentSettingsSchema,
   facultyAssignmentListQuerySchema,
+  attemptListQuerySchema,
+  examCreateSchema,
+  examUpdateSchema,
   facultyCourseListQuerySchema,
+  facultyExamListQuerySchema,
   facultyLessonListQuerySchema,
   facultyProfileUpdateSchema,
+  facultyQuizListQuerySchema,
   facultyStudentListQuerySchema,
   gradeSubmissionSchema,
   liveClassCreateSchema,
   liveClassListQuerySchema,
   liveClassUpdateSchema,
+  questionInputSchema,
+  questionOrderSchema,
+  quizCreateSchema,
+  quizSettingsSchema,
   submissionListQuerySchema,
 } from '@asra/validation';
 import { Router, type RequestHandler } from 'express';
@@ -19,6 +30,7 @@ import { authenticate } from '../../middleware/authenticate.js';
 import { requirePermission, requireRole } from '../../middleware/authorize.js';
 import { validateRequest } from '../../middleware/validate-request.js';
 import { idParamsSchema } from '../../validators/common.validators.js';
+import { facultyAssessmentController as a } from '../assessments/assessments.controller.js';
 import { curriculumFacultyRouter } from '../curriculum/curriculum.routes.js';
 import { facultyController as c } from './faculty.controller.js';
 
@@ -46,6 +58,8 @@ const byId = validateRequest({ params: idParamsSchema });
 const withBody = (body: ZodType): RequestHandler =>
   validateRequest({ params: idParamsSchema, body });
 const withQuery = (query: ZodType): RequestHandler => validateRequest({ query });
+const withIdQuery = (query: ZodType): RequestHandler =>
+  validateRequest({ params: idParamsSchema, query });
 
 const r = facultyRouter;
 
@@ -75,6 +89,41 @@ r.get('/submissions', grading, withQuery(submissionListQuerySchema), c.submissio
 r.get('/submissions/:id', grading, byId, c.submission);
 r.put('/submissions/:id/grade', grading, withBody(gradeSubmissionSchema), c.grade);
 r.post('/submissions/:id/release', grading, byId, c.release);
+
+// Assessment engine (PHASE 09, docs/ASSESSMENTS.md §9). Authoring needs content.manage_assigned;
+// attempts, manual grading and result publication need submissions.grade_assigned.
+r.get('/quizzes', content, withQuery(facultyQuizListQuerySchema), a.quizzes);
+r.get('/quizzes/:id', content, byId, a.quiz);
+r.post('/chapters/:id/quizzes', content, withBody(quizCreateSchema), a.createQuiz);
+r.put('/lessons/:id/quiz', content, withBody(quizSettingsSchema), a.saveQuizSettings);
+r.post('/quizzes/:id/questions', content, withBody(questionInputSchema), a.addQuizQuestion);
+r.put(
+  '/quizzes/:id/question-order',
+  content,
+  withBody(questionOrderSchema),
+  a.reorderQuizQuestions,
+);
+r.post('/quizzes/:id/status', content, withBody(assessmentTransitionSchema), a.quizTransition);
+r.post('/quizzes/:id/publish-results', grading, byId, a.publishQuizResults);
+r.get('/quizzes/:id/attempts', grading, withIdQuery(attemptListQuerySchema), a.quizAttempts);
+
+r.get('/exams', content, withQuery(facultyExamListQuerySchema), a.exams);
+r.post('/courses/:id/exams', content, withBody(examCreateSchema), a.createExam);
+r.get('/exams/:id', content, byId, a.exam);
+r.patch('/exams/:id', content, withBody(examUpdateSchema), a.updateExam);
+r.delete('/exams/:id', content, byId, a.deleteExam);
+r.post('/exams/:id/questions', content, withBody(questionInputSchema), a.addExamQuestion);
+r.put('/exams/:id/question-order', content, withBody(questionOrderSchema), a.reorderExamQuestions);
+r.post('/exams/:id/status', content, withBody(assessmentTransitionSchema), a.examTransition);
+r.post('/exams/:id/publish-results', grading, byId, a.publishExamResults);
+r.post('/exams/:id/process-expired', grading, byId, a.processExpired);
+r.get('/exams/:id/attempts', grading, withIdQuery(attemptListQuerySchema), a.examAttempts);
+
+r.patch('/questions/:id', content, withBody(questionInputSchema), a.updateQuestion);
+r.delete('/questions/:id', content, byId, a.deleteQuestion);
+
+r.get('/attempts/:id', grading, byId, a.attempt);
+r.put('/attempt-answers/:id/grade', grading, withBody(answerGradeSchema), a.gradeAnswer);
 
 r.get('/live-classes', classes, withQuery(liveClassListQuerySchema), c.liveClasses);
 r.post('/courses/:id/live-classes', classes, withBody(liveClassCreateSchema), c.createLiveClass);

@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 
-import { ExamsPage } from '@/components/student/student-pages';
+import { StudentExamsPage } from '@/components/student/assessment-pages';
 
 export const metadata: Metadata = { title: 'Exams' };
 
-export default function StudentExamsPage() {
-  return <ExamsPage />;
+export default function StudentExamsRoute() {
+  return <StudentExamsPage />;
 }

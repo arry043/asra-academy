@@ -4,3 +4,4 @@ export * from './catalog.js';
 export * from './roles.js';
 export * from './student.js';
 export * from './faculty.js';
+export * from './assessment.js';

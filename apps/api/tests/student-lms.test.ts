@@ -718,11 +718,18 @@ describe('profile and records', () => {
       '/student/features',
     );
     // PHASE 08 made assignment submission, assignment results and scheduled classes available;
-    // everything else is still reported as unavailable.
+    // PHASE 09 added quiz attempts and examinations. Certificates and payments are still
+    // reported as unavailable.
     const available = Object.entries(features.body.data)
       .filter(([, feature]) => feature.available)
       .map(([key]) => key)
       .sort();
-    assert.deepEqual(available, ['assignmentSubmissions', 'liveClasses', 'results']);
+    assert.deepEqual(available, [
+      'assignmentSubmissions',
+      'exams',
+      'liveClasses',
+      'quizAttempts',
+      'results',
+    ]);
   });
 });

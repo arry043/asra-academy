@@ -1,3 +1,4 @@
+import type { GradeHistoryEntry, SubmissionRevisionDto } from './assessment.js';
 import type { CourseVisibility, PublicationStatus, PublicRef } from './catalog.js';
 import type {
   CourseProgressDto,
@@ -149,6 +150,10 @@ export interface AssignmentSettingsDto {
   id: string;
   maxMarks: number;
   dueAt: string | null;
+  /** After the due date: accepted and flagged late (true) or refused (false). */
+  allowLateSubmissions: boolean;
+  /** Students may replace their work until it is graded; earlier versions are kept. */
+  allowResubmission: boolean;
   updatedAt: string;
 }
 
@@ -184,8 +189,10 @@ export interface SubmissionListItem {
   };
   course: { id: string; title: string };
   submittedAt: string;
-  /** Submitted after the due date (informational; no penalty is applied, I-02). */
+  /** Decided by the server when the work was accepted (no penalty is applied, I-02). */
   late: boolean;
+  /** 1 = first submission; higher after permitted resubmissions. */
+  version: number;
   status: SubmissionStatus;
   marksAwarded: number | null;
   gradedAt: string | null;
@@ -198,8 +205,14 @@ export interface SubmissionDetailDto extends SubmissionListItem {
   /** Re-validated https:// link, or null. */
   attachmentUrl: string | null;
   feedback: string | null;
+  /** Private to faculty; never sent to the student. */
+  facultyNote: string | null;
   gradedBy: string | null;
   updatedAt: string;
+  /** Earlier versions replaced by resubmission, newest first. */
+  revisions: SubmissionRevisionDto[];
+  /** Every grade save and the release, oldest first (audit). */
+  gradeHistory: GradeHistoryEntry[];
 }
 
 // --- Live classes ---------------------------------------------------------------------------
@@ -259,6 +272,7 @@ export interface StudentSubmissionDto {
   attachmentUrl: string | null;
   submittedAt: string;
   late: boolean;
+  version: number;
   /** SUBMITTED until a result is released, so an unreleased grade is not disclosed. */
   state: 'SUBMITTED' | 'RESULT_RELEASED';
   result: {
@@ -275,6 +289,13 @@ export interface StudentAssignmentDto {
   acceptingSubmissions: boolean;
   maxMarks: number | null;
   dueAt: string | null;
+  allowLateSubmissions: boolean;
+  allowResubmission: boolean;
+  /** Server-side answer to "may I submit (or resubmit) now?"; null reason = yes. */
+  canSubmit: boolean;
+  cannotSubmitReason: string | null;
+  /** Uploading files needs a storage provider (R-01); links work without it. */
+  fileUploads: FeatureStatus;
   submission: StudentSubmissionDto | null;
 }
 

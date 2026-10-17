@@ -2,6 +2,7 @@ import {
   PERMISSIONS,
   type AssignmentSettingsDto,
   type FacultyAssignmentDetail,
+  type GradeHistoryEntry,
   type FacultyAssignmentItem,
   type Paginated,
   type StudentAssignmentDto,
@@ -22,10 +23,12 @@ import {
 import { prisma } from '../../database/prisma.js';
 import type { DbClient } from '../../database/types.js';
 import { Prisma } from '../../generated/prisma/client.js';
+import { clock } from '../../lib/clock.js';
 import { accessPolicy } from '../../services/access-policy.service.js';
 import type { AuthContext } from '../../types/auth.js';
 import { AppError, fieldError } from '../../utils/app-error.js';
 import { pageArgs, paginated } from '../../utils/pagination.js';
+import { audit } from '../assessments/audit.js';
 import { coursePublicationGuard } from '../courses/courses.service.js';
 import { createCurriculumRepository } from '../curriculum/curriculum.repository.js';
 
@@ -42,8 +45,11 @@ import { createCurriculumRepository } from '../curriculum/curriculum.repository.
  *   - Marks are validated against the assignment's maximum on the server; nothing computed in the
  *     browser is trusted. Grading and release lock the submission row (no lost updates).
  *   - A saved grade is invisible to the student until it is explicitly released; a released result
- *     is final (I-03/K-04 pending).
- *   - One submission per student and assignment; the submitted work is never changed (I-02).
+ *     is final (I-03/K-04 pending). Every grade save and release is audited (grade history).
+ *   - One submission row per student and assignment (PHASE 09, I-02 pending): after the due date
+ *     work is accepted and flagged late, or refused, per `allowLateSubmissions`; a resubmission
+ *     (only with `allowResubmission`, only before grading) archives the previous version first.
+ *     Lateness and acceptance are decided with SERVER time (`clock.now()`).
  */
 
 const notFound = (entity: string): never => {
@@ -60,7 +66,14 @@ const lessonChain = {
   },
 } satisfies Prisma.LessonSelect;
 
-const settingsSelect = { id: true, maxMarks: true, dueAt: true, updatedAt: true } as const;
+const settingsSelect = {
+  id: true,
+  maxMarks: true,
+  dueAt: true,
+  allowLateSubmissions: true,
+  allowResubmission: true,
+  updatedAt: true,
+} as const;
 
 const assignmentLessonSelect = {
   id: true,
@@ -83,9 +96,12 @@ const submissionSelect = {
   body: true,
   attachmentUrl: true,
   submittedAt: true,
+  late: true,
+  version: true,
   status: true,
   marksAwarded: true,
   feedback: true,
+  facultyNote: true,
   gradedAt: true,
   resultReleasedAt: true,
   updatedAt: true,
@@ -105,13 +121,23 @@ type SubmissionRow = Prisma.AssignmentSubmissionGetPayload<{ select: typeof subm
 
 // --- Mappers --------------------------------------------------------------------------------
 
-const isLate = (submittedAt: Date, dueAt: Date | null) => dueAt !== null && submittedAt > dueAt;
+/** Lateness is decided once, by the server, when a version is accepted. */
+const isLateAt = (at: Date, dueAt: Date | null) => dueAt !== null && at > dueAt;
 
-function toSettings(row: { id: string; maxMarks: number; dueAt: Date | null; updatedAt: Date }) {
+function toSettings(row: {
+  id: string;
+  maxMarks: number;
+  dueAt: Date | null;
+  allowLateSubmissions: boolean;
+  allowResubmission: boolean;
+  updatedAt: Date;
+}) {
   return {
     id: row.id,
     maxMarks: row.maxMarks,
     dueAt: row.dueAt?.toISOString() ?? null,
+    allowLateSubmissions: row.allowLateSubmissions,
+    allowResubmission: row.allowResubmission,
     updatedAt: row.updatedAt.toISOString(),
   } satisfies AssignmentSettingsDto;
 }
@@ -137,7 +163,8 @@ function toSubmissionItem(row: SubmissionRow): SubmissionListItem {
     },
     course: lesson.chapter.module.course,
     submittedAt: row.submittedAt.toISOString(),
-    late: isLate(row.submittedAt, row.assignment.dueAt),
+    late: row.late,
+    version: row.version,
     status: row.status,
     marksAwarded: row.marksAwarded,
     gradedAt: row.gradedAt?.toISOString() ?? null,
@@ -145,14 +172,58 @@ function toSubmissionItem(row: SubmissionRow): SubmissionListItem {
   };
 }
 
-function toSubmissionDetail(row: SubmissionRow): SubmissionDetailDto {
+/** Detail with earlier versions and the audited grade history (two small extra queries). */
+async function toSubmissionDetail(
+  row: SubmissionRow,
+  db: DbClient = prisma,
+): Promise<SubmissionDetailDto> {
+  const [revisions, events] = await Promise.all([
+    db.assignmentSubmissionRevision.findMany({
+      where: { submissionId: row.id },
+      orderBy: { version: 'desc' },
+      select: { version: true, body: true, attachmentUrl: true, submittedAt: true, late: true },
+    }),
+    db.assessmentAuditLog.findMany({
+      where: {
+        entityType: 'submission',
+        entityId: row.id,
+        action: { in: ['submission.graded', 'submission.released'] },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { action: true, createdAt: true, data: true, actor: { select: { fullName: true } } },
+    }),
+  ]);
+  const gradeHistory: GradeHistoryEntry[] = events.map((event) => {
+    const data = (event.data ?? {}) as { marksAwarded?: number; previousMarks?: number | null };
+    return {
+      at: event.createdAt.toISOString(),
+      by: event.actor?.fullName ?? null,
+      action:
+        event.action === 'submission.released'
+          ? 'released'
+          : data.previousMarks === null || data.previousMarks === undefined
+            ? 'graded'
+            : 'regraded',
+      marksAwarded: data.marksAwarded ?? null,
+      previousMarks: data.previousMarks ?? null,
+    };
+  });
   return {
     ...toSubmissionItem(row),
     body: row.body,
     attachmentUrl: safeLink(row.attachmentUrl),
     feedback: row.feedback,
+    facultyNote: row.facultyNote,
     gradedBy: row.gradedBy?.fullName ?? null,
     updatedAt: row.updatedAt.toISOString(),
+    revisions: revisions.map((revision) => ({
+      version: revision.version,
+      body: revision.body,
+      attachmentUrl: safeLink(revision.attachmentUrl),
+      submittedAt: revision.submittedAt.toISOString(),
+      late: revision.late,
+    })),
+    gradeHistory,
   };
 }
 
@@ -211,7 +282,7 @@ function assertDueDate(dueAt: string | null | undefined, previous: Date | null =
   if (dueAt === undefined || dueAt === null) return;
   const next = new Date(dueAt);
   if (previous && previous.getTime() === next.getTime()) return;
-  if (next.getTime() <= Date.now()) {
+  if (next.getTime() <= clock.now().getTime()) {
     throw fieldError('VALIDATION_ERROR', 'dueAt', 'Choose a due date in the future');
   }
 }
@@ -340,6 +411,8 @@ export const assignmentService = {
           lessonId: lesson.id,
           maxMarks: input.maxMarks,
           dueAt: input.dueAt ? new Date(input.dueAt) : null,
+          allowLateSubmissions: input.allowLateSubmissions ?? true,
+          allowResubmission: input.allowResubmission ?? false,
           createdById: auth.userId,
         },
       });
@@ -382,6 +455,8 @@ export const assignmentService = {
             lessonId,
             maxMarks: input.maxMarks,
             dueAt: dueAt ?? null,
+            allowLateSubmissions: input.allowLateSubmissions ?? true,
+            allowResubmission: input.allowResubmission ?? false,
             createdById: auth.userId,
           },
         });
@@ -401,7 +476,16 @@ export const assignmentService = {
       }
       await tx.assignment.update({
         where: { id: current.id },
-        data: { maxMarks: input.maxMarks, ...(dueAt === undefined ? {} : { dueAt }) },
+        data: {
+          maxMarks: input.maxMarks,
+          ...(dueAt === undefined ? {} : { dueAt }),
+          ...(input.allowLateSubmissions === undefined
+            ? {}
+            : { allowLateSubmissions: input.allowLateSubmissions }),
+          ...(input.allowResubmission === undefined
+            ? {}
+            : { allowResubmission: input.allowResubmission }),
+        },
       });
     });
     return assignmentService.detail(auth, lessonId);
@@ -508,18 +592,41 @@ export const submissionService = {
           `Marks cannot exceed the maximum of ${current.assignment.maxMarks}`,
         );
       }
+      const feedback = input.feedback ?? null;
+      const facultyNote = input.facultyNote === undefined ? current.facultyNote : input.facultyNote;
+      // A retried request with identical content changes nothing and adds no history entry.
+      if (
+        current.status === 'GRADED' &&
+        current.marksAwarded === input.marksAwarded &&
+        current.feedback === feedback &&
+        current.facultyNote === facultyNote
+      ) {
+        return toSubmissionDetail(current, tx);
+      }
       const updated = await tx.assignmentSubmission.update({
         where: { id },
         data: {
           status: 'GRADED',
           marksAwarded: input.marksAwarded,
-          feedback: input.feedback ?? null,
+          feedback,
+          facultyNote,
           gradedById: auth.userId,
-          gradedAt: new Date(),
+          gradedAt: clock.now(),
         },
         select: submissionSelect,
       });
-      return toSubmissionDetail(updated);
+      await audit(tx, {
+        action: 'submission.graded',
+        actorId: auth.userId,
+        entityType: 'submission',
+        entityId: id,
+        data: {
+          marksAwarded: input.marksAwarded,
+          previousMarks: current.status === 'GRADED' ? current.marksAwarded : null,
+          version: current.version,
+        },
+      });
+      return toSubmissionDetail(updated, tx);
     });
   },
 
@@ -532,17 +639,24 @@ export const submissionService = {
       await requireGradableSubmission(auth, id, tx);
       const current = await lockSubmission(tx, id);
       if (current.resultReleasedAt !== null) {
-        return { released: false, submission: toSubmissionDetail(current) };
+        return { released: false, submission: await toSubmissionDetail(current, tx) };
       }
       if (current.status !== 'GRADED') {
         throw new AppError('CONFLICT', 'Grade this submission before releasing the result.');
       }
       const updated = await tx.assignmentSubmission.update({
         where: { id },
-        data: { resultReleasedAt: new Date() },
+        data: { resultReleasedAt: clock.now() },
         select: submissionSelect,
       });
-      return { released: true, submission: toSubmissionDetail(updated) };
+      await audit(tx, {
+        action: 'submission.released',
+        actorId: auth.userId,
+        entityType: 'submission',
+        entityId: id,
+        data: { marksAwarded: updated.marksAwarded },
+      });
+      return { released: true, submission: await toSubmissionDetail(updated, tx) };
     });
   },
 };
@@ -562,7 +676,15 @@ async function requireStudentAssignment(
       status: true,
       contentType: true,
       chapter: { select: { module: { select: { courseId: true } } } },
-      assignment: { select: { id: true, maxMarks: true, dueAt: true } },
+      assignment: {
+        select: {
+          id: true,
+          maxMarks: true,
+          dueAt: true,
+          allowLateSubmissions: true,
+          allowResubmission: true,
+        },
+      },
     },
   });
   if (!lesson || lesson.status !== 'PUBLISHED') notFound('Lesson');
@@ -571,26 +693,38 @@ async function requireStudentAssignment(
   return lesson!;
 }
 
-function toStudentSubmission(
-  row: {
-    id: string;
-    body: string;
-    attachmentUrl: string | null;
-    submittedAt: Date;
-    marksAwarded: number | null;
-    feedback: string | null;
-    resultReleasedAt: Date | null;
-  },
-  assignment: { maxMarks: number; dueAt: Date | null },
-) {
+type StudentAssignmentSettings = NonNullable<
+  Awaited<ReturnType<typeof requireStudentAssignment>>['assignment']
+>;
+
+const studentSubmissionSelect = {
+  id: true,
+  body: true,
+  attachmentUrl: true,
+  submittedAt: true,
+  late: true,
+  version: true,
+  status: true,
+  marksAwarded: true,
+  feedback: true,
+  resultReleasedAt: true,
+} as const;
+
+type StudentSubmissionRow = Prisma.AssignmentSubmissionGetPayload<{
+  select: typeof studentSubmissionSelect;
+}>;
+
+function toStudentSubmission(row: StudentSubmissionRow, assignment: { maxMarks: number }) {
   const released = row.resultReleasedAt !== null && row.marksAwarded !== null;
   return {
     id: row.id,
     body: row.body,
     attachmentUrl: safeLink(row.attachmentUrl),
     submittedAt: row.submittedAt.toISOString(),
-    late: isLate(row.submittedAt, assignment.dueAt),
-    // An unreleased grade is not disclosed, not even as a status.
+    late: row.late,
+    version: row.version,
+    // An unreleased grade is not disclosed, not even as a status. The private faculty note is
+    // never selected for students.
     state: released ? ('RESULT_RELEASED' as const) : ('SUBMITTED' as const),
     result: released
       ? {
@@ -603,15 +737,55 @@ function toStudentSubmission(
   };
 }
 
-const studentSubmissionSelect = {
-  id: true,
-  body: true,
-  attachmentUrl: true,
-  submittedAt: true,
-  marksAwarded: true,
-  feedback: true,
-  resultReleasedAt: true,
-} as const;
+/**
+ * The single submission policy (docs/ASSESSMENTS.md §6), evaluated at SERVER time `now`:
+ *   - no settings                → online submission not open
+ *   - nothing submitted yet      → allowed; after the due date only with allowLateSubmissions
+ *   - already submitted          → only with allowResubmission, while not yet graded, and under
+ *                                   the same due-date rule
+ */
+export function submissionPolicy(
+  assignment: StudentAssignmentSettings | null,
+  existing: { status: 'SUBMITTED' | 'GRADED' } | null,
+  now: Date,
+): { allowed: boolean; reason: string | null; late: boolean } {
+  if (!assignment) {
+    return {
+      allowed: false,
+      reason:
+        'Online submission is not open for this assignment. Follow your faculty’s instructions.',
+      late: false,
+    };
+  }
+  const late = isLateAt(now, assignment.dueAt);
+  if (existing) {
+    if (!assignment.allowResubmission) {
+      return { allowed: false, reason: 'You have already submitted this assignment.', late };
+    }
+    if (existing.status !== 'SUBMITTED') {
+      return {
+        allowed: false,
+        reason: 'Your work has already been graded, so it can no longer be replaced.',
+        late,
+      };
+    }
+  }
+  if (late && !assignment.allowLateSubmissions) {
+    return {
+      allowed: false,
+      reason: 'The due date has passed and this assignment does not accept late submissions.',
+      late,
+    };
+  }
+  return { allowed: true, reason: null, late };
+}
+
+/** File uploads need a storage provider (R-01); none is configured, so links are offered instead. */
+const FILE_UPLOADS_UNAVAILABLE = {
+  available: false,
+  message:
+    'File uploads are not available yet (no storage provider is configured). Share a link to your work instead.',
+};
 
 export const studentAssignmentService = {
   async get(auth: AuthContext, lessonId: string): Promise<StudentAssignmentDto> {
@@ -624,16 +798,26 @@ export const studentAssignmentService = {
           select: studentSubmissionSelect,
         })
       : null;
+    const policy = submissionPolicy(lesson.assignment, submission, clock.now());
     return {
       lessonId,
       acceptingSubmissions: lesson.assignment !== null,
       maxMarks: lesson.assignment?.maxMarks ?? null,
       dueAt: lesson.assignment?.dueAt?.toISOString() ?? null,
+      allowLateSubmissions: lesson.assignment?.allowLateSubmissions ?? false,
+      allowResubmission: lesson.assignment?.allowResubmission ?? false,
+      canSubmit: policy.allowed,
+      cannotSubmitReason: policy.reason,
+      fileUploads: FILE_UPLOADS_UNAVAILABLE,
       submission: submission ? toStudentSubmission(submission, lesson.assignment!) : null,
     };
   },
 
-  /** One submission per student (I-02 pending); late work is accepted and flagged, not penalised. */
+  /**
+   * Accepts a submission or a permitted resubmission. The acceptance time and lateness are
+   * computed here from server time; nothing time-related is read from the request. A resubmission
+   * locks the row and archives the previous version before replacing it.
+   */
   async submit(
     auth: AuthContext,
     lessonId: string,
@@ -641,24 +825,66 @@ export const studentAssignmentService = {
   ): Promise<StudentAssignmentDto> {
     await prisma.$transaction(async (tx) => {
       const lesson = await requireStudentAssignment(auth, lessonId, tx);
-      if (!lesson.assignment) {
-        throw new AppError(
-          'CONFLICT',
-          'Online submission is not open for this assignment. Follow your faculty’s instructions.',
-        );
+      const assignment = lesson.assignment;
+      const existingRef = assignment
+        ? await tx.assignmentSubmission.findUnique({
+            where: { assignmentId_userId: { assignmentId: assignment.id, userId: auth.userId } },
+            select: { id: true },
+          })
+        : null;
+      if (existingRef) {
+        await tx.$queryRaw`SELECT "id" FROM "assignment_submissions" WHERE "id" = ${existingRef.id}::uuid FOR UPDATE`;
       }
-      const existing = await tx.assignmentSubmission.findUnique({
-        where: { assignmentId_userId: { assignmentId: lesson.assignment.id, userId: auth.userId } },
-        select: { id: true },
-      });
-      if (existing) throw new AppError('CONFLICT', 'You have already submitted this assignment.');
+      const existing = existingRef
+        ? await tx.assignmentSubmission.findUniqueOrThrow({
+            where: { id: existingRef.id },
+            select: studentSubmissionSelect,
+          })
+        : null;
+      const now = clock.now();
+      const policy = submissionPolicy(assignment, existing, now);
+      if (!policy.allowed) throw new AppError('CONFLICT', policy.reason!);
+
+      if (existing) {
+        await tx.assignmentSubmissionRevision.create({
+          data: {
+            submissionId: existing.id,
+            version: existing.version,
+            body: existing.body,
+            attachmentUrl: existing.attachmentUrl,
+            submittedAt: existing.submittedAt,
+            late: existing.late,
+            archivedAt: now,
+          },
+        });
+        await tx.assignmentSubmission.update({
+          where: { id: existing.id },
+          data: {
+            body: input.body,
+            attachmentUrl: input.attachmentUrl ?? null,
+            submittedAt: now,
+            late: policy.late,
+            version: existing.version + 1,
+          },
+        });
+        await audit(tx, {
+          action: 'submission.resubmitted',
+          actorId: auth.userId,
+          entityType: 'submission',
+          entityId: existing.id,
+          data: { version: existing.version + 1, late: policy.late },
+        });
+        return;
+      }
       try {
         await tx.assignmentSubmission.create({
           data: {
-            assignmentId: lesson.assignment.id,
+            assignmentId: assignment!.id,
             userId: auth.userId,
             body: input.body,
             attachmentUrl: input.attachmentUrl ?? null,
+            submittedAt: now,
+            late: policy.late,
           },
           select: { id: true },
         });

@@ -20,9 +20,10 @@ import { ErrorPanel, LoadingPanel } from './student-ui';
 import { errorMessage, useApiResource, useStudentApi } from './use-student';
 
 /**
- * Online submission for an ASSIGNMENT lesson (PHASE 08). One submission per student; it cannot be
- * changed afterwards (I-02 pending), so the student confirms before sending. Marks and feedback
- * appear only once faculty release the result.
+ * Online submission for an ASSIGNMENT lesson (PHASE 08, extended in PHASE 09). Whether the student
+ * may submit — or replace their work — is decided by the API (`canSubmit`, server time, the
+ * assignment's late/resubmission policy); this panel only reflects it. Marks and feedback appear
+ * only once faculty release the result.
  */
 export function AssignmentPanel({ lessonId }: { lessonId: string }) {
   const api = useStudentApi();
@@ -48,9 +49,16 @@ export function AssignmentPanel({ lessonId }: { lessonId: string }) {
           </p>
         </Alert>
       ) : data.submission ? (
-        <SubmittedWork data={data} />
-      ) : (
+        <>
+          <SubmittedWork data={data} />
+          {data.canSubmit ? <ResubmitSection data={data} onSubmitted={assignment.replace} /> : null}
+        </>
+      ) : data.canSubmit ? (
         <SubmissionForm data={data} onSubmitted={assignment.replace} />
+      ) : (
+        <Alert tone="warning">
+          <p>{data.cannotSubmitReason}</p>
+        </Alert>
       )}
     </section>
   );
@@ -63,6 +71,9 @@ function SubmittedWork({ data }: { data: StudentAssignmentDto }) {
       <p className="flex flex-wrap items-center gap-2 type-body-sm text-muted-foreground">
         <CheckCircle2 className="size-4 text-success" aria-hidden />
         Submitted {formatDateTime(submission.submittedAt)} IST
+        {submission.version > 1 ? (
+          <Badge variant="secondary">Version {submission.version}</Badge>
+        ) : null}
         {submission.late ? <Badge variant="warning">After the due date</Badge> : null}
       </p>
       <div className="rounded-xl border bg-card p-5 type-body break-words whitespace-pre-wrap">
@@ -98,12 +109,47 @@ function SubmittedWork({ data }: { data: StudentAssignmentDto }) {
   );
 }
 
-function SubmissionForm({
+/** Shown when the assignment allows replacing work that has not been graded yet. */
+function ResubmitSection({
   data,
   onSubmitted,
 }: {
   data: StudentAssignmentDto;
   onSubmitted: (data: StudentAssignmentDto) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  if (!open) {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="outline" onClick={() => setOpen(true)}>
+          Replace my submission
+        </Button>
+        <span className="type-caption text-muted-foreground">
+          Allowed until your work is graded. Your earlier version is kept for your faculty.
+        </span>
+      </div>
+    );
+  }
+  return (
+    <SubmissionForm
+      data={data}
+      resubmission
+      onSubmitted={(next) => {
+        setOpen(false);
+        onSubmitted(next);
+      }}
+    />
+  );
+}
+
+function SubmissionForm({
+  data,
+  onSubmitted,
+  resubmission = false,
+}: {
+  data: StudentAssignmentDto;
+  onSubmitted: (data: StudentAssignmentDto) => void;
+  resubmission?: boolean;
 }) {
   const api = useStudentApi();
   const [body, setBody] = React.useState('');
@@ -134,8 +180,10 @@ function SubmissionForm({
       <form onSubmit={review} noValidate className="grid gap-4 rounded-xl border bg-card p-5">
         <p className="type-body-sm text-muted-foreground">
           Marked out of {data.maxMarks}
-          {data.dueAt ? ` · due ${formatDateTime(data.dueAt)} IST` : ''}. You can submit once, so
-          check your answer first.
+          {data.dueAt ? ` · due ${formatDateTime(data.dueAt)} IST` : ''}.{' '}
+          {data.allowResubmission
+            ? 'You can replace your work until it is graded.'
+            : 'You can submit once, so check your answer first.'}
         </p>
         {overdue ? (
           <Alert tone="warning">
@@ -160,7 +208,7 @@ function SubmissionForm({
           label="Link to your work (https://)"
           optional
           error={errors.attachmentUrl}
-          hint="For example a shared document. File uploads are not available yet."
+          hint={`For example a shared document. ${data.fileUploads.available ? '' : data.fileUploads.message}`}
         >
           <Input
             type="url"
@@ -171,15 +219,19 @@ function SubmissionForm({
         </Field>
         <div>
           <Button type="submit">
-            <Send aria-hidden /> Submit assignment
+            <Send aria-hidden /> {resubmission ? 'Submit new version' : 'Submit assignment'}
           </Button>
         </div>
       </form>
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title="Submit your assignment?"
-        description="You cannot change your submission after sending it."
+        title={resubmission ? 'Replace your submission?' : 'Submit your assignment?'}
+        description={
+          data.allowResubmission
+            ? 'You can replace it again until your faculty grade it.'
+            : 'You cannot change your submission after sending it.'
+        }
         confirmLabel="Submit"
         pendingLabel="Submitting…"
         onConfirm={async () => {

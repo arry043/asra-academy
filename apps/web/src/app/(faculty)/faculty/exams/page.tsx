@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { ExamsPage } from '@/components/faculty/faculty-assessments';
+import { ExamsPage } from '@/components/faculty/faculty-exams';
 
 export const metadata: Metadata = { title: 'Exams' };
 

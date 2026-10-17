@@ -4,8 +4,6 @@ import type {
   CurriculumTreeDto,
   FacultyAssignmentDetail,
   FacultyAssignmentItem,
-  FacultyFeatures,
-  FacultyLessonListItem,
   Paginated,
   SubmissionDetailDto,
   SubmissionListItem,
@@ -16,11 +14,11 @@ import {
   gradeSubmissionSchema,
   SUBMISSION_FILTERS,
 } from '@asra/validation';
-import { ClipboardList, ExternalLink, FileQuestion, Inbox, NotebookPen, Plus } from 'lucide-react';
+import { ExternalLink, Inbox, NotebookPen, Plus } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 
-import { ConfirmDialog, SelectField } from '@/components/admin/admin-ui';
+import { CheckboxField, ConfirmDialog, SelectField } from '@/components/admin/admin-ui';
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/public/empty-state';
 import { Alert } from '@/components/ui/alert';
@@ -211,6 +209,8 @@ function CreateAssignmentDialog({
   const [maxMarks, setMaxMarks] = React.useState('');
   const [due, setDue] = React.useState('');
   const [status, setStatus] = React.useState<'DRAFT' | 'PUBLISHED'>('DRAFT');
+  const [allowLate, setAllowLate] = React.useState(true);
+  const [allowResubmission, setAllowResubmission] = React.useState(false);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -235,6 +235,8 @@ function CreateAssignmentDialog({
       maxMarks: maxMarks.trim() === '' ? undefined : Number(maxMarks),
       dueAt: dueAt ?? null,
       status,
+      allowLateSubmissions: allowLate,
+      allowResubmission,
     };
     const parsed = validateForm(assignmentCreateSchema, payload);
     const local: FieldErrors = { ...(parsed.errors ?? {}) };
@@ -336,7 +338,7 @@ function CreateAssignmentDialog({
               label="Due (IST)"
               optional
               error={errors.dueAt}
-              hint="Late work is accepted and marked late."
+              hint="Checked against server time."
             >
               <Input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
             </Field>
@@ -351,6 +353,13 @@ function CreateAssignmentDialog({
               ]}
             />
           </div>
+          <SubmissionPolicyFields
+            idPrefix="assignment"
+            allowLate={allowLate}
+            setAllowLate={setAllowLate}
+            allowResubmission={allowResubmission}
+            setAllowResubmission={setAllowResubmission}
+          />
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose} disabled={pending}>
               Cancel
@@ -365,13 +374,47 @@ function CreateAssignmentDialog({
   );
 }
 
+/** Late-submission and resubmission policy (I-02 pending; defaults keep the PHASE 08 rules). */
+function SubmissionPolicyFields({
+  idPrefix,
+  allowLate,
+  setAllowLate,
+  allowResubmission,
+  setAllowResubmission,
+}: {
+  idPrefix: string;
+  allowLate: boolean;
+  setAllowLate: (value: boolean) => void;
+  allowResubmission: boolean;
+  setAllowResubmission: (value: boolean) => void;
+}) {
+  return (
+    <div className="grid gap-3">
+      <CheckboxField
+        id={`${idPrefix}-late`}
+        label="Accept late submissions"
+        checked={allowLate}
+        onChange={setAllowLate}
+        hint="Late work is marked late. Off: submissions after the due date are refused."
+      />
+      <CheckboxField
+        id={`${idPrefix}-resubmit`}
+        label="Allow resubmission until graded"
+        checked={allowResubmission}
+        onChange={setAllowResubmission}
+        hint="Earlier versions are kept and shown to you."
+      />
+    </div>
+  );
+}
+
 export function AssignmentsPage() {
   return (
     <>
       <PageHeader
         title="Assignments"
         breadcrumbs={[home, { label: 'Assignments' }]}
-        description="Assignment lessons of your courses. Late-submission, resubmission and grading-scale rules are pending academy confirmation: one submission per student, late work is marked late, marks are whole numbers."
+        description="Assignment lessons of your courses. Each assignment sets whether late work is accepted and whether students may resubmit before grading. Marks are whole numbers."
       />
       <AssignmentsTable />
     </>
@@ -454,6 +497,12 @@ function SettingsForm({
   const api = useFacultyApi();
   const [maxMarks, setMaxMarks] = React.useState(String(assignment.settings?.maxMarks ?? ''));
   const [due, setDue] = React.useState(isoToIstInput(assignment.settings?.dueAt));
+  const [allowLate, setAllowLate] = React.useState(
+    assignment.settings?.allowLateSubmissions ?? true,
+  );
+  const [allowResubmission, setAllowResubmission] = React.useState(
+    assignment.settings?.allowResubmission ?? false,
+  );
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -465,6 +514,8 @@ function SettingsForm({
     const parsed = validateForm(assignmentSettingsSchema, {
       maxMarks: maxMarks.trim() === '' ? undefined : Number(maxMarks),
       dueAt: dueAt ?? null,
+      allowLateSubmissions: allowLate,
+      allowResubmission,
     });
     setFormError(null);
     if (dueAt === undefined) return setErrors({ dueAt: 'Enter a valid date and time' });
@@ -525,6 +576,13 @@ function SettingsForm({
       <Field id="settings-due" label="Due (IST)" optional error={errors.dueAt}>
         <Input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
       </Field>
+      <SubmissionPolicyFields
+        idPrefix="settings"
+        allowLate={allowLate}
+        setAllowLate={setAllowLate}
+        allowResubmission={allowResubmission}
+        setAllowResubmission={setAllowResubmission}
+      />
       <Button type="submit" loading={pending} loadingText="Saving…">
         {assignment.settings ? 'Save settings' : 'Open online submission'}
       </Button>
@@ -710,6 +768,7 @@ export function SubmissionReview({ id }: { id: string }) {
           <span className="flex flex-wrap items-center gap-2">
             <ReviewBadge item={data} />
             {data.late ? <LateBadge /> : null}
+            {data.version > 1 ? <Badge variant="secondary">Version {data.version}</Badge> : null}
             <span>
               {data.course.title} · submitted {formatDateTime(data.submittedAt)} IST
               {data.assignment.dueAt ? ` · due ${formatDateTime(data.assignment.dueAt)} IST` : ''}
@@ -740,6 +799,43 @@ export function SubmissionReview({ id }: { id: string }) {
             >
               <ExternalLink className="size-4" aria-hidden /> Open the attached link
             </a>
+          ) : null}
+          {data.revisions.length > 0 ? (
+            <details className="rounded-xl border bg-card p-4">
+              <summary className="cursor-pointer type-label">
+                Earlier versions ({data.revisions.length})
+              </summary>
+              <ol className="mt-3 grid gap-3">
+                {data.revisions.map((revision) => (
+                  <li key={revision.version} className="grid gap-1 border-t pt-3">
+                    <span className="type-caption text-muted-foreground">
+                      Version {revision.version} · {formatDateTime(revision.submittedAt)} IST
+                      {revision.late ? ' · late' : ''}
+                    </span>
+                    <p className="type-body-sm break-words whitespace-pre-wrap">{revision.body}</p>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          ) : null}
+          {data.gradeHistory.length > 0 ? (
+            <section aria-labelledby="history-heading" className="grid gap-2">
+              <h3 id="history-heading" className="type-h4 text-heading">
+                Grading history
+              </h3>
+              <ol className="grid gap-1 type-body-sm">
+                {data.gradeHistory.map((entry) => (
+                  <li key={`${entry.at}-${entry.action}`}>
+                    {formatDateTime(entry.at)} IST — {entry.by ?? 'Unknown'}{' '}
+                    {entry.action === 'released'
+                      ? `released the result (${entry.marksAwarded ?? '—'})`
+                      : entry.action === 'regraded'
+                        ? `changed marks ${entry.previousMarks} → ${entry.marksAwarded}`
+                        : `graded ${entry.marksAwarded}`}
+                  </li>
+                ))}
+              </ol>
+            </section>
           ) : null}
         </section>
         <div className="grid gap-4">
@@ -811,6 +907,7 @@ function GradeForm({
     submission.marksAwarded === null ? '' : String(submission.marksAwarded),
   );
   const [feedback, setFeedback] = React.useState(submission.feedback ?? '');
+  const [note, setNote] = React.useState(submission.facultyNote ?? '');
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
@@ -822,6 +919,7 @@ function GradeForm({
     const parsed = validateForm(gradeSubmissionSchema, {
       marksAwarded: marks.trim() === '' ? undefined : Number(marks),
       feedback,
+      facultyNote: note,
       expectedUpdatedAt: submission.updatedAt,
     });
     setFormError(null);
@@ -882,6 +980,20 @@ function GradeForm({
           onChange={(e) => setFeedback(e.target.value)}
         />
       </Field>
+      <Field
+        id="grade-note"
+        label="Private note"
+        optional
+        error={errors.facultyNote}
+        hint="Only faculty of this course can see it — never the student."
+      >
+        <Textarea
+          value={note}
+          rows={2}
+          disabled={locked}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </Field>
       {submission.gradedAt ? (
         <p className="type-caption text-muted-foreground">
           Last graded {formatDateTime(submission.gradedAt)} IST
@@ -894,98 +1006,5 @@ function GradeForm({
         </Button>
       )}
     </form>
-  );
-}
-
-// --- Quizzes & exams (assessment engine pending) --------------------------------------------
-
-function useFeatures() {
-  const api = useFacultyApi();
-  return useApiResource('/faculty/features', () => api.get<FacultyFeatures>('/faculty/features'));
-}
-
-/** QUIZ lessons are real curriculum items (instructions only); no attempts are simulated. */
-export function QuizzesPage() {
-  const api = useFacultyApi();
-  const features = useFeatures();
-  const [page, setPage] = React.useState(1);
-  const path = withQuery('/faculty/lessons', { contentType: 'QUIZ', page, pageSize: 20 });
-  const list = useApiResource(path, () => api.get<Paginated<FacultyLessonListItem>>(path));
-  return (
-    <>
-      <PageHeader
-        title="Quizzes"
-        breadcrumbs={[home, { label: 'Quizzes' }]}
-        description={features.data?.quizzes.message}
-      />
-      {list.error && !list.data ? (
-        <ErrorPanel message={errorMessage(list.error)} onRetry={list.reload} />
-      ) : !list.data ? (
-        <LoadingPanel label="Loading quiz lessons…" />
-      ) : list.data.items.length === 0 ? (
-        <EmptyState
-          icon={<FileQuestion />}
-          title="No quiz lessons"
-          description="Add a lesson of type Quiz to a chapter in the curriculum to give students quiz instructions."
-          action={
-            <Button asChild variant="outline">
-              <Link href="/faculty/content">Open content</Link>
-            </Button>
-          }
-        />
-      ) : (
-        <div className="grid gap-4">
-          <ul className="grid gap-2">
-            {list.data.items.map((item) => (
-              <li
-                key={item.lesson.lessonId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"
-              >
-                <span className="grid">
-                  <span className="type-label text-heading">{item.lesson.lessonTitle}</span>
-                  <span className="type-caption text-muted-foreground">
-                    {item.course.title} · {item.lesson.moduleTitle} › {item.lesson.chapterTitle}
-                  </span>
-                </span>
-                <span className="flex items-center gap-2">
-                  <StatusBadge status={item.status} />
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={facultyCourseHref(item.course.id, 'curriculum')}>Edit</Link>
-                  </Button>
-                </span>
-              </li>
-            ))}
-          </ul>
-          {list.data.pagination.pageCount > 1 ? (
-            <Pagination
-              page={list.data.pagination.page}
-              pageCount={list.data.pagination.pageCount}
-              onPageChange={setPage}
-              label="Quiz pages"
-            />
-          ) : null}
-        </div>
-      )}
-    </>
-  );
-}
-
-export function ExamsPage() {
-  const features = useFeatures();
-  return (
-    <>
-      <PageHeader title="Exams" breadcrumbs={[home, { label: 'Exams' }]} />
-      {features.error && !features.data ? (
-        <ErrorPanel message={errorMessage(features.error)} onRetry={features.reload} />
-      ) : !features.data ? (
-        <LoadingPanel rows={2} />
-      ) : (
-        <EmptyState
-          icon={<ClipboardList />}
-          title="Online examinations are not available yet"
-          description={<p>{features.data.exams.message}</p>}
-        />
-      )}
-    </>
   );
 }

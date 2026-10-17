@@ -133,6 +133,12 @@ model User {
   submissionsGraded    AssignmentSubmission[] @relation("SubmissionGradedBy")
   liveClassesScheduled LiveClassSession[]     @relation("LiveClassCreatedBy")
 
+  quizzesCreated      Quiz[]               @relation("QuizCreatedBy")
+  examinationsCreated Examination[]        @relation("ExaminationCreatedBy")
+  assessmentAttempts  AssessmentAttempt[]  @relation("AttemptStudent")
+  answersGraded       AttemptQuestion[]    @relation("AttemptQuestionGradedBy")
+  assessmentAuditLogs AssessmentAuditLog[] @relation("AuditActor")
+
   @@index([status])
   @@map("users")
 }
@@ -453,14 +459,15 @@ model Course {
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  category    CourseCategory?    @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  class       Class?             @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  stream      Stream?            @relation(fields: [streamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  subject     Subject?           @relation(fields: [subjectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  instructors CourseInstructor[]
-  modules     Module[]
-  enrollments Enrollment[]
-  liveClasses LiveClassSession[]
+  category     CourseCategory?    @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  class        Class?             @relation(fields: [classId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  stream       Stream?            @relation(fields: [streamId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  subject      Subject?           @relation(fields: [subjectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  instructors  CourseInstructor[]
+  modules      Module[]
+  enrollments  Enrollment[]
+  liveClasses  LiveClassSession[]
+  examinations Examination[]
 
   @@index([status, publishedAt])
   @@index([status, visibility])
@@ -549,6 +556,8 @@ model Lesson {
   lastInEnrollment Enrollment[]
   /// Submission settings when `contentType` is ASSIGNMENT (PHASE 08).
   assignment       Assignment?
+  /// Online quiz (questions, rules, attempts) when `contentType` is QUIZ (PHASE 09).
+  quiz             Quiz?
 
   @@unique([chapterId, position])
   @@index([status])
@@ -695,17 +704,22 @@ enum LiveClassStatus {
 }
 
 /// Submission settings of one ASSIGNMENT lesson (1:1). Grading scale is numeric marks out of
-/// `maxMarks` (I-03 assumption). Late-submission and resubmission rules are pending (I-02).
+/// `maxMarks` (I-03 assumption). Late-submission and resubmission rules are per assignment
+/// (PHASE 09; I-02 pending — defaults keep the PHASE 08 behaviour).
 model Assignment {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  lessonId    String    @unique @map("lesson_id") @db.Uuid
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lessonId             String    @unique @map("lesson_id") @db.Uuid
   /// Whole marks, 1–1000 (CHECK).
-  maxMarks    Int       @map("max_marks")
-  /// Optional deadline (UTC). Submissions after it are accepted and flagged late (I-02 pending).
-  dueAt       DateTime? @map("due_at") @db.Timestamptz(3)
-  createdById String?   @map("created_by_id") @db.Uuid
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  maxMarks             Int       @map("max_marks")
+  /// Optional deadline (UTC), compared with SERVER time only.
+  dueAt                DateTime? @map("due_at") @db.Timestamptz(3)
+  /// After `dueAt`: true = accepted and flagged late; false = refused (409).
+  allowLateSubmissions Boolean   @default(true) @map("allow_late_submissions")
+  /// A student may replace their work until it is graded (previous versions are kept).
+  allowResubmission    Boolean   @default(false) @map("allow_resubmission")
+  createdById          String?   @map("created_by_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   lesson      Lesson                 @relation(fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   createdBy   User?                  @relation("AssignmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
@@ -715,8 +729,9 @@ model Assignment {
   @@map("assignments")
 }
 
-/// One student's work for one assignment (one row per student and assignment; I-02 pending).
-/// The submitted text/link and `submittedAt` are never changed after submission.
+/// One student's work for one assignment (one row per student and assignment). The row holds the
+/// CURRENT version; a permitted resubmission archives the previous version in
+/// `assignment_submission_revisions` first, so submitted work is never silently overwritten.
 model AssignmentSubmission {
   id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   assignmentId     String           @map("assignment_id") @db.Uuid
@@ -725,26 +740,52 @@ model AssignmentSubmission {
   body             String           @db.Text
   /// Optional https:// link to the student's work (no file storage yet, R-01). CHECK https.
   attachmentUrl    String?          @map("attachment_url") @db.VarChar(2048)
+  /// Server time at which the current version was accepted.
   submittedAt      DateTime         @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  /// Decided by the server when the version was accepted (after the due date at that time).
+  late             Boolean          @default(false)
+  /// 1 for the first submission, +1 per accepted resubmission (CHECK >= 1).
+  version          Int              @default(1)
   status           SubmissionStatus @default(SUBMITTED)
   /// 0–maxMarks, validated by the service; set together with `gradedAt` (CHECK).
   marksAwarded     Int?             @map("marks_awarded")
   feedback         String?          @db.Text
+  /// Private note for faculty only — never returned to the student.
+  facultyNote      String?          @map("faculty_note") @db.Text
   gradedById       String?          @map("graded_by_id") @db.Uuid
   gradedAt         DateTime?        @map("graded_at") @db.Timestamptz(3)
   /// When the grade became visible to the student. Only a GRADED submission can be released.
   resultReleasedAt DateTime?        @map("result_released_at") @db.Timestamptz(3)
   updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  student    User       @relation("SubmissionStudent", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  gradedBy   User?      @relation("SubmissionGradedBy", fields: [gradedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  assignment Assignment                     @relation(fields: [assignmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  student    User                           @relation("SubmissionStudent", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  gradedBy   User?                          @relation("SubmissionGradedBy", fields: [gradedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  revisions  AssignmentSubmissionRevision[]
 
   @@unique([assignmentId, userId])
   @@index([assignmentId, status])
   @@index([userId, resultReleasedAt])
   @@index([gradedById])
   @@map("assignment_submissions")
+}
+
+/// An earlier version of a submission, archived when the student resubmitted (PHASE 09).
+/// Append-only: rows are never updated.
+model AssignmentSubmissionRevision {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submissionId  String   @map("submission_id") @db.Uuid
+  version       Int
+  body          String   @db.Text
+  attachmentUrl String?  @map("attachment_url") @db.VarChar(2048)
+  submittedAt   DateTime @map("submitted_at") @db.Timestamptz(3)
+  late          Boolean
+  archivedAt    DateTime @default(now()) @map("archived_at") @db.Timestamptz(3)
+
+  submission AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([submissionId, version])
+  @@map("assignment_submission_revisions")
 }
 
 /// A live online class scheduled for a course. Provider-neutral: no meeting is created through
@@ -777,4 +818,289 @@ model LiveClassSession {
   @@index([hostFacultyProfileId, startsAt])
   @@index([createdById])
   @@map("live_class_sessions")
+}
+
+// =============================================================================
+// Assessment engine (PHASE 09) — see docs/ASSESSMENTS.md
+// Quiz = online extension of a QUIZ lesson (like Assignment for ASSIGNMENT lessons).
+// Examination = scheduled, timed assessment of a course.
+// Both share the question bank and the attempt model. An attempt copies its questions, options,
+// answer keys and marks into `attempt_questions.snapshot` when it starts, so later edits never
+// change what a student answered or how it was scored. Marks are DECIMAL(…,2) (two decimals).
+// =============================================================================
+
+/// Lifecycle of a quiz or examination. DRAFT: editable, invisible to students. PUBLISHED: open
+/// under its rules (questions frozen). CLOSED: no new attempts; history and results kept.
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+
+  @@map("assessment_status")
+}
+
+enum QuestionType {
+  /// MCQ with exactly one correct option.
+  SINGLE_CHOICE
+  /// Two options ("True", "False"), exactly one correct.
+  TRUE_FALSE
+  /// One or more correct options; scored all-or-nothing (docs/ASSESSMENTS.md §6).
+  MULTIPLE_CHOICE
+  /// Written answer graded manually by faculty. Examinations only.
+  SHORT_ANSWER
+
+  @@map("question_type")
+}
+
+/// When students may see correct answers and explanations (always after their result is visible).
+enum AnswerReveal {
+  NEVER
+  AFTER_SUBMISSION
+  /// After the quiz/exam is CLOSED (or, for exams, its window has ended).
+  AFTER_CLOSE
+
+  @@map("answer_reveal")
+}
+
+/// IN_PROGRESS → SUBMITTED (student submitted before the deadline) or EXPIRED (the server
+/// finalized it at its deadline with the answers saved so far). Both final states are terminal.
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+
+  @@map("attempt_status")
+}
+
+/// Set when an attempt is finalized. PENDING = written answers still need manual grading.
+enum EvaluationStatus {
+  PENDING
+  EVALUATED
+
+  @@map("evaluation_status")
+}
+
+/// Online quiz of one QUIZ lesson (1:1). The lesson holds title, instructions and curriculum
+/// publication; the quiz holds the rules. Students can attempt it only when the course, the lesson
+/// AND the quiz are PUBLISHED.
+model Quiz {
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lessonId              String           @unique @map("lesson_id") @db.Uuid
+  status                AssessmentStatus @default(DRAFT)
+  /// Minutes per attempt (1–300, CHECK); null = untimed.
+  timeLimitMinutes      Int?             @map("time_limit_minutes")
+  /// 1–20 attempts per student (CHECK).
+  maxAttempts           Int              @default(1) @map("max_attempts")
+  /// Whole percent 0–100 (CHECK); passed ⇔ score ≥ passPercent % of the attempt's maximum.
+  passPercent           Int              @default(40) @map("pass_percent")
+  /// Applies each question's `negativeMarks` to wrong answers; ignored when false.
+  negativeMarking       Boolean          @default(false) @map("negative_marking")
+  shuffleQuestions      Boolean          @default(false) @map("shuffle_questions")
+  shuffleOptions        Boolean          @default(false) @map("shuffle_options")
+  /// Random subset size per attempt (CHECK >= 1); null = every question.
+  questionsPerAttempt   Int?             @map("questions_per_attempt")
+  /// true: score visible on submission; false: after faculty publish results.
+  showResultImmediately Boolean          @default(true) @map("show_result_immediately")
+  answerReveal          AnswerReveal     @default(AFTER_CLOSE) @map("answer_reveal")
+  resultsPublishedAt    DateTime?        @map("results_published_at") @db.Timestamptz(3)
+  publishedAt           DateTime?        @map("published_at") @db.Timestamptz(3)
+  closedAt              DateTime?        @map("closed_at") @db.Timestamptz(3)
+  createdById           String?          @map("created_by_id") @db.Uuid
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lesson    Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdBy User?                @relation("QuizCreatedBy", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  questions AssessmentQuestion[]
+  attempts  AssessmentAttempt[]
+
+  @@index([status])
+  @@index([createdById])
+  @@map("quizzes")
+}
+
+/// A scheduled examination of a course. The server alone decides availability and deadlines:
+/// an attempt may start in [opensAt, closesAt) and its deadline is
+/// min(start + durationMinutes, closesAt).
+model Examination {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId           String           @map("course_id") @db.Uuid
+  title              String           @db.VarChar(200)
+  /// Plain text shown before the attempt starts.
+  instructions       String?          @db.Text
+  status             AssessmentStatus @default(DRAFT)
+  opensAt            DateTime         @map("opens_at") @db.Timestamptz(3)
+  /// CHECK closesAt > opensAt.
+  closesAt           DateTime         @map("closes_at") @db.Timestamptz(3)
+  /// 1–600 minutes per attempt (CHECK).
+  durationMinutes    Int              @map("duration_minutes")
+  /// 1–5 attempts (CHECK).
+  maxAttempts        Int              @default(1) @map("max_attempts")
+  passPercent        Int              @default(40) @map("pass_percent")
+  negativeMarking    Boolean          @default(false) @map("negative_marking")
+  shuffleQuestions   Boolean          @default(false) @map("shuffle_questions")
+  shuffleOptions     Boolean          @default(false) @map("shuffle_options")
+  /// Answers are only ever revealed after results are published.
+  answerReveal       AnswerReveal     @default(NEVER) @map("answer_reveal")
+  /// Results are released explicitly by faculty (K-04 assumption), never automatically.
+  resultsPublishedAt DateTime?        @map("results_published_at") @db.Timestamptz(3)
+  publishedAt        DateTime?        @map("published_at") @db.Timestamptz(3)
+  closedAt           DateTime?        @map("closed_at") @db.Timestamptz(3)
+  createdById        String?          @map("created_by_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  course    Course               @relation(fields: [courseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdBy User?                @relation("ExaminationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  questions AssessmentQuestion[]
+  attempts  AssessmentAttempt[]
+
+  @@index([courseId, opensAt])
+  @@index([status, closesAt])
+  @@index([createdById])
+  @@map("examinations")
+}
+
+/// A question of exactly one quiz OR one examination (CHECK). Editable only while its
+/// assessment is DRAFT; attempts keep their own snapshot.
+model AssessmentQuestion {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId        String?      @map("quiz_id") @db.Uuid
+  examinationId String?      @map("examination_id") @db.Uuid
+  type          QuestionType
+  /// Plain text (rendered as text, never HTML).
+  prompt        String       @db.Text
+  /// Shown with the correct answer when answers are revealed.
+  explanation   String?      @db.Text
+  /// Marks for a correct answer, 0.25–100 (CHECK).
+  marks         Decimal      @db.Decimal(6, 2)
+  /// Deducted for a wrong answer when negative marking is on; 0–marks (CHECK).
+  negativeMarks Decimal      @default(0) @map("negative_marks") @db.Decimal(6, 2)
+  /// 0-based display order within the assessment.
+  position      Int
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  quiz        Quiz?                      @relation(fields: [quizId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  examination Examination?               @relation(fields: [examinationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  options     AssessmentQuestionOption[]
+  attemptRefs AttemptQuestion[]
+
+  @@index([quizId, position])
+  @@index([examinationId, position])
+  @@map("assessment_questions")
+}
+
+model AssessmentQuestionOption {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId String  @map("question_id") @db.Uuid
+  text       String  @db.VarChar(1000)
+  isCorrect  Boolean @default(false) @map("is_correct")
+  position   Int
+
+  question AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([questionId, position])
+  @@map("assessment_question_options")
+}
+
+/// One student's attempt at a quiz OR an examination (CHECK). Times are server times. Attempt
+/// numbers are unique per student and assessment, which also makes the attempt limit safe under
+/// concurrent starts. Never deleted while the assessment exists (RESTRICT).
+model AssessmentAttempt {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizId           String?           @map("quiz_id") @db.Uuid
+  examinationId    String?           @map("examination_id") @db.Uuid
+  userId           String            @map("user_id") @db.Uuid
+  attemptNumber    Int               @map("attempt_number")
+  status           AttemptStatus     @default(IN_PROGRESS)
+  startedAt        DateTime          @map("started_at") @db.Timestamptz(3)
+  /// Authoritative deadline computed by the server at start; null = untimed quiz.
+  deadlineAt       DateTime?         @map("deadline_at") @db.Timestamptz(3)
+  /// Server time the answers were frozen: the submit time, or `deadlineAt` for EXPIRED.
+  submittedAt      DateTime?         @map("submitted_at") @db.Timestamptz(3)
+  /// When the server processed the finalization (may be after `deadlineAt` for EXPIRED).
+  finalizedAt      DateTime?         @map("finalized_at") @db.Timestamptz(3)
+  evaluationStatus EvaluationStatus? @map("evaluation_status")
+  maxScore         Decimal           @map("max_score") @db.Decimal(8, 2)
+  /// Σ marks of correct/graded answers (before penalties).
+  rawScore         Decimal?          @map("raw_score") @db.Decimal(8, 2)
+  penalty          Decimal?          @db.Decimal(8, 2)
+  /// max(0, rawScore − penalty).
+  score            Decimal?          @db.Decimal(8, 2)
+  /// score ÷ maxScore × 100, rounded half-up to 2 decimals.
+  percent          Decimal?          @db.Decimal(5, 2)
+  passed           Boolean?
+  evaluatedAt      DateTime?         @map("evaluated_at") @db.Timestamptz(3)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  quiz        Quiz?             @relation(fields: [quizId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  examination Examination?      @relation(fields: [examinationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  student     User              @relation("AttemptStudent", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  questions   AttemptQuestion[]
+
+  @@unique([quizId, userId, attemptNumber])
+  @@unique([examinationId, userId, attemptNumber])
+  @@index([status, deadlineAt])
+  @@index([userId, status])
+  @@index([examinationId, status])
+  @@map("assessment_attempts")
+}
+
+/// One question assigned to one attempt, with its frozen snapshot and the student's answer.
+/// `snapshot` = { prompt, explanation, options: [{ id, text, isCorrect }] } in display order;
+/// it never leaves the server with `isCorrect` before answers may be revealed.
+model AttemptQuestion {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId         String       @map("attempt_id") @db.Uuid
+  /// Source question (SET NULL if it is ever deleted; the snapshot stays authoritative).
+  questionId        String?      @map("question_id") @db.Uuid
+  position          Int
+  type              QuestionType
+  snapshot          Json
+  marks             Decimal      @db.Decimal(6, 2)
+  negativeMarks     Decimal      @map("negative_marks") @db.Decimal(6, 2)
+  /// Options chosen by the student (ids from the snapshot).
+  selectedOptionIds String[]     @default([]) @map("selected_option_ids") @db.Uuid
+  textAnswer        String?      @map("text_answer") @db.Text
+  /// Highest client sequence applied; older autosaves arriving late are ignored.
+  answerSequence    Int          @default(0) @map("answer_sequence")
+  answeredAt        DateTime?    @map("answered_at") @db.Timestamptz(3)
+  /// Set at evaluation (objective) or manual grading (SHORT_ANSWER).
+  awardedMarks      Decimal?     @map("awarded_marks") @db.Decimal(6, 2)
+  penalty           Decimal?     @db.Decimal(6, 2)
+  isCorrect         Boolean?     @map("is_correct")
+  feedback          String?      @db.Text
+  gradedById        String?      @map("graded_by_id") @db.Uuid
+  gradedAt          DateTime?    @map("graded_at") @db.Timestamptz(3)
+
+  attempt  AssessmentAttempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  question AssessmentQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  gradedBy User?               @relation("AttemptQuestionGradedBy", fields: [gradedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([attemptId, position])
+  @@index([questionId])
+  @@index([gradedById])
+  @@map("attempt_questions")
+}
+
+/// Append-only record of consequential assessment actions (publication, finalization, grading,
+/// grade revisions, result release). No FK on the subject so history survives deletions.
+model AssessmentAuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// e.g. "quiz.published", "attempt.finalized", "submission.graded".
+  action     String   @db.VarChar(60)
+  /// null for system actions (e.g. the expiry sweeper).
+  actorId    String?  @map("actor_id") @db.Uuid
+  entityType String   @map("entity_type") @db.VarChar(40)
+  entityId   String   @map("entity_id") @db.Uuid
+  data       Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId])
+  @@map("assessment_audit_logs")
 }

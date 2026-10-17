@@ -17,6 +17,22 @@ Entry template:
 
 ## [Unreleased]
 
+### Added — PHASE 09 Assessment Engine (uncommitted, pending review)
+
+- Quizzes on QUIZ lessons (MCQ, True/False, multiple answers; time limit, attempts, pass mark, negative marking, random subset, shuffling, immediate or published results, answer reveal), scheduled examinations (window, duration, attempts, written answers with manual grading, result publication) and a shared attempt engine with immutable per-attempt snapshots. See [ASSESSMENTS.md](./ASSESSMENTS.md).
+- Server-controlled exam timing: one deadline rule `min(start + duration, closesAt)`, injectable server clock, row-locked answer saves and finalization, idempotent submit, advisory-locked attempt starts, lazy expiry on every touch plus a restart-safe background sweep (`FOR UPDATE SKIP LOCKED`).
+- API: `/faculty/quizzes…`, `/faculty/exams…`, `/faculty/questions/:id`, `/faculty/attempts/:id`, `/faculty/attempt-answers/:id/grade`; `/student/lessons/:id/quiz…`, `/student/exams…`, `/student/attempts/:id…`, `/student/assessment-results`. Per-user rate limits on start/answer/submit.
+- Portals: faculty quiz/exam workspaces (rules, question editor with preview, lifecycle, attempts, grading, result publication); student quiz panel, exam pages and attempt player (server-corrected countdown, autosave with retry, offline state, auto-submit); quiz/exam results on `/student/results`.
+- Assignments: per-assignment late and resubmission policy, server-decided stored `late` flag, archived versions, private faculty note, audited grade history.
+- Migration `20261017090000_phase09_assessment_engine` (additive, with `late` back-fill and 33 CHECK constraints); `assessment_audit_logs`.
+- Tests: `assessment-scoring` (pure), `quizzes`, `examinations` (21 mandatory timing/integrity scenarios), `assignments-phase09` (API); `assessments.test.tsx` (web).
+
+### Changed — PHASE 09
+
+- `GET /student/features` and `GET /faculty/features` report quizzes and exams as available; student dashboard counts open/upcoming exams.
+- Curriculum: deleting a QUIZ lesson or changing its type is refused (409) once the quiz has attempts. Courses with examinations cannot be deleted (archive instead).
+- Client clarifications §AC added.
+
 ### Added — PHASE 08 Faculty Portal (uncommitted, pending review)
 
 - Faculty portal `/faculty/*` (dashboard, courses + course workspace, content, students, live classes, assignments, submissions + review, quizzes/exams status, performance, profile) on the existing design system; faculty land on `/faculty/dashboard` after sign-in. See [FACULTY-PORTAL.md](./FACULTY-PORTAL.md).

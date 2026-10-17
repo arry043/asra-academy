@@ -351,6 +351,10 @@ export const courseService = {
           'Students have enrolled in this course. Archive it instead.',
         );
       }
+      // Examinations and their attempts are kept (examinations.course_id is RESTRICT, PHASE 09).
+      if ((await tx.examination.count({ where: { courseId: id } })) > 0) {
+        throw new AppError('CONFLICT', 'This course has examinations. Archive it instead.');
+      }
       await repo.delete(id);
     });
   },

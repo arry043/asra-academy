@@ -111,7 +111,8 @@ export interface StudentDashboardDto {
   courses: StudentCourseCard[];
   totalCourses: number;
   /** Quiz and assignment lessons of enrolled courses (instructions only until PHASE 09). */
-  assessments: { quizzes: number; assignments: number };
+  /** `exams` = published exams that are open or upcoming in accessible courses. */
+  assessments: { quizzes: number; assignments: number; exams: number };
   /** Courses whose every eligible lesson is complete (no certificate is implied). */
   completedCourses: { course: StudentCourseRef; completedAt: string }[];
   features: StudentFeatures;

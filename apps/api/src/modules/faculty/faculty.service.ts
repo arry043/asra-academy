@@ -67,14 +67,14 @@ export const FACULTY_FEATURES: FacultyFeatures = {
       'File storage is not configured yet, so videos and PDFs cannot be uploaded. Add them as https:// links (for example an unlisted video or a shared PDF).',
   },
   quizzes: {
-    available: false,
+    available: true,
     message:
-      'Online quizzes (questions, attempts and automatic scoring) arrive with the assessment system. Quiz lessons currently hold instructions for students.',
+      'Set up an online quiz on any quiz lesson: multiple-choice, true/false and multiple-answer questions, scored automatically by the server.',
   },
   exams: {
-    available: false,
+    available: true,
     message:
-      'Online examinations are not available yet. They arrive with the assessment system once the exam rules are confirmed.',
+      'Schedule timed examinations for your courses. Timing is enforced by the server; written answers are graded by you before results are published.',
   },
 };
 

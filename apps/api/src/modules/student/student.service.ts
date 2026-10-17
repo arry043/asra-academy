@@ -25,6 +25,7 @@ import type {
   VideoProgressInput,
 } from '@asra/validation';
 import { prisma } from '../../database/prisma.js';
+import { clock } from '../../lib/clock.js';
 import type { DbClient } from '../../database/types.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { accessPolicy } from '../../services/access-policy.service.js';
@@ -243,10 +244,19 @@ export const studentService = {
               chapter: { module: { courseId: { in: courseIds } } },
             },
           });
-    const [courses, quizzes, assignments, completedCount] = await Promise.all([
+    const [courses, quizzes, assignments, exams, completedCount] = await Promise.all([
       toCourseCards(repo, auth.userId, rows),
       lessonsOfType('QUIZ'),
       lessonsOfType('ASSIGNMENT'),
+      courseIds.length === 0
+        ? Promise.resolve(0)
+        : prisma.examination.count({
+            where: {
+              courseId: { in: courseIds },
+              status: 'PUBLISHED',
+              closesAt: { gt: clock.now() },
+            },
+          }),
       prisma.enrollment.count({ where: { ...accessible, completedAt: { not: null } } }),
     ]);
 
@@ -275,7 +285,7 @@ export const studentService = {
       continueLearning,
       courses,
       totalCourses,
-      assessments: { quizzes, assignments },
+      assessments: { quizzes, assignments, exams },
       completedCourses: completedCourseRows.map((row) => ({
         course: toCourseRef(row.course),
         completedAt: row.completedAt!.toISOString(),

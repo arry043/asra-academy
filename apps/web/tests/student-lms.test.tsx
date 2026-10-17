@@ -8,6 +8,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import type { StudentCurriculumModule, StudentLessonDto } from '@asra/types';
@@ -229,11 +230,23 @@ const features = {
   assignment: { available: false, message: 'Online assignment submission is not available yet.' },
 };
 
+// QUIZ lessons mount the (client) quiz panel, which needs the app router.
+const router = {
+  push: () => {},
+  replace: () => {},
+  refresh: () => {},
+  back: () => {},
+  forward: () => {},
+  prefetch: () => {},
+} as unknown as React.ContextType<typeof AppRouterContext>;
+
 const renderLesson = (dto: StudentLessonDto) =>
   html(
-    <AuthProvider>
-      <LessonContent lesson={dto} features={features} onVideoProgress={() => {}} />
-    </AuthProvider>,
+    <AppRouterContext.Provider value={router}>
+      <AuthProvider>
+        <LessonContent lesson={dto} features={features} onVideoProgress={() => {}} />
+      </AuthProvider>
+    </AppRouterContext.Provider>,
   );
 
 describe('lesson content', () => {
@@ -278,13 +291,15 @@ describe('lesson content', () => {
     assert.doesNotMatch(out, /<video/);
   });
 
-  it('explains quiz placeholders honestly and shows the instructions', () => {
+  it('shows quiz instructions and mounts the online quiz panel (PHASE 09)', () => {
     const out = renderLesson(
       lesson({ contentType: 'QUIZ', body: 'Answer five questions.', countsTowardProgress: false }),
     );
     assert.match(out, /Online quiz attempts are not available yet\./);
     assert.match(out, /Instructions/);
     assert.match(out, /does not count towards your course progress/);
+    // The panel loads the quiz state from the API; nothing is rendered from fake data.
+    assert.match(out, /Loading quiz…/);
   });
 });
 
