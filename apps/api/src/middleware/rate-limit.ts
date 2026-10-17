@@ -8,7 +8,12 @@ import {
   type Store,
 } from 'express-rate-limit';
 import { RedisStore, type RedisReply } from 'rate-limit-redis';
-import { AUTH_RATE_LIMITS, type AuthRateLimitName } from '../config/constants.js';
+import {
+  ASSESSMENT_RATE_LIMITS,
+  AUTH_RATE_LIMITS,
+  type AssessmentRateLimitName,
+  type AuthRateLimitName,
+} from '../config/constants.js';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { redis } from '../lib/redis.js';
@@ -99,13 +104,13 @@ const redisStores: RedisWithMemoryFallbackStore[] = [];
 
 redis.on('ready', () => redisStores.forEach((store) => store.reinitialisePrimary()));
 
-function createStore(name: string): Store {
+function createStore(name: string, scope = 'auth'): Store {
   if (env.RATE_LIMIT_STORE === 'memory') {
     const store = new MemoryStore();
     stores.push(store);
     return store;
   }
-  const store = new RedisWithMemoryFallbackStore(`rl:auth:${name}:`);
+  const store = new RedisWithMemoryFallbackStore(`rl:${scope}:${name}:`);
   stores.push(store);
   redisStores.push(store);
   return store;
@@ -131,6 +136,30 @@ export function authRateLimit(name: AuthRateLimitName): RateLimitRequestHandler 
     },
     handler: (_req, res) => {
       sendError(res, 429, 'RATE_LIMITED', 'Too many attempts. Please wait and try again later.');
+    },
+  });
+}
+
+/**
+ * A per-USER limiter for authenticated assessment endpoints (PHASE 09). Must run after
+ * `authenticate`; keyed by the account id so students behind one school NAT do not share a quota.
+ */
+export function assessmentRateLimit(name: AssessmentRateLimitName): RateLimitRequestHandler {
+  const config = ASSESSMENT_RATE_LIMITS[name];
+  return rateLimit({
+    windowMs: config.windowMinutes * 60 * 1000,
+    limit: config.limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => `user:${req.auth?.userId ?? 'anonymous'}`,
+    store: createStore(name, 'assessment'),
+    passOnStoreError: true,
+    logger: {
+      error: (error: unknown, message?: string) => logger.error({ err: error }, message),
+      warn: (error: unknown, message?: string) => logger.warn({ err: error }, message),
+    },
+    handler: (_req, res) => {
+      sendError(res, 429, 'RATE_LIMITED', 'Too many requests. Please wait a moment and try again.');
     },
   });
 }

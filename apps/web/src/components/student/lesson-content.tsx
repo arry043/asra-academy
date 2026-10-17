@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { detectVideoSource, formatBytes } from '@/lib/student/learning';
 
+import { QuizPanel } from './assessment-pages';
 import { AssignmentPanel } from './assignment-panel';
 import { VideoPlayer } from './video-player';
 
@@ -119,6 +120,8 @@ export function LessonContent({
       {lesson.contentType === 'ASSIGNMENT' ? (
         <AssignmentPanel key={lesson.id} lessonId={lesson.id} />
       ) : null}
+
+      {lesson.contentType === 'QUIZ' ? <QuizPanel key={lesson.id} lessonId={lesson.id} /> : null}
 
       {lesson.resources.length > 0 ? (
         <section aria-labelledby="resources-heading" className="grid gap-3">

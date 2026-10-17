@@ -1,7 +1,10 @@
 import { PERMISSIONS } from '@asra/types';
 import {
+  answerSaveSchema,
+  attemptSubmitSchema,
   paginationQuerySchema,
   studentCatalogQuerySchema,
+  studentExamListQuerySchema,
   studentEnrollmentListQuerySchema,
   studentLessonListQuerySchema,
   studentLiveClassQuerySchema,
@@ -10,10 +13,13 @@ import {
   videoProgressSchema,
 } from '@asra/validation';
 import { Router } from 'express';
+import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate.js';
 import { requirePermission, requireRole } from '../../middleware/authorize.js';
+import { assessmentRateLimit } from '../../middleware/rate-limit.js';
 import { validateRequest } from '../../middleware/validate-request.js';
 import { idParamsSchema } from '../../validators/common.validators.js';
+import { studentAssessmentController as a } from '../assessments/assessments.controller.js';
 import { studentController as c } from './student.controller.js';
 
 /**
@@ -81,6 +87,47 @@ r.get(
   validateRequest({ query: studentLiveClassQuerySchema }),
   c.liveClasses,
 );
+
+// Quizzes, examinations and attempts (PHASE 09, docs/ASSESSMENTS.md §9). The server decides
+// every time-based outcome; bodies are strict, so no time, score or correctness can be posted.
+const startLimit = assessmentRateLimit('attemptStart');
+const answerLimit = assessmentRateLimit('answerSave');
+const submitLimit = assessmentRateLimit('attemptSubmit');
+const answerParams = z.object({ id: z.uuid(), questionId: z.uuid() });
+
+r.get('/lessons/:id/quiz', learn, byId, a.quiz);
+r.post(
+  '/lessons/:id/quiz/attempts',
+  learn,
+  startLimit,
+  validateRequest({ params: idParamsSchema, body: attemptSubmitSchema.optional() }),
+  a.startQuiz,
+);
+r.get('/exams', learn, validateRequest({ query: studentExamListQuerySchema }), a.exams);
+r.get('/exams/:id', learn, byId, a.exam);
+r.post(
+  '/exams/:id/attempts',
+  learn,
+  startLimit,
+  validateRequest({ params: idParamsSchema, body: attemptSubmitSchema.optional() }),
+  a.startExam,
+);
+r.get('/attempts/:id', learn, byId, a.attempt);
+r.put(
+  '/attempts/:id/answers/:questionId',
+  learn,
+  answerLimit,
+  validateRequest({ params: answerParams, body: answerSaveSchema }),
+  a.saveAnswer,
+);
+r.post(
+  '/attempts/:id/submit',
+  learn,
+  submitLimit,
+  validateRequest({ params: idParamsSchema, body: attemptSubmitSchema.optional() }),
+  a.submit,
+);
+r.get('/assessment-results', learn, paged, a.results);
 
 r.get('/history', learn, paged, c.history);
 

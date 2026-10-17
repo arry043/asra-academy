@@ -14,7 +14,6 @@ import type {
 import {
   Award,
   CheckCircle2,
-  ClipboardList,
   CreditCard,
   FileQuestion,
   GraduationCap,
@@ -35,6 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { courseHref, formatClock, LESSON_TYPE_LABELS, learnHref } from '@/lib/student/learning';
 
+import { AssessmentResults } from './assessment-pages';
 import {
   CourseProgress,
   ErrorPanel,
@@ -202,24 +202,6 @@ export function ClassesPage() {
   );
 }
 
-export function ExamsPage() {
-  const features = useFeatures();
-  return (
-    <>
-      <PageHeader title="Exams" breadcrumbs={[home, { label: 'Exams' }]} />
-      {features.data ? (
-        <FeatureUnavailable
-          title="No examinations available"
-          feature={features.data.exams}
-          icon={<ClipboardList />}
-        />
-      ) : (
-        <LoadingPanel rows={2} />
-      )}
-    </>
-  );
-}
-
 export function ResultsPage() {
   const features = useFeatures();
   return (
@@ -229,13 +211,20 @@ export function ResultsPage() {
         breadcrumbs={[home, { label: 'Results' }]}
         description={features.data?.results.message}
       />
+      <section aria-labelledby="assessment-results-heading" className="grid gap-3">
+        <h2 id="assessment-results-heading" className="type-h2 text-heading">
+          Quizzes and exams
+        </h2>
+        <AssessmentResults />
+      </section>
+      <h2 className="type-h2 text-heading">Assignments</h2>
       <PagedList<StudentResultItem>
         path="/student/results"
         label="results"
         empty={
           <EmptyState
             icon={<GraduationCap />}
-            title="No results released yet"
+            title="No assignment results released yet"
             description="When your faculty release the marks for an assignment you submitted, they appear here."
             action={
               <Button asChild variant="outline">

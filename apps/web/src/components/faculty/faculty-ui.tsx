@@ -34,6 +34,7 @@ export function useFacultyApi() {
       put: <T,>(path: string, body: unknown) => authorizedRequest<T>(path, { method: 'PUT', body }),
       patch: <T,>(path: string, body: unknown) =>
         authorizedRequest<T>(path, { method: 'PATCH', body }),
+      del: <T,>(path: string) => authorizedRequest<T>(path, { method: 'DELETE' }),
     }),
     [authorizedRequest],
   );

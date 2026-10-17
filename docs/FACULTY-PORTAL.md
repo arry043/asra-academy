@@ -18,8 +18,8 @@ Open decisions are listed in [CLIENT-CLARIFICATIONS.md](./CLIENT-CLARIFICATIONS.
 | Live classes                       | **Scheduling implemented**, provider-neutral. Faculty may paste a meeting link they created themselves; no meeting is created through any provider API (F-01)    |
 | Students & performance             | **Implemented** — teaching data only (no contact details), metrics defined in §7                                                                                 |
 | Faculty profile                    | **Implemented** — self-service fields only; allocation is read-only                                                                                              |
-| Quizzes                            | **Not available** (PHASE 09). QUIZ lessons (instructions) are listed and edited through the curriculum; no questions, attempts or scoring are simulated          |
-| Examinations                       | **Not available** (PHASE 09). Honest unavailable page; no model exists                                                                                           |
+| Quizzes                            | **Implemented in PHASE 09** — see [ASSESSMENTS.md](./ASSESSMENTS.md)                                                                                             |
+| Examinations                       | **Implemented in PHASE 09** — see [ASSESSMENTS.md](./ASSESSMENTS.md)                                                                                             |
 | Notifications (new class, results) | **Not sent** (PHASE 11)                                                                                                                                          |
 
 ## 2. Authorization
@@ -70,7 +70,7 @@ Route group `(faculty)` with `AuthProvider` + `FacultyShell` (session gate, redi
 | `/faculty/assignments/[lessonId]`     | Instructions, submission settings, submissions of this assignment                                      |
 | `/faculty/submissions`                | Review queue: filter by course and review state, oldest/newest first                                   |
 | `/faculty/submissions/[submissionId]` | Original work, marks + feedback form, release (with confirmation)                                      |
-| `/faculty/quizzes`, `/faculty/exams`  | QUIZ lessons + engine-not-available message; exams unavailable                                         |
+| `/faculty/quizzes`, `/faculty/exams`  | Quiz and exam workspaces (PHASE 09, [ASSESSMENTS.md](./ASSESSMENTS.md) §8)                             |
 | `/faculty/performance`                | Course picker → metrics (§7) + per-student table                                                       |
 | `/faculty/profile`                    | Editable self-service fields; academy-managed fields and allocation read-only                          |
 
@@ -129,7 +129,7 @@ ASSIGNMENT lesson (title, instructions = body, attachments = resources, DRAFT/PU
 
 - **No parallel content system.** An assignment is an ASSIGNMENT lesson; admin-created ASSIGNMENT lessons get online submission when faculty add settings.
 - **Open for submission** = lesson PUBLISHED + course PUBLISHED + settings exist + the student's ACTIVE enrolment.
-- **Submission** (I-01 pending): plain text (≤ 20,000 characters) and an optional `https://` link; files need storage (R-01). One per student; immutable afterwards (I-02 pending — no resubmission is invented). After the due date it is accepted and flagged **late**; no penalty (I-02).
+- **Submission** (I-01 pending): plain text (≤ 20,000 characters) and an optional `https://` link; files need storage (R-01). PHASE 09 made late work and resubmission per-assignment settings (defaults unchanged: late accepted and flagged, no resubmission) — see [ASSESSMENTS.md](./ASSESSMENTS.md) §4.3.
 - **Marks** (I-03 pending): whole numbers 0…maxMarks, validated on the server inside a transaction that row-locks the submission. Re-grading is allowed until release; `expectedUpdatedAt` turns a concurrent review into 409. `maxMarks` cannot change once any submission is graded.
 - **Release** (K-04 pending): separate, explicit action; only a GRADED submission can be released; released results are final (grading → 409). Before release the student sees only "submitted" — not even that it was graded.
 - **Protection of student work:** deleting an assignment lesson, or changing its type, is refused (409) while submissions exist; FK `assignment_submissions → assignments` is RESTRICT as a second line of defence. Editing title, instructions or the due date never touches submissions.
@@ -166,7 +166,7 @@ Per-student rows: progress, published assignments, submitted, graded, released a
 
 - **Storage (R-01, G-01, H-01):** unchanged — `CONFIGURED_STORAGE_PROVIDERS` is empty, stored-object references are refused with 422, and the dashboard says uploads are unavailable. Adding a provider: the Phase 06/07 steps (adapter, upload/signed-URL flow) plus an optional file field on submissions.
 - **Live-class provider (F-01):** §6.
-- **Assessment engine (PHASE 09):** quizzes and exams; QUIZ lessons stay instruction placeholders until then.
+- **Assessment engine (PHASE 09):** implemented — quizzes on QUIZ lessons and scheduled exams ([ASSESSMENTS.md](./ASSESSMENTS.md)).
 - **Notifications (PHASE 11):** none are sent for new classes, submissions or released results.
 
 No new environment variables.

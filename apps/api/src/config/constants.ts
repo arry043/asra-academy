@@ -29,3 +29,21 @@ export const AUTH_RATE_LIMITS = {
 } as const;
 
 export type AuthRateLimitName = keyof typeof AUTH_RATE_LIMITS;
+
+// --- Assessments (PHASE 09) ---------------------------------------------------------------
+
+/**
+ * Per-STUDENT limits on attempt endpoints (fixed 1-minute windows). Generous enough for normal
+ * exam use — autosave fires per answer change, debounced in the browser — while capping scripted
+ * hammering of start/submit.
+ */
+export const ASSESSMENT_RATE_LIMITS = {
+  attemptStart: { windowMinutes: 1, limit: 20 },
+  answerSave: { windowMinutes: 1, limit: 300 },
+  attemptSubmit: { windowMinutes: 1, limit: 30 },
+} as const;
+
+export type AssessmentRateLimitName = keyof typeof ASSESSMENT_RATE_LIMITS;
+
+/** How often the API process finalizes attempts whose deadline passed while nobody was online. */
+export const ASSESSMENT_EXPIRY_SWEEP_MS = 30_000;

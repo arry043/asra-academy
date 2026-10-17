@@ -244,6 +244,10 @@ The public site (home, about, courses, classes, special courses, faculty, admiss
 
 Signed-in students use `/student/*` (dashboard, courses, course player, progress, profile and records). Access to course content requires an active enrolment: free courses (price 0) can be joined from **My courses → Find courses**; administrators enrol students in other courses from the course's **Enrolments** tab. Rules, API and limitations: [docs/STUDENT-LMS.md](docs/STUDENT-LMS.md). After pulling Phase 07, run `npm run db:migrate:deploy` and `npm run db:seed` (grants the new `enrollments.manage` permission).
 
+### Assessment engine (Phase 09)
+
+Faculty set up online quizzes on quiz lessons and schedule timed examinations for their courses; students attempt them from the lesson player and **Exams**. The server decides every deadline and scores every attempt; results appear on **Results** once released. Rules, scoring, timing and API: [docs/ASSESSMENTS.md](docs/ASSESSMENTS.md). After pulling Phase 09, run `npm run db:migrate:deploy` (no seed change).
+
 ### Faculty portal (Phase 08)
 
 Faculty accounts (created with `npm run auth:create-user -- --role FACULTY` until staff management exists) use `/faculty/*` once an administrator assigns them to a course (admin portal → course → **Faculty** tab). They manage the curriculum of their courses, create assignments, review and grade submissions and release results, schedule live classes (no provider connected — links are entered manually) and see student progress. Rules, API and limitations: [docs/FACULTY-PORTAL.md](docs/FACULTY-PORTAL.md). After pulling Phase 08, run `npm run db:migrate:deploy` and `npm run db:seed` (grants the three new faculty permissions).

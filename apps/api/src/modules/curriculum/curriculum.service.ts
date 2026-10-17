@@ -211,6 +211,30 @@ async function releaseAssignmentSettings(
   await tx.assignment.delete({ where: { id: assignment.id } });
 }
 
+/**
+ * Removes a QUIZ lesson's online quiz (questions included), refusing (409) once any student has
+ * attempted it: attempts and results are student records (PHASE 09; FK
+ * `assessment_attempts → quizzes` is RESTRICT as a second line of defence).
+ */
+async function releaseQuiz(
+  tx: DbClient,
+  lessonId: string,
+  action: 'delete' | 'change the type of',
+): Promise<void> {
+  const quiz = await tx.quiz.findUnique({
+    where: { lessonId },
+    select: { id: true, _count: { select: { attempts: true } } },
+  });
+  if (!quiz) return;
+  if (quiz._count.attempts > 0) {
+    throw new AppError(
+      'CONFLICT',
+      `Students have attempted this quiz, so you cannot ${action} this lesson. Unpublish it or close the quiz instead.`,
+    );
+  }
+  await tx.quiz.delete({ where: { id: quiz.id } });
+}
+
 /** `publishedAt` follows `status` (CHECK lessons_published_at_required). */
 function lessonStatusColumns(status: 'DRAFT' | 'PUBLISHED' | undefined, previous?: string) {
   if (status === undefined || status === previous) return {};
@@ -389,6 +413,13 @@ export const curriculumService = {
       ) {
         await releaseAssignmentSettings(tx, id, 'change the type of');
       }
+      if (
+        owner.contentType === 'QUIZ' &&
+        fields.contentType !== undefined &&
+        fields.contentType !== 'QUIZ'
+      ) {
+        await releaseQuiz(tx, id, 'change the type of');
+      }
       return toLessonDto(
         await repo.lessons.update(id, {
           ...withoutUndefined(fields),
@@ -402,6 +433,7 @@ export const curriculumService = {
     const owner = (await createCurriculumRepository(prisma).lessonOwner(id)) ?? notFound('Lesson');
     await mutate(auth, owner.chapter.module.courseId, async (repo, tx) => {
       await releaseAssignmentSettings(tx, id, 'delete');
+      await releaseQuiz(tx, id, 'delete');
       await repo.lessons.delete(id);
     });
   },

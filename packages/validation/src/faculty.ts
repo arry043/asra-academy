@@ -88,9 +88,18 @@ const maxMarksSchema = z
   .min(1, 'At least 1 mark')
   .max(MAX_ASSIGNMENT_MARKS, `At most ${MAX_ASSIGNMENT_MARKS} marks`);
 
+/**
+ * Late/resubmission policy (PHASE 09, I-02 pending). Omitted = keep the current value (or the
+ * PHASE 08 defaults for new settings: late work accepted and flagged, no resubmission).
+ */
+const submissionPolicyFields = {
+  allowLateSubmissions: z.boolean().optional(),
+  allowResubmission: z.boolean().optional(),
+};
+
 /** Submission settings of an existing ASSIGNMENT lesson (create or update). */
 export const assignmentSettingsSchema = z
-  .object({ maxMarks: maxMarksSchema, dueAt: optionalInstantSchema })
+  .object({ maxMarks: maxMarksSchema, dueAt: optionalInstantSchema, ...submissionPolicyFields })
   .strict();
 export type AssignmentSettingsInput = z.infer<typeof assignmentSettingsSchema>;
 
@@ -107,6 +116,7 @@ export const assignmentCreateSchema = z
     status: z.enum(LESSON_STATUSES).default('DRAFT'),
     maxMarks: maxMarksSchema,
     dueAt: optionalInstantSchema,
+    ...submissionPolicyFields,
   })
   .strict();
 export type AssignmentCreateInput = z.infer<typeof assignmentCreateSchema>;
@@ -120,6 +130,8 @@ export const gradeSubmissionSchema = z
       .min(0, 'Marks cannot be negative')
       .max(MAX_ASSIGNMENT_MARKS, `At most ${MAX_ASSIGNMENT_MARKS} marks`),
     feedback: optionalTextSchema(5000),
+    /** Private to faculty — never shown to the student. */
+    facultyNote: optionalTextSchema(5000),
     /** The submission's `updatedAt` when the reviewer opened it; a mismatch → 409. */
     expectedUpdatedAt: isoInstantSchema.optional(),
   })

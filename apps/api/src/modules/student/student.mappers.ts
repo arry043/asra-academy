@@ -240,9 +240,9 @@ export const STUDENT_FEATURES: StudentFeatures = {
       'Classes scheduled by your faculty appear here (times in IST). A joining link is shown when your faculty has added one.',
   },
   quizAttempts: {
-    available: false,
+    available: true,
     message:
-      'Online quiz attempts are not available yet. Quiz lessons show your faculty’s instructions.',
+      'Attempt the online quizzes in your quiz lessons. Scores, and when allowed the correct answers, appear after you submit or once your faculty publishes them.',
   },
   assignmentSubmissions: {
     available: true,
@@ -250,13 +250,14 @@ export const STUDENT_FEATURES: StudentFeatures = {
       'Submit your answer as text (and optionally a link) in each assignment lesson where your faculty has opened online submission.',
   },
   exams: {
-    available: false,
-    message: 'Online examinations and mock tests are not available yet.',
+    available: true,
+    message:
+      'Scheduled examinations of your courses appear here. The exam timer is kept by the server: your time runs from the moment you start, even if you close the page.',
   },
   results: {
     available: true,
     message:
-      'Assignment marks and feedback appear here once your faculty releases them. Quiz and exam results are not available online yet.',
+      'Assignment marks and feedback, quiz scores and exam results appear here once they are released.',
   },
   certificates: {
     available: false,
