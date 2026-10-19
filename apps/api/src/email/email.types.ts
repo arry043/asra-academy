@@ -4,7 +4,12 @@ export interface EmailMessage {
   subject: string;
   text: string;
   /** Stable identifier of the template, for logs and tests (never contains personal data). */
-  template: 'email-verification' | 'password-reset' | 'account-exists';
+  template:
+    | 'email-verification'
+    | 'password-reset'
+    | 'account-exists'
+    | 'payment-confirmation'
+    | 'refund-update';
 }
 
 /**

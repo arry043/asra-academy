@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { ApiClientError } from '@/lib/api';
 import { authApi } from '@/lib/auth/auth-api';
 import { safeNextPath } from '@/lib/admin/format';
+import { forgetReturnTo } from '@/lib/auth/return-to';
 import { describeError, validateForm, type FieldErrors } from '@/lib/auth/form-errors';
 import { isFaculty } from '@/lib/faculty/portal';
 import { isStudent } from '@/lib/student/learning';
@@ -26,7 +27,10 @@ export function LoginForm() {
   const redirectTo = next ? safeNextPath(next, '') : '';
 
   React.useEffect(() => {
-    if (status === 'authenticated' && redirectTo) router.replace(redirectTo);
+    if (status === 'authenticated' && redirectTo) {
+      forgetReturnTo();
+      router.replace(redirectTo);
+    }
   }, [status, redirectTo, router]);
 
   if (status === 'loading' || (status === 'authenticated' && redirectTo)) {
@@ -48,7 +52,10 @@ export function LoginForm() {
 function SignInForm() {
   const { login } = useAuth();
   const router = useRouter();
-  const hasNext = Boolean(useSearchParams().get('next'));
+  const nextParam = useSearchParams().get('next');
+  const hasNext = Boolean(nextParam);
+  // Keeps the destination (e.g. a course checkout) through registration and email verification.
+  const next = nextParam ? safeNextPath(nextParam, '') || null : null;
   const [pending, setPending] = React.useState(false);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [alert, setAlert] = React.useState<{ tone: 'error' | 'info'; message: string } | null>(
@@ -97,7 +104,10 @@ function SignInForm() {
       description="Sign in to continue learning with ASRA Academy."
       footer={
         <p>
-          New to ASRA Academy? <AuthLink href="/register">Create an account</AuthLink>
+          New to ASRA Academy?{' '}
+          <AuthLink href={next ? `/register?next=${encodeURIComponent(next)}` : '/register'}>
+            Create an account
+          </AuthLink>
         </p>
       }
     >

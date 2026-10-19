@@ -63,7 +63,12 @@ async function deliver(message: EmailMessage): Promise<void> {
   }
 }
 
-/** Authentication emails. Business code depends on this API, never on a provider SDK. */
+/** "₹1,499.00" — en-IN grouping; amounts are integer minor units (paise). */
+function formatAmount(amountMinor: number, currency: string): string {
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amountMinor / 100);
+}
+
+/** Authentication and transactional emails. Business code depends on this API, never on a provider SDK. */
 export const emailService = {
   sendEmailVerification(to: string, fullName: string, token: string): Promise<void> {
     const link = appLink('/verify-email', token);
@@ -117,6 +122,63 @@ export const emailService = {
         '',
         'Forgot your password? Use "Forgot password" on the sign-in page.',
         'If this was not you, no action is needed.',
+      ].join('\n'),
+    });
+  },
+
+  /**
+   * PHASE 10: sent once, after the payment is verified AND the enrolment is committed. Contains no
+   * payment instrument data; the receipt itself is behind the student's login.
+   */
+  sendPaymentConfirmation(
+    to: string,
+    details: {
+      fullName: string;
+      courseTitle: string;
+      orderReference: string;
+      amountMinor: number;
+      currency: string;
+      orderId: string;
+    },
+  ): Promise<void> {
+    return deliver({
+      to,
+      template: 'payment-confirmation',
+      subject: `Payment received — ${details.courseTitle}`,
+      text: [
+        `Hello ${details.fullName},`,
+        '',
+        `We have received your payment of ${formatAmount(details.amountMinor, details.currency)} for "${details.courseTitle}".`,
+        'Your enrolment is active and the course is open in your student portal:',
+        new URL('/student/courses', env.NEXT_PUBLIC_APP_URL).toString(),
+        '',
+        `Order reference: ${details.orderReference}`,
+        `Your payment receipt: ${new URL(`/student/payments/${details.orderId}/receipt`, env.NEXT_PUBLIC_APP_URL).toString()}`,
+      ].join('\n'),
+    });
+  },
+
+  /** PHASE 10: a refund of one of the student's payments was processed by the provider. */
+  sendRefundProcessed(
+    to: string,
+    details: {
+      fullName: string;
+      courseTitle: string;
+      orderReference: string;
+      amountMinor: number;
+      currency: string;
+    },
+  ): Promise<void> {
+    return deliver({
+      to,
+      template: 'refund-update',
+      subject: `Refund processed — ${details.courseTitle}`,
+      text: [
+        `Hello ${details.fullName},`,
+        '',
+        `A refund of ${formatAmount(details.amountMinor, details.currency)} for "${details.courseTitle}" (order ${details.orderReference}) has been processed.`,
+        'Banks usually take 5–7 working days to show the amount in your account.',
+        'If you have questions, please contact the academy.',
       ].join('\n'),
     });
   },

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiClientError } from '@/lib/api';
 import { formatDuration } from '@/lib/format';
+import { priceParts } from '@/lib/payments';
 import { courseEyebrow, learnHref } from '@/lib/student/learning';
 
 import { EnrolButton } from './student-courses';
@@ -156,6 +157,28 @@ function AccessPanel({
       </div>
     );
   }
+  if (course.access === 'PURCHASE') {
+    const price = priceParts(course.price);
+    return (
+      <div className="grid justify-items-start gap-3">
+        {price ? (
+          <p className="flex flex-wrap items-baseline gap-2">
+            <span className="type-h3 text-heading tabular-nums">{price.now}</span>
+            {price.was ? (
+              <s className="type-body text-muted-foreground tabular-nums">{price.was}</s>
+            ) : null}
+          </p>
+        ) : null}
+        <p className="type-body text-muted-foreground">
+          Buy this course to open the lessons and save your progress. Payment is processed securely
+          by Razorpay.
+        </p>
+        <Button asChild>
+          <Link href={`/student/checkout/${course.slug}`}>Buy course</Link>
+        </Button>
+      </div>
+    );
+  }
   if (course.access === 'FREE_ENROLMENT') {
     return (
       <div className="grid justify-items-start gap-3">
@@ -181,8 +204,9 @@ function AccessPanel({
       }
     >
       <p>
-        Online payment is not available yet. Contact ASRA Academy to join this course; once the
-        academy enrols you, the lessons open here.
+        {course.enrollment?.status === 'CANCELLED'
+          ? 'Contact ASRA Academy if you would like to rejoin this course.'
+          : 'This course cannot be bought online right now. Contact ASRA Academy to join it; once the academy enrols you, the lessons open here.'}
       </p>
       <div>
         <Button asChild size="sm" variant="outline">

@@ -6,6 +6,7 @@ import * as React from 'react';
 import { AuthCard, AuthLink } from '@/components/auth/auth-card';
 import { FormAlert, FormField, PasswordField, SubmitButton } from '@/components/auth/form-controls';
 import { authApi } from '@/lib/auth/auth-api';
+import { rememberReturnTo, useRememberedLoginHref } from '@/lib/auth/return-to';
 import { describeError, validateForm, type FieldErrors } from '@/lib/auth/form-errors';
 
 /** Public self-registration — always creates a STUDENT account (no role choice is offered). */
@@ -14,6 +15,12 @@ export function RegisterForm() {
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [error, setError] = React.useState<string | null>(null);
   const [submittedEmail, setSubmittedEmail] = React.useState<string | null>(null);
+  // `?next=` (e.g. the course checkout a visitor started from) survives email verification.
+  React.useEffect(
+    () => rememberReturnTo(new URLSearchParams(window.location.search).get('next')),
+    [],
+  );
+  const signIn = useRememberedLoginHref();
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,7 +53,7 @@ export function RegisterForm() {
         title="Check your email"
         footer={
           <p>
-            Already verified? <AuthLink href="/login">Sign in</AuthLink>
+            Already verified? <AuthLink href={signIn}>Sign in</AuthLink>
           </p>
         }
       >

@@ -20,3 +20,17 @@ process.env.RATE_LIMIT_STORE = 'memory';
 process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
 process.env.CORS_ORIGINS = 'http://localhost:3000';
 process.env.AUTH_COOKIE_SECURE = 'false';
+
+// Payments (PHASE 10): never use a developer's Razorpay credentials from .env — automated tests
+// must not be able to reach Razorpay at all. Payment suites install an in-memory test gateway.
+for (const name of [
+  'RAZORPAY_MODE',
+  'RAZORPAY_TEST_KEY_ID',
+  'RAZORPAY_TEST_KEY_SECRET',
+  'RAZORPAY_TEST_WEBHOOK_SECRET',
+  'RAZORPAY_LIVE_KEY_ID',
+  'RAZORPAY_LIVE_KEY_SECRET',
+  'RAZORPAY_LIVE_WEBHOOK_SECRET',
+]) {
+  process.env[name] = '';
+}

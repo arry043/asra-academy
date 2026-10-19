@@ -1,3 +1,4 @@
+import type { CoursePriceDto } from './payments.js';
 import type {
   LessonContentType,
   PublicInstructor,
@@ -14,17 +15,22 @@ import type {
  */
 
 export type EnrollmentStatus = 'ACTIVE' | 'CANCELLED';
-/** FREE = self-enrolment on a course priced at 0; ADMIN = enrolled by the academy. */
-export type EnrollmentSource = 'FREE' | 'ADMIN';
+/**
+ * FREE = self-enrolment on a course priced at 0; ADMIN = enrolled by the academy;
+ * PAYMENT = activated by a verified, captured online payment (PHASE 10).
+ */
+export type EnrollmentSource = 'FREE' | 'ADMIN' | 'PAYMENT';
 
 /**
  * How the signed-in student can reach a course's content.
  * - ENROLLED: an ACTIVE enrolment exists.
  * - FREE_ENROLMENT: the course is explicitly free (price 0); the student may enrol themselves.
- * - CONTACT_ACADEMY: paid, price not set, or enrolment cancelled — the academy enrols the student
- *   (online payment is not available yet, PHASE 10).
+ * - PURCHASE: a paid course that can be bought online now (PHASE 10: checkout is configured and
+ *   the server-computed price is payable).
+ * - CONTACT_ACADEMY: price not set, not payable online (checkout disabled, zero after discount…),
+ *   or enrolment cancelled — the academy enrols the student.
  */
-export type CourseAccessState = 'ENROLLED' | 'FREE_ENROLMENT' | 'CONTACT_ACADEMY';
+export type CourseAccessState = 'ENROLLED' | 'FREE_ENROLMENT' | 'PURCHASE' | 'CONTACT_ACADEMY';
 
 /**
  * Course completion derived from lesson-progress records (docs/STUDENT-LMS.md §4).
@@ -125,6 +131,8 @@ export interface StudentCatalogCourse extends StudentCourseRef {
   durationMinutes: number | null;
   instructors: PublicInstructor[];
   access: CourseAccessState;
+  /** Server-computed price (PHASE 10); null when the course has no price. */
+  price: CoursePriceDto | null;
 }
 
 // --- Course overview, curriculum and player -------------------------------------------------
@@ -167,6 +175,8 @@ export interface StudentCourseOverview extends StudentCourseRef {
   durationMinutes: number | null;
   instructors: PublicInstructor[];
   access: CourseAccessState;
+  /** Server-computed price (PHASE 10); null when the course has no price. */
+  price: CoursePriceDto | null;
   enrollment: StudentEnrollmentSummary | null;
   /** Titles of published lessons — shown before enrolment. */
   outline: PublicModuleOutline[];

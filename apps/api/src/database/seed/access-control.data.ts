@@ -23,6 +23,9 @@ export const PERMISSION_DEFINITIONS: Record<PermissionKey, string> = {
   [PERMISSIONS.ENROLLMENTS_MANAGE]: 'Enrol students in courses and cancel enrolments',
   [PERMISSIONS.CONTENT_VIEW_ENROLLED]: 'View learning content of enrolled courses',
   [PERMISSIONS.PROFILE_MANAGE_OWN]: 'View and update own profile',
+  [PERMISSIONS.PAYMENTS_MAKE_OWN]: 'Buy courses online and view own orders, payments and receipts',
+  [PERMISSIONS.PAYMENTS_VIEW]: 'View orders, payments, refunds and revenue; reconcile payments',
+  [PERMISSIONS.PAYMENTS_REFUND]: 'Issue refunds through the payment provider',
 };
 
 interface SystemRoleDefinition {
@@ -52,6 +55,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       PERMISSIONS.COURSES_MANAGE,
       PERMISSIONS.CONTENT_MANAGE,
       PERMISSIONS.ENROLLMENTS_MANAGE,
+      PERMISSIONS.PAYMENTS_VIEW,
       PERMISSIONS.PROFILE_MANAGE_OWN,
     ],
   },
@@ -71,6 +75,10 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
     key: 'STUDENT',
     name: 'Student',
     description: 'Registered learner',
-    permissions: [PERMISSIONS.CONTENT_VIEW_ENROLLED, PERMISSIONS.PROFILE_MANAGE_OWN],
+    permissions: [
+      PERMISSIONS.CONTENT_VIEW_ENROLLED,
+      PERMISSIONS.PROFILE_MANAGE_OWN,
+      PERMISSIONS.PAYMENTS_MAKE_OWN,
+    ],
   },
 ];

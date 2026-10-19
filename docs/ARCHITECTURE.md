@@ -288,14 +288,14 @@ interface NotificationChannel {
 }
 ```
 
-| Abstraction            | Purpose                                     | Provider status                     | Env vars                                       |
-| ---------------------- | ------------------------------------------- | ----------------------------------- | ---------------------------------------------- |
-| Storage                | Lectures, notes, PDFs, submissions, avatars | Pending (S3-compatible recommended) | `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET` |
-| Payment                | Paid course checkout, refunds, webhooks     | Pending                             | `PAYMENT_KEY`, `PAYMENT_SECRET`                |
-| Live class             | Meeting create/cancel/join links            | Pending                             | Added when provider chosen                     |
-| Notification: email    | Transactional email                         | Resend (`EMAIL_TRANSPORT=resend`)   | `EMAIL_API_KEY`, `EMAIL_FROM`                  |
-| Notification: WhatsApp | Enquiry / optional notifications            | Pending                             | `WHATSAPP_API_KEY`                             |
-| Notification: in-app   | Stored in PostgreSQL                        | —                                   | —                                              |
+| Abstraction            | Purpose                                     | Provider status                       | Env vars                                       |
+| ---------------------- | ------------------------------------------- | ------------------------------------- | ---------------------------------------------- |
+| Storage                | Lectures, notes, PDFs, submissions, avatars | Pending (S3-compatible recommended)   | `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET` |
+| Payment                | Paid course checkout, refunds, webhooks     | Razorpay (PHASE 10, docs/PAYMENTS.md) | `RAZORPAY_MODE`, `RAZORPAY_{TEST,LIVE}_*`      |
+| Live class             | Meeting create/cancel/join links            | Pending                               | Added when provider chosen                     |
+| Notification: email    | Transactional email                         | Resend (`EMAIL_TRANSPORT=resend`)     | `EMAIL_API_KEY`, `EMAIL_FROM`                  |
+| Notification: WhatsApp | Enquiry / optional notifications            | Pending                               | `WHATSAPP_API_KEY`                             |
+| Notification: in-app   | Stored in PostgreSQL                        | —                                     | —                                              |
 
 Rules: provider selection via configuration; no vendor-specific identifiers leak into domain tables beyond `provider` + `providerRef` columns; webhooks are verified before any state change.
 

@@ -1,4 +1,5 @@
 import type {
+  CoursePriceDto,
   CourseAccessState,
   LessonContentType,
   LessonLocator,
@@ -19,6 +20,8 @@ import type {
   ProgressRow,
   StructureModuleRow,
 } from './student.repository.js';
+import { paymentsConfig } from '../payments/config.js';
+import { priceCourse, type PricingInput } from '../payments/pricing.js';
 import { countsTowardProgress } from './progress.js';
 
 const iso = (date: Date) => date.toISOString();
@@ -220,20 +223,32 @@ export function toOutline(view: CourseView): PublicModuleOutline[] {
  * a missing price means "not configured", never "free" (B-04). A cancelled enrolment is not
  * reopened by the student (D-04).
  */
+/**
+ * PURCHASE (PHASE 10) only when the server-computed price is payable online AND checkout is
+ * configured on this deployment; otherwise a priced course stays CONTACT_ACADEMY.
+ */
 export function accessStateFor(
-  course: { priceMinor: number | null },
+  course: PricingInput,
   enrollment: { status: 'ACTIVE' | 'CANCELLED' } | null,
 ): CourseAccessState {
   if (enrollment?.status === 'ACTIVE') return 'ENROLLED';
   if (enrollment?.status === 'CANCELLED') return 'CONTACT_ACADEMY';
-  return course.priceMinor === 0 ? 'FREE_ENROLMENT' : 'CONTACT_ACADEMY';
+  if (course.priceMinor === 0) return 'FREE_ENROLMENT';
+  return priceCourse(course)?.payable && paymentsConfig.checkoutEnabled()
+    ? 'PURCHASE'
+    : 'CONTACT_ACADEMY';
+}
+
+/** Price shown next to the access state (server-computed; null when the course has no price). */
+export function priceFor(course: PricingInput): CoursePriceDto | null {
+  return priceCourse(course);
 }
 
 /**
  * Capabilities that depend on later phases or pending client decisions. Reported honestly so the
  * portal shows an unavailable state instead of fake records (docs/STUDENT-LMS.md §7).
  */
-export const STUDENT_FEATURES: StudentFeatures = {
+const STATIC_FEATURES: Omit<StudentFeatures, 'payments'> = {
   liveClasses: {
     available: true,
     message:
@@ -264,9 +279,22 @@ export const STUDENT_FEATURES: StudentFeatures = {
     message:
       'Certificates are not issued online yet. Completed courses are listed here so you can track them.',
   },
-  payments: {
-    available: false,
-    message:
-      'Online payments are not enabled yet, so there is no payment history to show. Contact the academy about fees.',
-  },
 };
+
+/** `payments` follows the deployment's checkout configuration (PHASE 10). */
+export function studentFeatures(): StudentFeatures {
+  return {
+    ...STATIC_FEATURES,
+    payments: paymentsConfig.checkoutEnabled()
+      ? {
+          available: true,
+          message:
+            'Buy courses securely online. Your orders, payments, receipts and refunds appear here.',
+        }
+      : {
+          available: false,
+          message:
+            'Online payment is not enabled yet. Any earlier orders are listed here; contact the academy about fees.',
+        },
+  };
+}

@@ -435,7 +435,7 @@ function CourseFormFields({
             label="Price"
             optional
             error={errors.priceMinor}
-            hint="Leave empty if not decided; 0 means free. For administration only — prices are not shown publicly or charged until payments are enabled (PHASE 10)."
+            hint="Leave empty if not decided; 0 means free. Students are charged this price (minus the discount) at online checkout when payments are enabled."
           >
             <Input
               inputMode="decimal"
@@ -471,7 +471,7 @@ function CourseFormFields({
             id="course-discount-value"
             label={state.discountType === 'PERCENTAGE' ? 'Discount (%)' : 'Discount amount'}
             error={errors.discountValue}
-            hint="Discount rules are pending client confirmation (M-06); no final price is calculated."
+            hint="Applied at checkout: percentage rounded down; a fixed amount is capped at the price (M-06 pending)."
           >
             <Input
               inputMode="decimal"

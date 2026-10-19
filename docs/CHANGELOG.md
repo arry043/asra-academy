@@ -17,6 +17,22 @@ Entry template:
 
 ## [Unreleased]
 
+### Added — PHASE 10 Enrolment & Payment (uncommitted, pending review)
+
+- Razorpay integration with explicit **test and live modes** (`RAZORPAY_MODE`, separate `RAZORPAY_TEST_*` / `RAZORPAY_LIVE_*` keys and webhook secrets; key-prefix and mode checks at startup; live refused outside production; each order bound to the mode it was created in). See [PAYMENTS.md](./PAYMENTS.md).
+- Separate `Order` → `Payment` → `Enrollment` (+ `Refund`) model with frozen price snapshots in integer paise, one open order per student and course, and a single transactional, idempotent payment-application/enrolment-activation service.
+- Checkout: server-side pricing (course discount), order creation with Razorpay Orders API, Checkout signature verification, server re-fetch of the payment, capture of authorised payments, status refresh, receipts; never activates from the browser callback alone.
+- Signed webhooks over the raw body (`/api/v1/payments/webhooks/razorpay/:mode`), durable dedup by `x-razorpay-event-id`, leased processing, monotonic states (late failures never undo a capture), mode isolation.
+- Reconciliation on demand and in a restart-safe background sweep (orders, refunds, unsent confirmation emails).
+- Refunds (full/partial, `receipt` idempotency, crash-safe REQUESTED state, optional explicit access revocation), admin finance views (`/admin/payments`: summary per mode, orders, transactions, failed/needs-review, refunds, order detail with audit), student payment history and printable receipt.
+- Permissions `payments.make_own` (Student), `payments.view` (Admin), `payments.refund` (Super Admin). Emails: payment confirmation and refund processed (sent once, after commit).
+- Migration `20261019090000_phase10_enrolment_payment` (additive). Tests: `payments`, `payments-unit` (API), `payments.test.ts` (web).
+
+### Changed — PHASE 10
+
+- Course access state `PURCHASE` and server-computed `price` on student course overview/catalogue; `GET /student/features` reports payments available only when checkout is configured. Public course pages show **Enrol now**; login/registration keep the return path (`?next=`) through email verification.
+- Client clarifications §AD added.
+
 ### Added — PHASE 09 Assessment Engine (uncommitted, pending review)
 
 - Quizzes on QUIZ lessons (MCQ, True/False, multiple answers; time limit, attempts, pass mark, negative marking, random subset, shuffling, immediate or published results, answer reveal), scheduled examinations (window, duration, attempts, written answers with manual grading, result publication) and a shared attempt engine with immutable per-attempt snapshots. See [ASSESSMENTS.md](./ASSESSMENTS.md).

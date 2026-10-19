@@ -9,6 +9,7 @@ import type {
   StudentEnrollmentRecord,
   StudentFeatures,
   StudentLessonListItem,
+  StudentOrderDto,
   StudentResultItem,
 } from '@asra/types';
 import {
@@ -32,16 +33,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate, formatDateTime } from '@/lib/format';
+import { formatAmount, ORDER_STATUS, REFUND_STATE_LABEL } from '@/lib/payments';
 import { courseHref, formatClock, LESSON_TYPE_LABELS, learnHref } from '@/lib/student/learning';
 
 import { AssessmentResults } from './assessment-pages';
-import {
-  CourseProgress,
-  ErrorPanel,
-  FeatureUnavailable,
-  ListPager,
-  LoadingPanel,
-} from './student-ui';
+import { CourseProgress, ErrorPanel, ListPager, LoadingPanel } from './student-ui';
 import { errorMessage, useApiResource, useStudentApi, withPage } from './use-student';
 
 const home = { label: 'Dashboard', href: '/student/dashboard' };
@@ -309,26 +305,136 @@ function LiveClassItems({ items }: { items: LiveClassDto[] }) {
   );
 }
 
+/**
+ * Order and payment history (PHASE 10). Every status shown is the server's: an order is "Paid"
+ * only after the API verified the payment with Razorpay. Receipts exist for paid orders only.
+ */
 export function PaymentsPage() {
   const features = useFeatures();
   return (
     <>
-      <PageHeader title="Payments" breadcrumbs={[home, { label: 'Payments' }]} />
-      {features.data ? (
-        <FeatureUnavailable
-          title="No payment history"
-          feature={features.data.payments}
-          icon={<CreditCard />}
-          action={
-            <Button asChild variant="outline">
-              <Link href="/contact">Contact the academy</Link>
-            </Button>
-          }
-        />
-      ) : (
-        <LoadingPanel rows={2} />
-      )}
+      <PageHeader
+        title="Payments"
+        breadcrumbs={[home, { label: 'Payments' }]}
+        description={features.data?.payments.message}
+      />
+      <PagedList<StudentOrderDto>
+        path="/student/orders"
+        label="payments"
+        empty={
+          <EmptyState
+            icon={<CreditCard />}
+            title="No payments yet"
+            description="When you buy a course, your order, payment and receipt appear here."
+            action={
+              <Button asChild variant="outline">
+                <Link href="/student/courses?tab=catalog">Browse courses</Link>
+              </Button>
+            }
+          />
+        }
+      >
+        {(items) => <OrderItems items={items} />}
+      </PagedList>
     </>
+  );
+}
+
+function OrderItems({ items }: { items: StudentOrderDto[] }) {
+  const api = useStudentApi();
+  // Orders re-read by "Check status" replace the page's copy until the page changes.
+  const [updated, setUpdated] = React.useState<Record<string, StudentOrderDto>>({});
+  const orders = items.map((order) => updated[order.id] ?? order);
+  const [checking, setChecking] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  async function check(id: string) {
+    setChecking(id);
+    setError(null);
+    try {
+      const order = await api.post<StudentOrderDto>(`/student/orders/${id}/refresh`);
+      setUpdated((current) => ({ ...current, [id]: order }));
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setChecking(null);
+    }
+  }
+
+  return (
+    <div className="grid gap-3">
+      {error ? (
+        <p role="alert" className="type-body-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <ul className="grid gap-3">
+        {orders.map((order) => {
+          const status = ORDER_STATUS[order.status];
+          const refund = REFUND_STATE_LABEL[order.refundState];
+          const lastPayment = order.payments.at(-1);
+          return (
+            <li key={order.id}>
+              <Card className="gap-3 sm:flex-row sm:items-center">
+                <div className="grid min-w-0 flex-1 gap-1">
+                  <span className="type-caption text-muted-foreground">
+                    Order {order.reference} · {formatDate(order.paidAt ?? order.createdAt)}
+                    {order.mode === 'TEST' ? ' · Test mode' : ''}
+                  </span>
+                  <h2 className="type-h4 break-words text-heading">{order.course.title}</h2>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="type-label tabular-nums">
+                      {formatAmount(order.price.amountMinor, order.price.currency)}
+                    </span>
+                    <Badge variant={status.tone}>{status.label}</Badge>
+                    {refund ? <Badge variant="info">{refund}</Badge> : null}
+                    {order.status !== 'PAID' && lastPayment?.status === 'FAILED' ? (
+                      <Badge variant="destructive">Last attempt failed</Badge>
+                    ) : null}
+                    {order.nextStep === 'WAIT' ? (
+                      <Badge variant="info">Being confirmed</Badge>
+                    ) : null}
+                  </span>
+                  {order.status !== 'PAID' && order.failureReason ? (
+                    <span className="type-caption text-muted-foreground">
+                      {order.failureReason}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap gap-2 self-start sm:self-center">
+                  {order.receiptAvailable ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/student/payments/${order.id}/receipt`}>Receipt</Link>
+                    </Button>
+                  ) : null}
+                  {order.nextStep === 'OPEN_COURSE' ? (
+                    <Button asChild size="sm">
+                      <Link href={courseHref(order.course.id)}>Open course</Link>
+                    </Button>
+                  ) : null}
+                  {order.nextStep === 'PAY' ? (
+                    <Button asChild size="sm">
+                      <Link href={`/student/checkout/${order.course.slug}`}>Pay now</Link>
+                    </Button>
+                  ) : null}
+                  {order.nextStep === 'PAY' || order.nextStep === 'WAIT' ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => check(order.id)}
+                      loading={checking === order.id}
+                      loadingText="Checking…"
+                    >
+                      Check status
+                    </Button>
+                  ) : null}
+                </div>
+              </Card>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

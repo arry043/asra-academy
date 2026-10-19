@@ -12,6 +12,13 @@ export function uniqueSuffix(): string {
  */
 export async function cleanDomainTables(): Promise<void> {
   await prisma.$transaction([
+    // Financial rows are RESTRICT-protected in the application; tests remove them first.
+    prisma.paymentAuditLog.deleteMany(),
+    prisma.paymentWebhookEvent.deleteMany(),
+    prisma.refund.deleteMany(),
+    prisma.payment.deleteMany(),
+    prisma.enrollment.updateMany({ data: { orderId: null } }),
+    prisma.order.deleteMany(),
     prisma.assessmentAuditLog.deleteMany(),
     prisma.attemptQuestion.deleteMany(),
     prisma.assessmentAttempt.deleteMany(),

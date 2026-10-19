@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import { toAppError } from '../database/errors.js';
 import { sendError } from '../utils/api-response.js';
 import { AppError } from '../utils/app-error.js';
+import { PaymentGatewayError } from '../modules/payments/gateway.js';
 
 interface HttpLikeError {
   status?: number;
@@ -31,6 +32,18 @@ export function errorHandler(
 
   if (error instanceof AppError) {
     sendError(res, error.statusCode, error.code, error.message, error.details);
+    return;
+  }
+
+  // Payment provider failures (PHASE 10): safe, retryable message; provider details stay in logs.
+  if (error instanceof PaymentGatewayError) {
+    req.log.warn({ kind: error.kind, providerCode: error.providerCode }, error.message);
+    sendError(
+      res,
+      503,
+      'SERVICE_UNAVAILABLE',
+      'The payment service is not responding. Please try again shortly.',
+    );
     return;
   }
 

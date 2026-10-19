@@ -47,3 +47,22 @@ export type AssessmentRateLimitName = keyof typeof ASSESSMENT_RATE_LIMITS;
 
 /** How often the API process finalizes attempts whose deadline passed while nobody was online. */
 export const ASSESSMENT_EXPIRY_SWEEP_MS = 30_000;
+
+// --- Payments (PHASE 10) ------------------------------------------------------------------
+
+/**
+ * Per-USER limits on payment endpoints (fixed 1-minute windows), plus a per-IP ceiling on the
+ * public webhook (Razorpay retries anything that is not 2xx, so a 429 there is never lost data).
+ */
+export const PAYMENT_RATE_LIMITS = {
+  orderCreate: { windowMinutes: 1, limit: 10 },
+  verify: { windowMinutes: 1, limit: 20 },
+  refresh: { windowMinutes: 1, limit: 30 },
+  refund: { windowMinutes: 1, limit: 10 },
+  webhook: { windowMinutes: 1, limit: 600 },
+} as const;
+
+export type PaymentRateLimitName = keyof typeof PAYMENT_RATE_LIMITS;
+
+/** How often the API process re-checks unsettled orders, refunds and confirmation emails. */
+export const PAYMENT_RECONCILE_SWEEP_MS = 60_000;

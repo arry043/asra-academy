@@ -8,6 +8,7 @@ import { env } from './config/env.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { requestLogger } from './middleware/request-logger.js';
+import { paymentWebhooksRouter } from './modules/payments/payments.routes.js';
 import { apiRouter } from './routes/index.js';
 
 /**
@@ -43,6 +44,9 @@ export function createApp(): Express {
     }),
   );
   app.use(cookieParser());
+  // Payment webhooks need the RAW body for signature verification (docs/PAYMENTS.md §7), so they
+  // are mounted before the JSON parser, which would otherwise consume and transform it.
+  app.use(`${API_PREFIX}/payments/webhooks`, paymentWebhooksRouter);
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 

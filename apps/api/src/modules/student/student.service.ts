@@ -41,7 +41,8 @@ import {
 } from './progress.js';
 import {
   accessStateFor,
-  STUDENT_FEATURES,
+  priceFor,
+  studentFeatures,
   resolveResumeLesson,
   toCourseRef,
   toCourseView,
@@ -203,7 +204,7 @@ async function recordLearningAction(
 
 export const studentService = {
   features(): StudentFeatures {
-    return STUDENT_FEATURES;
+    return studentFeatures();
   },
 
   async dashboard(auth: AuthContext): Promise<StudentDashboardDto> {
@@ -290,7 +291,7 @@ export const studentService = {
         course: toCourseRef(row.course),
         completedAt: row.completedAt!.toISOString(),
       })),
-      features: STUDENT_FEATURES,
+      features: studentFeatures(),
     };
   },
 
@@ -367,6 +368,7 @@ export const studentService = {
         durationMinutes: row.durationMinutes,
         instructors: toInstructors(row.instructors),
         access: accessStateFor(row, byCourse.get(row.id) ?? null),
+        price: priceFor(row),
       })),
       total,
       query,
@@ -404,6 +406,7 @@ export const studentService = {
       durationMinutes: row.durationMinutes,
       instructors: toInstructors(row.instructors),
       access: accessStateFor(row, enrollment),
+      price: priceFor(row),
       enrollment: enrollment ? toEnrollmentSummary(enrollment) : null,
       outline: toOutline(view),
       lessonCount: view.lessons.length,
@@ -644,9 +647,10 @@ export const studentService = {
   // Enrolment -----------------------------------------------------------------------------------
 
   /**
-   * Self-enrolment on a FREE course (price explicitly 0). Paid, unpriced and PRIVATE courses are
-   * enrolled by the academy; online payment arrives in PHASE 10. Idempotent for an active
-   * enrolment; a cancelled enrolment is not reopened by the student (D-04).
+   * Self-enrolment on a FREE course (price explicitly 0) — no order or payment is created.
+   * Paid courses go through checkout (PHASE 10, docs/PAYMENTS.md); unpriced and PRIVATE courses
+   * are enrolled by the academy. Idempotent for an active enrolment; a cancelled enrolment is not
+   * reopened by the student (D-04).
    */
   async enrollFree(
     auth: AuthContext,
@@ -671,7 +675,7 @@ export const studentService = {
       if (course.priceMinor !== 0) {
         throw new AppError(
           'FORBIDDEN',
-          'Enrolment in this course is arranged by the academy. Please contact the academy.',
+          'This course is not free. Buy it from the checkout page, or contact the academy.',
         );
       }
       await tx.enrollment.create({

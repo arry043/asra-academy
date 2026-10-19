@@ -3,6 +3,7 @@
 import { PERMISSIONS } from '@asra/types';
 import {
   BookOpen,
+  CreditCard,
   FolderTree,
   GraduationCap,
   Layers,
@@ -118,6 +119,12 @@ function buildNavigation(can: (permission: string) => boolean): NavGroup[] {
         { label: 'Streams', href: '/admin/streams', icon: <Split /> },
         { label: 'Subjects', href: '/admin/subjects', icon: <FolderTree /> },
       ],
+    });
+  }
+  if (can(PERMISSIONS.PAYMENTS_VIEW)) {
+    groups.push({
+      label: 'Finance',
+      items: [{ label: 'Payments', href: '/admin/payments', icon: <CreditCard /> }],
     });
   }
   return groups;

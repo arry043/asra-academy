@@ -139,6 +139,11 @@ model User {
   answersGraded       AttemptQuestion[]    @relation("AttemptQuestionGradedBy")
   assessmentAuditLogs AssessmentAuditLog[] @relation("AuditActor")
 
+  orders           Order[]           @relation("OrderStudent")
+  payments         Payment[]         @relation("PaymentStudent")
+  refundsRequested Refund[]          @relation("RefundRequestedBy")
+  paymentAuditLogs PaymentAuditLog[] @relation("PaymentAuditActor")
+
   @@index([status])
   @@map("users")
 }
@@ -468,6 +473,7 @@ model Course {
   enrollments  Enrollment[]
   liveClasses  LiveClassSession[]
   examinations Examination[]
+  orders       Order[]
 
   @@index([status, publishedAt])
   @@index([status, visibility])
@@ -604,12 +610,14 @@ enum EnrollmentStatus {
   @@map("enrollment_status")
 }
 
-/// How the enrolment was created. PAYMENT is added with verified payments (PHASE 10).
+/// How the enrolment was created.
 enum EnrollmentSource {
   /// Self-enrolment on a course whose price is explicitly 0.
   FREE
   /// Created by an administrator (e.g. offline payment or scholarship, M-07).
   ADMIN
+  /// Activated by a verified, captured online payment (PHASE 10, docs/PAYMENTS.md). `orderId` set.
+  PAYMENT
 
   @@map("enrollment_source")
 }
@@ -631,6 +639,8 @@ model Enrollment {
   /// Resume point: the last lesson opened or progressed. SET NULL when that lesson is deleted.
   lastLessonId   String?          @map("last_lesson_id") @db.Uuid
   lastActivityAt DateTime?        @map("last_activity_at") @db.Timestamptz(3)
+  /// The paid order that (re)activated a PAYMENT enrolment (PHASE 10). Kept when cancelled.
+  orderId        String?          @map("order_id") @db.Uuid
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -638,12 +648,14 @@ model Enrollment {
   course     Course  @relation(fields: [courseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   enrolledBy User?   @relation("EnrollmentEnrolledBy", fields: [enrolledById], references: [id], onDelete: SetNull, onUpdate: Cascade)
   lastLesson Lesson? @relation(fields: [lastLessonId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  order      Order?  @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([userId, courseId])
   @@index([userId, status, lastActivityAt])
   @@index([courseId, status])
   @@index([lastLessonId])
   @@index([enrolledById])
+  @@index([orderId])
   @@map("enrollments")
 }
 
@@ -1103,4 +1115,247 @@ model AssessmentAuditLog {
   @@index([entityType, entityId, createdAt])
   @@index([actorId])
   @@map("assessment_audit_logs")
+}
+
+// =============================================================================
+// Enrolment & payment (PHASE 10) — see docs/PAYMENTS.md
+// Order (what the student asked to buy, at a frozen price) → Payment (one provider transaction;
+// an order may see several attempts) → Enrollment (the entitlement, activated only by a captured,
+// verified payment) → Refund (separate rows; the payment itself is never rewritten).
+// Money is integer MINOR units (paise for INR). Every row records the provider and the mode
+// (TEST/LIVE) it was created in, and is only ever processed with that mode's credentials.
+// Financial history is never deleted: foreign keys to orders/payments are RESTRICT.
+// =============================================================================
+
+/// Razorpay environment a row belongs to. Never changes after creation.
+enum PaymentMode {
+  TEST
+  LIVE
+
+  @@map("payment_mode")
+}
+
+enum PaymentProvider {
+  RAZORPAY
+
+  @@map("payment_provider")
+}
+
+/// CREATED: local row only (provider order not created yet, or that call failed — retried).
+/// PENDING: provider order exists; the student may pay (several attempts allowed).
+/// PAID: a captured payment matched the order. Terminal (refunds do not change it).
+/// CANCELLED: superseded by a newer order (e.g. the price changed). EXPIRED: unpaid past `expiresAt`.
+/// A captured payment that arrives for a CANCELLED/EXPIRED order is still honoured (the money was
+/// taken), which moves the order to PAID.
+enum OrderStatus {
+  CREATED
+  PENDING
+  PAID
+  CANCELLED
+  EXPIRED
+
+  @@map("order_status")
+}
+
+/// Mirrors Razorpay's payment lifecycle. Transitions are monotonic: CAPTURED is never downgraded,
+/// and a late FAILED never overrides AUTHORIZED/CAPTURED (Razorpay may capture after a failure).
+/// Refund state is tracked by `refundedMinor` and the Refund rows, not by this status.
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+
+  @@map("payment_status")
+}
+
+/// REQUESTED: local row written before the provider call (crash-safe; `receipt` is the provider
+/// idempotency key). PENDING/PROCESSED/FAILED mirror Razorpay. PROCESSED is terminal.
+enum RefundStatus {
+  REQUESTED
+  PENDING
+  PROCESSED
+  FAILED
+
+  @@map("refund_status")
+}
+
+/// Durable webhook processing state. An event is marked PROCESSED only after its changes commit;
+/// a PROCESSING row older than the lease is reclaimed by the next delivery.
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  IGNORED
+  FAILED
+
+  @@map("webhook_event_status")
+}
+
+/// A purchase request for one course at the price in force when it was created (snapshot).
+/// At most one CREATED/PENDING order per student and course (partial unique index in SQL).
+model Order {
+  id                         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Human-readable reference, e.g. "ASRA-261019-7KQ2M9XD"; sent to Razorpay as the receipt.
+  reference                  String          @unique @db.VarChar(40)
+  userId                     String          @map("user_id") @db.Uuid
+  courseId                   String          @map("course_id") @db.Uuid
+  status                     OrderStatus     @default(CREATED)
+  provider                   PaymentProvider @default(RAZORPAY)
+  mode                       PaymentMode
+  /// Public key id the provider order was created with (audit: which account).
+  providerKeyId              String          @map("provider_key_id") @db.VarChar(64)
+  providerOrderId            String?         @unique @map("provider_order_id") @db.VarChar(64)
+  currency                   String          @db.Char(3)
+  /// Snapshot of the course at order time (CHECKs: amounts >= 0, amount = list − discount).
+  courseTitle                String          @map("course_title") @db.VarChar(200)
+  listPriceMinor             Int             @map("list_price_minor")
+  discountType               DiscountType?   @map("discount_type")
+  discountValue              Int?            @map("discount_value")
+  discountMinor              Int             @default(0) @map("discount_minor")
+  amountMinor                Int             @map("amount_minor")
+  expiresAt                  DateTime        @map("expires_at") @db.Timestamptz(3)
+  paidAt                     DateTime?       @map("paid_at") @db.Timestamptz(3)
+  cancelledAt                DateTime?       @map("cancelled_at") @db.Timestamptz(3)
+  /// Safe, student-visible reason of the last problem (provider unavailable, last attempt failed…).
+  failureReason              String?         @map("failure_reason") @db.VarChar(500)
+  lastReconciledAt           DateTime?       @map("last_reconciled_at") @db.Timestamptz(3)
+  reconcileAttempts          Int             @default(0) @map("reconcile_attempts")
+  /// Claimed by exactly one process before the confirmation email is sent (no duplicates).
+  confirmationEmailClaimedAt DateTime?       @map("confirmation_email_claimed_at") @db.Timestamptz(3)
+  confirmationEmailSentAt    DateTime?       @map("confirmation_email_sent_at") @db.Timestamptz(3)
+  confirmationEmailAttempts  Int             @default(0) @map("confirmation_email_attempts")
+  createdAt                  DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  student     User         @relation("OrderStudent", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  payments    Payment[]
+  enrollments Enrollment[]
+
+  @@index([userId, createdAt])
+  @@index([courseId])
+  @@index([status, mode, createdAt])
+  @@index([status, lastReconciledAt])
+  @@map("orders")
+}
+
+/// One provider payment (attempt) for an order. Rows are never reused for a different provider
+/// payment; `providerPaymentId` is unique.
+model Payment {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId             String          @map("order_id") @db.Uuid
+  userId              String          @map("user_id") @db.Uuid
+  provider            PaymentProvider @default(RAZORPAY)
+  mode                PaymentMode
+  providerPaymentId   String          @map("provider_payment_id") @db.VarChar(64)
+  providerOrderId     String          @map("provider_order_id") @db.VarChar(64)
+  status              PaymentStatus
+  amountMinor         Int             @map("amount_minor")
+  currency            String          @db.Char(3)
+  /// card / upi / netbanking / wallet … (no card numbers or other instrument data are stored).
+  method              String?         @db.VarChar(30)
+  errorCode           String?         @map("error_code") @db.VarChar(100)
+  errorDescription    String?         @map("error_description") @db.VarChar(500)
+  /// Sum of PROCESSED refunds (or the provider's amount_refunded, whichever is larger).
+  refundedMinor       Int             @default(0) @map("refunded_minor")
+  /// Set when the Checkout signature was verified for this payment.
+  signatureVerifiedAt DateTime?       @map("signature_verified_at") @db.Timestamptz(3)
+  authorizedAt        DateTime?       @map("authorized_at") @db.Timestamptz(3)
+  capturedAt          DateTime?       @map("captured_at") @db.Timestamptz(3)
+  failedAt            DateTime?       @map("failed_at") @db.Timestamptz(3)
+  /// Set when THIS payment moved its order to PAID (and activated the enrolment).
+  appliedAt           DateTime?       @map("applied_at") @db.Timestamptz(3)
+  /// Why a captured payment needs an administrator (amount mismatch, order already paid …).
+  reviewReason        String?         @map("review_reason") @db.VarChar(300)
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  student User     @relation("PaymentStudent", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  refunds Refund[]
+
+  @@unique([provider, providerPaymentId])
+  @@index([orderId])
+  @@index([userId, createdAt])
+  @@index([status, mode, capturedAt])
+  @@map("payments")
+}
+
+/// A refund of (part of) a captured payment. Requested by an administrator through the API, or
+/// discovered from a provider webhook when issued in the Razorpay Dashboard (`requestedById` null).
+model Refund {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentId        String          @map("payment_id") @db.Uuid
+  provider         PaymentProvider @default(RAZORPAY)
+  mode             PaymentMode
+  /// Our idempotency key at the provider (Razorpay refuses a duplicate receipt per payment).
+  receipt          String?         @unique @db.VarChar(40)
+  /// Client-supplied key that makes a repeated admin request return the same refund.
+  idempotencyKey   String?         @unique @map("idempotency_key") @db.VarChar(64)
+  providerRefundId String?         @unique @map("provider_refund_id") @db.VarChar(64)
+  amountMinor      Int             @map("amount_minor")
+  currency         String          @db.Char(3)
+  status           RefundStatus
+  reason           String?         @db.VarChar(500)
+  failureReason    String?         @map("failure_reason") @db.VarChar(500)
+  requestedById    String?         @map("requested_by_id") @db.Uuid
+  /// The administrator chose to cancel the course enrolment together with this refund.
+  revokedAccess    Boolean         @default(false) @map("revoked_access")
+  processedAt      DateTime?       @map("processed_at") @db.Timestamptz(3)
+  notifiedAt       DateTime?       @map("notified_at") @db.Timestamptz(3)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  payment     Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  requestedBy User?   @relation("RefundRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([paymentId])
+  @@index([status, mode, createdAt])
+  @@index([requestedById])
+  @@map("refunds")
+}
+
+/// One received provider webhook, deduplicated by the provider's event id (x-razorpay-event-id).
+/// Only a minimal, sanitized extract of the payload is stored (no email/phone/instrument data).
+model PaymentWebhookEvent {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider    PaymentProvider    @default(RAZORPAY)
+  mode        PaymentMode
+  eventId     String             @map("event_id") @db.VarChar(100)
+  eventType   String             @map("event_type") @db.VarChar(60)
+  status      WebhookEventStatus @default(RECEIVED)
+  attempts    Int                @default(0)
+  /// SHA-256 of the raw body (hex).
+  payloadHash String             @map("payload_hash") @db.Char(64)
+  data        Json
+  /// Why it was ignored, or the error class of the last failure (never secrets or bodies).
+  note        String?            @db.VarChar(500)
+  receivedAt  DateTime           @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt DateTime?          @map("processed_at") @db.Timestamptz(3)
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([provider, mode, eventId])
+  @@index([status, receivedAt])
+  @@map("payment_webhook_events")
+}
+
+/// Append-only audit trail of financial events and administrator actions (refunds, reconciliation,
+/// rejected verifications, enrolment activation). No FK on the subject so history survives.
+model PaymentAuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// e.g. "order.paid", "payment.verification_failed", "refund.requested".
+  action     String   @db.VarChar(60)
+  /// null for the system (webhooks, reconciliation worker).
+  actorId    String?  @map("actor_id") @db.Uuid
+  entityType String   @map("entity_type") @db.VarChar(40)
+  entityId   String   @map("entity_id") @db.Uuid
+  data       Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation("PaymentAuditActor", fields: [actorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId])
+  @@map("payment_audit_logs")
 }
