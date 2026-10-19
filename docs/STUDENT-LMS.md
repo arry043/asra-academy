@@ -18,7 +18,7 @@ Open decisions are listed in [CLIENT-CLARIFICATIONS.md](./CLIENT-CLARIFICATIONS.
 | Quizzes / assignments      | QUIZ lessons: **online quiz since PHASE 09** ([ASSESSMENTS.md](./ASSESSMENTS.md)). ASSIGNMENT lessons: **online submission, faculty grading and released results since PHASE 08** ([FACULTY-PORTAL.md](./FACULTY-PORTAL.md) §5) |
 | Examinations, results      | Scheduled exams **since PHASE 09** (`/student/exams`, attempt player `/student/attempts/[id]`). `/student/results` lists released quiz/exam and assignment results                                                              |
 | Live classes               | Classes **scheduled by faculty** are listed (PHASE 08; no provider, F-01). Recorded lectures = video lessons                                                                                                                    |
-| Payments / payment history | **Not available** (PHASE 10, M-01/M-02 pending). No payment record is ever created or implied                                                                                                                                   |
+| Payments / payment history | PHASE 10: real orders, payments and receipts under **Payments**; checkout only when Razorpay is configured ([PAYMENTS.md](./PAYMENTS.md))                                                                                       |
 | Certificates               | **Not issued** (PHASE 13, L-01/L-02 pending). Completed courses are listed as "No certificate issued"                                                                                                                           |
 
 Unavailable capabilities are reported by the API (`GET /student/features`, also in the dashboard) with the message the portal displays, so the UI never invents records.
@@ -40,7 +40,7 @@ Course **overview** (`GET /student/courses/:id`) is readable for any published P
 
 ### 2.2 Free self-enrolment
 
-`POST /student/courses/:id/enroll` succeeds only for a PUBLISHED, non-PRIVATE course whose `priceMinor` is **exactly 0**. A missing price means "not configured", never "free" (B-04). A 100 % discount does not make a course free (no final price is computed until PHASE 10, Z-02). No request body is read — a client cannot send a price or payment status.
+`POST /student/courses/:id/enroll` succeeds only for a PUBLISHED, non-PRIVATE course whose `priceMinor` is **exactly 0**. A missing price means "not configured", never "free" (B-04). A 100 % discount does not make a course free (it is not buyable online either — PAYMENTS.md §4, AD-04). No request body is read — a client cannot send a price or payment status.
 
 - Already active → 200 "already enrolled"; no duplicate row (unique `(user_id, course_id)`, plus a course row lock).
 - Cancelled enrolment → 409; the student cannot reopen what the academy cancelled (D-04).
@@ -50,11 +50,11 @@ Course **overview** (`GET /student/courses/:id`) is readable for any published P
 
 Admin portal → Courses → a course → **Enrolments** tab, or the API (§6.2). Enrols an existing STUDENT account by email, in DRAFT or PUBLISHED courses (access starts when published; ARCHIVED refused). Re-enrolling a cancelled student reactivates the same row (progress kept). Cancelling revokes access immediately; progress is kept. Each row records `source = ADMIN` and the administrator (`enrolled_by_id`).
 
-This is the only way into paid courses until verified payments exist (PHASE 10). It is **not** a payment and creates no payment record (M-07 pending).
+Since PHASE 10, paid courses can also be bought online ([PAYMENTS.md](./PAYMENTS.md)). Admin enrolment is **not** a payment and creates no payment record (M-07 pending).
 
 ### 2.4 States
 
-`EnrollmentStatus`: `ACTIVE` (grants access) and `CANCELLED`. Completion is a timestamp (`enrollments.completed_at`), not a status, because lessons can be added after a student finishes. `EnrollmentSource`: `FREE`, `ADMIN` (PHASE 10 adds `PAYMENT`). Course deletion is refused while any enrolment exists (FK `RESTRICT` + a clear 409).
+`EnrollmentStatus`: `ACTIVE` (grants access) and `CANCELLED`. Completion is a timestamp (`enrollments.completed_at`), not a status, because lessons can be added after a student finishes. `EnrollmentSource`: `FREE`, `ADMIN`, `PAYMENT` (PHASE 10: activated only by a verified, captured payment; `order_id` set). Course deletion is refused while any enrolment exists (FK `RESTRICT` + a clear 409).
 
 ## 3. Student portal routes
 
@@ -151,7 +151,7 @@ Resource URLs are re-validated on the way out with `safeExternalUrlSchema` (HTTP
 
 - **Storage (R-01, G-01, H-02/H-03):** `CONFIGURED_STORAGE_PROVIDERS` is still empty. When a provider is added, `toStudentResource` (student.mappers.ts) is the single place to return a short-lived signed URL instead of `unavailable`; the access check before it is already in place.
 - **Live classes (F-01…F-06):** no model or provider. PHASE 11 adds sessions behind a `LiveClassProvider` adapter; the dashboard tile and `/student/classes` switch from the feature message to real sessions.
-- **Payments (M-01, M-02):** PHASE 10 adds Order/Payment and an enrolment source `PAYMENT` activated only by verified webhooks. `/student/payments` then lists real records.
+- **Payments (M-01, M-02):** implemented in PHASE 10 — see [PAYMENTS.md](./PAYMENTS.md).
 - **Assessments (I, J, K):** PHASE 09 implemented quizzes and exams ([ASSESSMENTS.md](./ASSESSMENTS.md)). QUIZ/ASSIGNMENT lessons still do not count towards progress until the client confirms A-07/AC-15.
 - **Certificates (L-01, L-02):** PHASE 13 can use `enrollments.completed_at` as an eligibility input.
 - **Time zone (V-09):** all dates shown in `Asia/Kolkata`.

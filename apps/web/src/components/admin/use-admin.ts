@@ -17,6 +17,7 @@ export const ADMIN_PERMISSIONS = [
   PERMISSIONS.ACADEMIC_STRUCTURE_MANAGE,
   PERMISSIONS.COURSES_MANAGE,
   PERMISSIONS.CONTENT_MANAGE,
+  PERMISSIONS.PAYMENTS_VIEW,
 ] as const;
 
 export function hasPermission(user: AuthUser | null, permission: string): boolean {

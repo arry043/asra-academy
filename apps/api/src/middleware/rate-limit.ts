@@ -11,8 +11,10 @@ import { RedisStore, type RedisReply } from 'rate-limit-redis';
 import {
   ASSESSMENT_RATE_LIMITS,
   AUTH_RATE_LIMITS,
+  PAYMENT_RATE_LIMITS,
   type AssessmentRateLimitName,
   type AuthRateLimitName,
+  type PaymentRateLimitName,
 } from '../config/constants.js';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
@@ -153,6 +155,32 @@ export function assessmentRateLimit(name: AssessmentRateLimitName): RateLimitReq
     legacyHeaders: false,
     keyGenerator: (req) => `user:${req.auth?.userId ?? 'anonymous'}`,
     store: createStore(name, 'assessment'),
+    passOnStoreError: true,
+    logger: {
+      error: (error: unknown, message?: string) => logger.error({ err: error }, message),
+      warn: (error: unknown, message?: string) => logger.warn({ err: error }, message),
+    },
+    handler: (_req, res) => {
+      sendError(res, 429, 'RATE_LIMITED', 'Too many requests. Please wait a moment and try again.');
+    },
+  });
+}
+
+/**
+ * PHASE 10 payment limiter: per USER for authenticated endpoints (after `authenticate`), per IP
+ * for the public webhook.
+ */
+export function paymentRateLimit(name: PaymentRateLimitName): RateLimitRequestHandler {
+  const config = PAYMENT_RATE_LIMITS[name];
+  return rateLimit({
+    windowMs: config.windowMinutes * 60 * 1000,
+    limit: config.limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    ...(name === 'webhook'
+      ? {}
+      : { keyGenerator: (req) => `user:${req.auth?.userId ?? 'anonymous'}` }),
+    store: createStore(name, 'payment'),
     passOnStoreError: true,
     logger: {
       error: (error: unknown, message?: string) => logger.error({ err: error }, message),

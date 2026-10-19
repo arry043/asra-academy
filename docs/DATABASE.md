@@ -43,6 +43,8 @@ This document covers the data model, its conventions and constraints, and how to
  Course ──< Examination ──< AssessmentQuestion                                        (Phase 09)
  Quiz | Examination ──< AssessmentAttempt >── User ; AssessmentAttempt ──< AttemptQuestion (snapshot + answer)
  AssignmentSubmission ──< AssignmentSubmissionRevision ; AssessmentAuditLog (append-only)  (Phase 09)
+ User ──< Order >── Course ; Order ──< Payment ──< Refund ; Enrollment ?──> Order       (Phase 10)
+ PaymentWebhookEvent (dedup by provider event id) ; PaymentAuditLog (append-only)        (Phase 10)
 ```
 
 `A ──< B` = one A has many B. `?` = optional (nullable foreign key).
@@ -79,6 +81,11 @@ This document covers the data model, its conventions and constraints, and how to
 | `AttemptQuestion`               | `attempt_questions`                                   | Phase 09: frozen question snapshot + the student's answer + outcome                    |
 | `AssignmentSubmissionRevision`  | `assignment_submission_revisions`                     | Phase 09: earlier versions archived on resubmission                                    |
 | `AssessmentAuditLog`            | `assessment_audit_logs`                               | Phase 09: append-only audit of publication, finalization, grading and release          |
+| `Order`                         | `orders`                                              | Phase 10: a purchase request for one course at a frozen price, in TEST or LIVE mode    |
+| `Payment`                       | `payments`                                            | Phase 10: one Razorpay payment (attempt) of an order; monotonic status                 |
+| `Refund`                        | `refunds`                                             | Phase 10: a (partial) refund of a captured payment; payment row never rewritten        |
+| `PaymentWebhookEvent`           | `payment_webhook_events`                              | Phase 10: received webhooks, deduplicated by event id, with processing state           |
+| `PaymentAuditLog`               | `payment_audit_logs`                                  | Phase 10: append-only audit of financial events and administrator actions              |
 
 ### Why the two additional models
 
@@ -260,6 +267,19 @@ Details and rationale: [ASSESSMENTS.md](./ASSESSMENTS.md) §3.
 | `attempt_questions`               | `marks_range`, `awarded_range` (0 … marks), `penalty_range` (0 … negative marks), `sequence_non_negative`; unique `(attempt_id, position)`                                                                                                                                                                                                               |
 
 Foreign keys: attempts → quizzes/examinations and examinations → courses are RESTRICT (history is never cascaded away); questions/options/attempt questions CASCADE from their owner; `attempt_questions.question_id` is SET NULL (the snapshot stays authoritative); audit rows have no FK to their subject.
+
+### 4.2.6 Phase 10 constraints (`20261019090000_phase10_enrolment_payment`)
+
+Details and rationale: [PAYMENTS.md](./PAYMENTS.md) §9.
+
+| Table                    | Constraint(s)                                                                                                                                                                                                                                                                                                        |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `orders`                 | partial unique `orders_one_open_per_student_course` (`user_id, course_id` WHERE status IN CREATED/PENDING); `amounts_valid` (amount = list − discount, all ≥ 0); `currency_format`; `discount_pair`; `provider_order_when_open`; `paid_consistent`; `counters_non_negative`; unique `reference`, `provider_order_id` |
+| `payments`               | `amounts_valid` (amount > 0, 0 ≤ refunded ≤ amount), `currency_format`, `captured_consistent`, `applied_requires_capture`, `refund_requires_capture`; unique `(provider, provider_payment_id)`                                                                                                                       |
+| `refunds`                | `amount_positive`, `currency_format`, `processed_consistent`; unique `receipt`, `idempotency_key`, `provider_refund_id`                                                                                                                                                                                              |
+| `payment_webhook_events` | `hash_format`, `attempts_non_negative`; unique `(provider, mode, event_id)`                                                                                                                                                                                                                                          |
+
+Foreign keys: orders, payments and refunds are RESTRICT towards users, courses and each other, so financial history can never be cascaded away (a student or course with orders cannot be hard-deleted; deactivate/archive instead). `enrollments.order_id` is RESTRICT. Audit rows have no FK to their subject. `EnrollmentSource` gained `PAYMENT` (the migration only adds the value; `PAYMENT ⇒ order_id` is enforced by the payment service).
 
 ### 4.3 Indexes
 

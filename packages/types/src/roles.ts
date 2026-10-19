@@ -43,6 +43,12 @@ export const PERMISSIONS = {
   CONTENT_VIEW_ENROLLED: 'content.view_enrolled',
   /** View and update one's own profile — FR-STU-008. */
   PROFILE_MANAGE_OWN: 'profile.manage_own',
+  /** Buy courses online and see one's own orders, payments and receipts (PHASE 10). */
+  PAYMENTS_MAKE_OWN: 'payments.make_own',
+  /** View orders, payments, refunds and revenue; reconcile with the provider (PHASE 10). */
+  PAYMENTS_VIEW: 'payments.view',
+  /** Issue refunds through the payment provider (PHASE 10; S-02 pending → Super Admin only). */
+  PAYMENTS_REFUND: 'payments.refund',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

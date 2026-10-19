@@ -16,7 +16,9 @@ import { formatDuration } from '@/lib/format';
 /**
  * Public page of a published course (FR-CRS-004). Shows only what the public API returns: the
  * description, placement, learning time, public faculty and the outline of published lessons.
- * No prices (payments are PHASE 10), lesson bodies or resource links (enrolled students only).
+ * No prices, lesson bodies or resource links (enrolled students only). "Enrol now" opens the
+ * student checkout (PHASE 10): visitors sign in or register first (`?next=` keeps the course), and
+ * the server then re-checks the course and computes the price — nothing is carried from this page.
  */
 export function PublicCoursePage({ course }: { course: PublicCourseDetail }) {
   const path = `/courses/${course.slug}`;
@@ -49,10 +51,10 @@ export function PublicCoursePage({ course }: { course: PublicCourseDetail }) {
         actions={
           <>
             <Button asChild size="lg">
-              <Link href="/contact?topic=admission">Enquire about this course</Link>
+              <Link href={`/student/checkout/${course.slug}`}>Enrol now</Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link href="/admission">Admission</Link>
+              <Link href="/contact?topic=admission">Enquire about this course</Link>
             </Button>
             <WhatsAppLink topic={`the ${course.title} course`} size="lg" />
           </>

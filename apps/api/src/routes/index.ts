@@ -5,6 +5,7 @@ import { coursesAdminRouter, publicCoursesRouter } from '../modules/courses/cour
 import { curriculumAdminRouter } from '../modules/curriculum/curriculum.routes.js';
 import { enrollmentsAdminRouter } from '../modules/enrollments/enrollments.routes.js';
 import { facultyRouter } from '../modules/faculty/faculty.routes.js';
+import { paymentsAdminRouter } from '../modules/payments/payments.routes.js';
 import { studentRouter } from '../modules/student/student.routes.js';
 import { authRouter } from './auth.routes.js';
 import { healthRouter } from './health.routes.js';
@@ -32,6 +33,8 @@ adminRouter.use(academicsAdminRouter);
 adminRouter.use(coursesAdminRouter);
 adminRouter.use(curriculumAdminRouter);
 adminRouter.use(enrollmentsAdminRouter);
+// Orders, payments, refunds and revenue (PHASE 10): `payments.view` / `payments.refund`.
+adminRouter.use(paymentsAdminRouter);
 apiRouter.use('/admin', adminRouter);
 
 /**

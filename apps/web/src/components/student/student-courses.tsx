@@ -29,6 +29,7 @@ import { SearchInput } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/toast';
 import { formatDuration } from '@/lib/format';
+import { priceParts } from '@/lib/payments';
 import { courseEyebrow, courseHref, learnHref } from '@/lib/student/learning';
 
 import {
@@ -132,6 +133,7 @@ const ACCESS_BADGE: Record<
 > = {
   ENROLLED: { label: 'Enrolled', variant: 'success' },
   FREE_ENROLMENT: { label: 'Free', variant: 'info' },
+  PURCHASE: { label: 'Available online', variant: 'info' },
   CONTACT_ACADEMY: { label: 'Enrolment by the academy', variant: 'secondary' },
 };
 
@@ -208,6 +210,7 @@ function CatalogCard({
   const eyebrow = courseEyebrow(course);
   const badge = ACCESS_BADGE[course.access];
   const duration = formatDuration(course.durationMinutes);
+  const price = course.access === 'ENROLLED' ? null : priceParts(course.price);
   return (
     <Card className="h-full gap-4 overflow-hidden pt-0 sm:pt-0">
       <CourseThumb course={course} />
@@ -226,14 +229,27 @@ function CatalogCard({
           <CardDescription className="line-clamp-3">{course.summary}</CardDescription>
         ) : null}
       </CardHeader>
-      <CardContent className="mt-auto type-body-sm text-muted-foreground">
-        {[duration ? `About ${duration} of learning` : null, course.instructors[0]?.fullName]
-          .filter(Boolean)
-          .join(' · ')}
+      <CardContent className="mt-auto grid gap-1 type-body-sm text-muted-foreground">
+        {price ? (
+          <p className="flex flex-wrap items-baseline gap-2">
+            <span className="type-label text-heading tabular-nums">{price.now}</span>
+            {price.was ? <s className="tabular-nums">{price.was}</s> : null}
+          </p>
+        ) : null}
+        <span>
+          {[duration ? `About ${duration} of learning` : null, course.instructors[0]?.fullName]
+            .filter(Boolean)
+            .join(' · ')}
+        </span>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
         {course.access === 'FREE_ENROLMENT' ? (
           <EnrolButton courseId={course.id} title={course.title} onEnrolled={onEnrolled} />
+        ) : null}
+        {course.access === 'PURCHASE' ? (
+          <Button asChild size="sm">
+            <Link href={`/student/checkout/${course.slug}`}>Buy course</Link>
+          </Button>
         ) : null}
         <Button asChild size="sm" variant="outline">
           <Link href={courseHref(course.id)}>

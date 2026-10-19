@@ -205,26 +205,29 @@ More: [infrastructure/docker/README.md](infrastructure/docker/README.md).
 
 All variables are documented in [`.env.example`](.env.example). A single root `.env` is read by Docker Compose, the API and the web app (the web app loads it in `next.config.ts`).
 
-| Variable                                                             | Used by         | LOCAL                          | DEVELOPMENT / STAGING             | PRODUCTION                             |
-| -------------------------------------------------------------------- | --------------- | ------------------------------ | --------------------------------- | -------------------------------------- |
-| `NODE_ENV`                                                           | api, web        | `development`                  | `production`                      | `production`                           |
-| `PORT`                                                               | api             | `4000`                         | platform-assigned                 | platform-assigned                      |
-| `LOG_LEVEL`                                                          | api             | `info`/`debug`                 | `info`                            | `info`                                 |
-| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` | docker          | required                       | —                                 | —                                      |
-| `DATABASE_URL`                                                       | api             | Docker Postgres                | Neon **pooled** URL (dev branch)  | Neon **pooled** URL                    |
-| `DIRECT_DATABASE_URL`                                                | prisma CLI      | same as `DATABASE_URL`         | Neon **direct** URL               | Neon **direct** URL                    |
-| `REDIS_URL`, `REDIS_PORT`                                            | api, docker     | Docker Redis                   | hosted Redis                      | hosted Redis                           |
-| `JWT_SECRET`                                                         | api             | random ≥ 32 chars              | secret                            | secret (**required**)                  |
-| `NEXT_PUBLIC_APP_URL`                                                | web, api (CORS) | `http://localhost:3000`        | staging URL                       | `https://www.asraacademy.in` (pending) |
-| `NEXT_PUBLIC_API_URL`                                                | web             | `http://localhost:4000/api/v1` | staging API URL                   | production API URL                     |
-| `CORS_ORIGINS`                                                       | api             | empty (defaults to app URL)    | optional                          | optional                               |
-| `ENABLE_DESIGN_SYSTEM`                                               | web (server)    | not needed (always on in dev)  | optional `true` for client review | leave empty (showcase returns 404)     |
-| `SITE_INDEXING_ENABLED`                                              | web (build)     | leave empty                    | leave empty (not indexed)         | `true` once domain + legal text ready  |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER`                                        | web             | empty (no WhatsApp button)     | client-confirmed number           | client-confirmed number (P-02)         |
-| `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET`                       | api (later)     | optional                       | provider pending                  | provider pending                       |
-| `PAYMENT_KEY`, `PAYMENT_SECRET`                                      | api (later)     | optional                       | sandbox keys                      | live keys                              |
-| `EMAIL_TRANSPORT`, `EMAIL_FROM`, `EMAIL_API_KEY`                     | api             | `console`; key not needed      | `resend` + key, if sending        | `resend` + key + verified sender       |
-| `WHATSAPP_API_KEY`                                                   | api (later)     | optional                       | if Business API chosen            | if Business API chosen                 |
+| Variable                                                              | Used by         | LOCAL                          | DEVELOPMENT / STAGING             | PRODUCTION                             |
+| --------------------------------------------------------------------- | --------------- | ------------------------------ | --------------------------------- | -------------------------------------- |
+| `NODE_ENV`                                                            | api, web        | `development`                  | `production`                      | `production`                           |
+| `PORT`                                                                | api             | `4000`                         | platform-assigned                 | platform-assigned                      |
+| `LOG_LEVEL`                                                           | api             | `info`/`debug`                 | `info`                            | `info`                                 |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`  | docker          | required                       | —                                 | —                                      |
+| `DATABASE_URL`                                                        | api             | Docker Postgres                | Neon **pooled** URL (dev branch)  | Neon **pooled** URL                    |
+| `DIRECT_DATABASE_URL`                                                 | prisma CLI      | same as `DATABASE_URL`         | Neon **direct** URL               | Neon **direct** URL                    |
+| `REDIS_URL`, `REDIS_PORT`                                             | api, docker     | Docker Redis                   | hosted Redis                      | hosted Redis                           |
+| `JWT_SECRET`                                                          | api             | random ≥ 32 chars              | secret                            | secret (**required**)                  |
+| `NEXT_PUBLIC_APP_URL`                                                 | web, api (CORS) | `http://localhost:3000`        | staging URL                       | `https://www.asraacademy.in` (pending) |
+| `NEXT_PUBLIC_API_URL`                                                 | web             | `http://localhost:4000/api/v1` | staging API URL                   | production API URL                     |
+| `CORS_ORIGINS`                                                        | api             | empty (defaults to app URL)    | optional                          | optional                               |
+| `ENABLE_DESIGN_SYSTEM`                                                | web (server)    | not needed (always on in dev)  | optional `true` for client review | leave empty (showcase returns 404)     |
+| `SITE_INDEXING_ENABLED`                                               | web (build)     | leave empty                    | leave empty (not indexed)         | `true` once domain + legal text ready  |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER`                                         | web             | empty (no WhatsApp button)     | client-confirmed number           | client-confirmed number (P-02)         |
+| `STORAGE_URL`, `STORAGE_KEY`, `STORAGE_SECRET`                        | api (later)     | optional                       | provider pending                  | provider pending                       |
+| `RAZORPAY_MODE`                                                       | api             | empty (disabled) or `test`     | `test`                            | `live` (after KYC/activation)          |
+| `RAZORPAY_TEST_KEY_ID`, `…_KEY_SECRET`, `…_WEBHOOK_SECRET`            | api             | test keys, if testing checkout | test keys + test webhook secret   | optional (settles old test orders)     |
+| `RAZORPAY_LIVE_KEY_ID`, `…_KEY_SECRET`, `…_WEBHOOK_SECRET`            | api             | never                          | never                             | live keys + live webhook secret        |
+| `RAZORPAY_ALLOW_TEST_MODE_IN_PRODUCTION`, `PAYMENT_ORDER_TTL_MINUTES` | api             | —                              | `true` on staging only            | leave empty                            |
+| `EMAIL_TRANSPORT`, `EMAIL_FROM`, `EMAIL_API_KEY`                      | api             | `console`; key not needed      | `resend` + key, if sending        | `resend` + key + verified sender       |
+| `WHATSAPP_API_KEY`                                                    | api (later)     | optional                       | if Business API chosen            | if Business API chosen                 |
 
 The API validates its environment at startup and exits with a clear message if something is invalid. **Never commit `.env`.**
 
@@ -247,6 +250,10 @@ Signed-in students use `/student/*` (dashboard, courses, course player, progress
 ### Assessment engine (Phase 09)
 
 Faculty set up online quizzes on quiz lessons and schedule timed examinations for their courses; students attempt them from the lesson player and **Exams**. The server decides every deadline and scores every attempt; results appear on **Results** once released. Rules, scoring, timing and API: [docs/ASSESSMENTS.md](docs/ASSESSMENTS.md). After pulling Phase 09, run `npm run db:migrate:deploy` (no seed change).
+
+### Enrolment & payment (Phase 10)
+
+Students buy paid courses from the course page or **Enrol now** on the public course page (`/student/checkout/<course>`) with Razorpay Checkout; the API verifies every payment with Razorpay (signature + server-side fetch + signed webhooks) before the enrolment becomes active. Students see orders and receipts under **Payments**; administrators with `payments.view` see orders, transactions, refunds and revenue at `/admin/payments`, and `payments.refund` (Super Admin) can refund. Setup of test/live keys and webhooks, rules and API: [docs/PAYMENTS.md](docs/PAYMENTS.md). After pulling Phase 10, run `npm run db:migrate:deploy` and `npm run db:seed` (grants `payments.make_own`, `payments.view`, `payments.refund`). Online checkout stays disabled until `RAZORPAY_MODE` is set.
 
 ### Faculty portal (Phase 08)
 
@@ -408,20 +415,21 @@ Detailed plan: [docs/reference/IMPLEMENTATION-PLAN-PHASES.md](docs/reference/IMP
 
 ## Documentation
 
-| Document                                                       | Purpose                                                        |
-| -------------------------------------------------------------- | -------------------------------------------------------------- |
-| [docs/PRD.md](docs/PRD.md)                                     | Product requirements                                           |
-| [docs/COURSE-MANAGEMENT.md](docs/COURSE-MANAGEMENT.md)         | Phase 06: academic & course management, publication rules, API |
-| [docs/SRS.md](docs/SRS.md)                                     | Software requirements specification                            |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   | System architecture                                            |
-| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)                   | Requirements matrix                                            |
-| [docs/DATABASE.md](docs/DATABASE.md)                           | Data model, migrations, seed, reset                            |
-| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)               | Auth flows, tokens, RBAC, security                             |
-| [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md)                 | Tokens, components, layouts, motion                            |
-| [docs/PUBLIC-WEBSITE.md](docs/PUBLIC-WEBSITE.md)               | Public routes, content, SEO, forms                             |
-| [docs/CLIENT-CLARIFICATIONS.md](docs/CLIENT-CLARIFICATIONS.md) | Open client questions                                          |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md)                         | Change history                                                 |
-| [docs/brand/README.md](docs/brand/README.md)                   | Logo files, colours, usage rules                               |
+| Document                                                       | Purpose                                                          |
+| -------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [docs/PRD.md](docs/PRD.md)                                     | Product requirements                                             |
+| [docs/COURSE-MANAGEMENT.md](docs/COURSE-MANAGEMENT.md)         | Phase 06: academic & course management, publication rules, API   |
+| [docs/SRS.md](docs/SRS.md)                                     | Software requirements specification                              |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                   | System architecture                                              |
+| [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)                   | Requirements matrix                                              |
+| [docs/DATABASE.md](docs/DATABASE.md)                           | Data model, migrations, seed, reset                              |
+| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)               | Auth flows, tokens, RBAC, security                               |
+| [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md)                 | Tokens, components, layouts, motion                              |
+| [docs/PAYMENTS.md](docs/PAYMENTS.md)                           | Phase 10: enrolment, Razorpay test/live setup, webhooks, refunds |
+| [docs/PUBLIC-WEBSITE.md](docs/PUBLIC-WEBSITE.md)               | Public routes, content, SEO, forms                               |
+| [docs/CLIENT-CLARIFICATIONS.md](docs/CLIENT-CLARIFICATIONS.md) | Open client questions                                            |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md)                         | Change history                                                   |
+| [docs/brand/README.md](docs/brand/README.md)                   | Logo files, colours, usage rules                                 |
 
 ---
 

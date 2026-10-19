@@ -51,6 +51,8 @@ function isDeliverableSender(from: string): boolean {
   return address.split('@')[1]?.toLowerCase() !== 'localhost';
 }
 
+const RAZORPAY_PREFIX = { test: 'RAZORPAY_TEST', live: 'RAZORPAY_LIVE' } as const;
+
 const envSchema = z
   .object({
     NODE_ENV: appEnvironmentSchema.default('development'),
@@ -113,6 +115,24 @@ const envSchema = z
     // redis: shared across API instances (falls back to per-process memory if Redis is down).
     // memory: per-process only; default for tests.
     RATE_LIMIT_STORE: z.preprocess(emptyToUndefined, z.enum(['redis', 'memory']).optional()),
+
+    // --- Payments: Razorpay (PHASE 10, docs/PAYMENTS.md) ----------------------------------
+    // Mode used for NEW orders. Unset = online checkout disabled (no silent fallback to either
+    // mode). Existing orders are always processed with the credentials of the mode they were
+    // created in, so the other mode's keys may stay configured while its orders settle.
+    RAZORPAY_MODE: z.preprocess(emptyToUndefined, z.enum(['test', 'live']).optional()),
+    // Secrets: never logged, echoed in validation messages or sent to the browser.
+    RAZORPAY_TEST_KEY_ID: optionalString,
+    RAZORPAY_TEST_KEY_SECRET: optionalString,
+    RAZORPAY_TEST_WEBHOOK_SECRET: optionalString,
+    RAZORPAY_LIVE_KEY_ID: optionalString,
+    RAZORPAY_LIVE_KEY_SECRET: optionalString,
+    RAZORPAY_LIVE_WEBHOOK_SECRET: optionalString,
+    // A production deployment (NODE_ENV=production) may run TEST mode only with this explicit
+    // acknowledgement — e.g. a staging deployment. Live mode never needs it.
+    RAZORPAY_ALLOW_TEST_MODE_IN_PRODUCTION: boolSetting,
+    // Minutes an unpaid order stays open for checkout before a new one is created.
+    PAYMENT_ORDER_TTL_MINUTES: intSetting(30, 5, 24 * 60),
   })
   .transform((env) => ({
     ...env,
@@ -157,6 +177,54 @@ const envSchema = z
         message:
           'Must be "address" or "Name <address>" on a domain verified in Resend (not localhost) when EMAIL_TRANSPORT=resend',
       });
+    }
+  })
+  .superRefine((env, ctx) => {
+    // Messages name variables only — never values (keys and secrets).
+    const issue = (path: string, message: string) =>
+      ctx.addIssue({ code: 'custom', path: [path], message });
+    for (const mode of ['test', 'live'] as const) {
+      const prefix = RAZORPAY_PREFIX[mode];
+      const keyId = env[`${prefix}_KEY_ID`]?.trim();
+      const keySecret = env[`${prefix}_KEY_SECRET`]?.trim();
+      // A key id always belongs to exactly one environment: refuse a live key in the test slot
+      // and vice versa, so test and live credentials can never be mixed up.
+      if (keyId && !keyId.startsWith(`rzp_${mode}_`)) {
+        issue(
+          `${prefix}_KEY_ID`,
+          `Must be a Razorpay ${mode}-mode key id (starts with rzp_${mode}_)`,
+        );
+      }
+      if (Boolean(keyId) !== Boolean(keySecret)) {
+        issue(
+          keyId ? `${prefix}_KEY_SECRET` : `${prefix}_KEY_ID`,
+          'Key id and key secret must be set together',
+        );
+      }
+    }
+    const mode = env.RAZORPAY_MODE;
+    if (!mode) return;
+    const prefix = RAZORPAY_PREFIX[mode];
+    if (!env[`${prefix}_KEY_ID`]?.trim() || !env[`${prefix}_KEY_SECRET`]?.trim()) {
+      issue(
+        `${prefix}_KEY_ID`,
+        `RAZORPAY_MODE=${mode} requires ${prefix}_KEY_ID and ${prefix}_KEY_SECRET`,
+      );
+    }
+    if (mode === 'live' && env.NODE_ENV !== 'production') {
+      // Development machines and automated tests must never be able to take real money.
+      issue('RAZORPAY_MODE', 'Live mode is only allowed with NODE_ENV=production');
+    }
+    if (env.NODE_ENV !== 'production') return;
+    if (!env[`${prefix}_WEBHOOK_SECRET`]?.trim()) {
+      // Without webhooks a payment whose browser callback is lost is only found by reconciliation.
+      issue(`${prefix}_WEBHOOK_SECRET`, `Required in production when RAZORPAY_MODE=${mode}`);
+    }
+    if (mode === 'test' && !env.RAZORPAY_ALLOW_TEST_MODE_IN_PRODUCTION) {
+      issue(
+        'RAZORPAY_MODE',
+        'Test mode in production requires RAZORPAY_ALLOW_TEST_MODE_IN_PRODUCTION=true (e.g. staging)',
+      );
     }
   })
   .superRefine((env, ctx) => {

@@ -9,12 +9,14 @@ import { FormAlert, FormField, SubmitButton } from '@/components/auth/form-contr
 import { Button } from '@/components/ui/button';
 import { authApi } from '@/lib/auth/auth-api';
 import { describeError, validateForm, type FieldErrors } from '@/lib/auth/form-errors';
+import { useRememberedLoginHref } from '@/lib/auth/return-to';
 import { clearFragmentToken, useFragmentToken } from '@/lib/auth/use-fragment-token';
 
 type Outcome = { kind: 'verified' | 'already-verified' } | { kind: 'failed'; message: string };
 
 /** Verifies the emailed token automatically (POST — the token never appears in a request URL). */
 export function VerifyEmail() {
+  const signIn = useRememberedLoginHref();
   const token = useFragmentToken();
   const [outcome, setOutcome] = React.useState<Outcome | null>(null);
   const started = React.useRef<string | null>(null);
@@ -84,7 +86,7 @@ export function VerifyEmail() {
             : 'Your email address was already confirmed. You can sign in.'}
         </p>
         <Button asChild size="lg" className="w-full">
-          <Link href="/login">Sign in</Link>
+          <Link href={signIn}>Sign in</Link>
         </Button>
       </div>
     </AuthCard>
@@ -92,6 +94,7 @@ export function VerifyEmail() {
 }
 
 function ResendForm() {
+  const signIn = useRememberedLoginHref();
   const [pending, setPending] = React.useState(false);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [result, setResult] = React.useState<{ tone: 'success' | 'error'; message: string } | null>(
@@ -138,7 +141,7 @@ function ResendForm() {
         Send a new verification link
       </SubmitButton>
       <p className="text-center text-sm text-muted-foreground">
-        Or <AuthLink href="/login">go to sign in</AuthLink>
+        Or <AuthLink href={signIn}>go to sign in</AuthLink>
       </p>
     </form>
   );

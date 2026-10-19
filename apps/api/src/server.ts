@@ -9,6 +9,7 @@ import { disconnectPrisma, pingDatabase } from './database/prisma.js';
 import { logger } from './lib/logger.js';
 import { connectRedis, disconnectRedis } from './lib/redis.js';
 import { startAttemptExpiryWorker } from './modules/assessments/expiry-worker.js';
+import { startPaymentReconciliationWorker } from './modules/payments/worker.js';
 import { withTimeout } from './utils/with-timeout.js';
 
 const app = createApp();
@@ -49,6 +50,8 @@ void connectRedis();
 
 // Finalizes exam/quiz attempts whose deadline passed while nobody was online (PHASE 09).
 const stopExpiryWorker = startAttemptExpiryWorker();
+// Re-checks unsettled orders/refunds and unsent payment emails (PHASE 10, docs/PAYMENTS.md §10).
+const stopPaymentWorker = startPaymentReconciliationWorker();
 
 let shuttingDown = false;
 
@@ -64,6 +67,7 @@ async function shutdown(signal: string, exitCode = 0): Promise<void> {
   forceExit.unref();
 
   stopExpiryWorker();
+  stopPaymentWorker();
   try {
     // Stop accepting new connections, let in-flight requests finish, then drop idle keep-alives.
     await new Promise<void>((resolve, reject) => {

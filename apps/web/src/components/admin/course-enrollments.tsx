@@ -33,9 +33,9 @@ import { ConfirmDialog, ErrorPanel, LoadingPanel } from './admin-ui';
 import { errorMessage, hasPermission, useAdminApi, useApiResource } from './use-admin';
 
 /**
- * Manual enrolment (PHASE 07, `enrollments.manage`): the way into paid or unpriced courses until
- * verified online payments exist (PHASE 10). It records who enrolled the student; it never
- * records or implies a payment.
+ * Manual enrolment (PHASE 07, `enrollments.manage`): e.g. offline payment or scholarship (M-07).
+ * Online purchases (PHASE 10) create their own PAYMENT enrolments. It records who enrolled the
+ * student; it never records or implies a payment.
  */
 export function EnrollmentsPanel({ course }: { course: AdminCourseDetail }) {
   const { user } = useAuth();
@@ -111,7 +111,9 @@ export function EnrollmentsPanel({ course }: { course: AdminCourseDetail }) {
                         <span className="type-caption text-muted-foreground">
                           {row.source === 'FREE'
                             ? 'Self-enrolled (free)'
-                            : `By ${row.enrolledBy ?? 'an administrator'}`}
+                            : row.source === 'PAYMENT'
+                              ? 'Paid online'
+                              : `By ${row.enrolledBy ?? 'an administrator'}`}
                         </span>
                       </span>
                     </TableCell>
