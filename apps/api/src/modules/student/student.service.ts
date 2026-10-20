@@ -33,6 +33,8 @@ import type { AuthContext } from '../../types/auth.js';
 import { AppError } from '../../utils/app-error.js';
 import { withoutUndefined } from '../../utils/object.js';
 import { pageArgs, paginated } from '../../utils/pagination.js';
+import { dispatchAfterCommit } from '../notifications/dispatcher.js';
+import { notificationProducers } from '../notifications/producers.js';
 import {
   calculateCourseProgress,
   countsTowardProgress,
@@ -659,13 +661,13 @@ export const studentService = {
     if (!auth.permissions.has(PERMISSIONS.CONTENT_VIEW_ENROLLED)) {
       throw new AppError('FORBIDDEN', 'You do not have permission to perform this action');
     }
-    const created = await prisma.$transaction(async (tx) => {
+    const { created, deliveries } = await prisma.$transaction(async (tx) => {
       const repo = repoFor(tx);
       if (!(await repo.course.lock(courseId))) notFound('Course');
       const course = (await repo.course.findForAccess(courseId))!;
       if (course.status !== 'PUBLISHED' || course.visibility === 'PRIVATE') notFound('Course');
       const existing = await repo.enrollments.find(auth.userId, courseId);
-      if (existing?.status === 'ACTIVE') return false;
+      if (existing?.status === 'ACTIVE') return { created: false, deliveries: [] as string[] };
       if (existing?.status === 'CANCELLED') {
         throw new AppError(
           'CONFLICT',
@@ -678,11 +680,17 @@ export const studentService = {
           'This course is not free. Buy it from the checkout page, or contact the academy.',
         );
       }
-      await tx.enrollment.create({
+      const enrollment = await tx.enrollment.create({
         data: { userId: auth.userId, courseId, source: 'FREE', status: 'ACTIVE' },
+        select: { id: true },
       });
-      return true;
+      // PHASE 11: confirmation once the enrolment commits (in-app + email).
+      return {
+        created: true,
+        deliveries: await notificationProducers.enrollmentActivated(tx, enrollment.id),
+      };
     });
+    dispatchAfterCommit(deliveries);
     return { created, course: await studentService.courseOverview(auth, courseId) };
   },
 };

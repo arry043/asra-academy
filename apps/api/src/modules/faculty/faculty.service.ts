@@ -55,12 +55,7 @@ const notFound = (entity: string): never => {
 };
 
 /** Capabilities that depend on pending client decisions (reported, never simulated). */
-export const FACULTY_FEATURES: FacultyFeatures = {
-  liveClassProvider: {
-    available: false,
-    message:
-      'No live-class provider is connected yet, so meetings are not created automatically. Schedule the class here and paste the meeting link from your own meeting tool.',
-  },
+const STATIC_FEATURES: Omit<FacultyFeatures, 'liveClassProvider'> = {
   fileUploads: {
     available: false,
     message:
@@ -77,6 +72,14 @@ export const FACULTY_FEATURES: FacultyFeatures = {
       'Schedule timed examinations for your courses. Timing is enforced by the server; written answers are graded by you before results are published.',
   },
 };
+
+/** Google Meet is available only when the server holds its credentials (PHASE 11). */
+export function facultyFeatures(): FacultyFeatures {
+  return {
+    liveClassProvider: liveClassService.settings().googleMeet,
+    ...STATIC_FEATURES,
+  };
+}
 
 const assignedCourseIds = (auth: AuthContext, permission = PERMISSIONS.CONTENT_MANAGE_ASSIGNED) =>
   accessPolicy.taughtCourseIds(auth, permission);
@@ -114,7 +117,7 @@ function bucketOf(percent: number | null): keyof ProgressDistribution {
 
 export const facultyService = {
   features(): FacultyFeatures {
-    return FACULTY_FEATURES;
+    return facultyFeatures();
   },
 
   async dashboard(auth: AuthContext): Promise<FacultyDashboardDto> {
@@ -164,7 +167,7 @@ export const facultyService = {
       courses: await toCourseCards(auth.userId, rows),
       upcomingClasses,
       pendingSubmissions,
-      features: FACULTY_FEATURES,
+      features: facultyFeatures(),
     };
   },
 

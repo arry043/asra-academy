@@ -77,6 +77,14 @@ export const liveClassListQuerySchema = paginationQuerySchema.extend({
 });
 export type LiveClassListQuery = z.infer<typeof liveClassListQuerySchema>;
 
+export const LIVE_CLASS_STATUSES = ['SCHEDULED', 'CANCELLED', 'COMPLETED'] as const;
+
+/** Administrators see every course's classes (`live_classes.manage`, PHASE 11). */
+export const adminLiveClassListQuerySchema = liveClassListQuerySchema.extend({
+  status: z.enum(LIVE_CLASS_STATUSES).optional(),
+});
+export type AdminLiveClassListQuery = z.infer<typeof adminLiveClassListQuerySchema>;
+
 // --- Assignments ----------------------------------------------------------------------------
 
 /** Numeric marks (I-03 assumption). Mirrors CHECK `assignments_max_marks_range`. */
@@ -162,6 +170,21 @@ export type StudentSubmissionInput = z.infer<typeof studentSubmissionSchema>;
 export const LIVE_CLASS_MIN_MINUTES = 15;
 export const LIVE_CLASS_MAX_MINUTES = 480;
 
+/**
+ * Zones a class can be scheduled in. The academy schedules in IST (V-09); instants are always
+ * stored in UTC and the zone is kept with the class so every screen and email shows the same time.
+ */
+export const LIVE_CLASS_TIME_ZONES = ['Asia/Kolkata'] as const;
+export const DEFAULT_LIVE_CLASS_TIME_ZONE = LIVE_CLASS_TIME_ZONES[0];
+
+/**
+ * How a new class gets its meeting link (docs/LIVE-CLASSES.md §3):
+ *   - `manual`: staff paste a link created in their own tool (or leave it empty for now);
+ *   - `google_meet`: the server creates a Google Meet space (requires server configuration).
+ */
+export const LIVE_CLASS_MEETING_OPTIONS = ['manual', 'google_meet'] as const;
+export type LiveClassMeetingOption = (typeof LIVE_CLASS_MEETING_OPTIONS)[number];
+
 const liveClassFields = {
   title: curriculumTitleSchema,
   description: optionalTextSchema(5000),
@@ -171,19 +194,125 @@ const liveClassFields = {
     .int('Use whole minutes')
     .min(LIVE_CLASS_MIN_MINUTES, `At least ${LIVE_CLASS_MIN_MINUTES} minutes`)
     .max(LIVE_CLASS_MAX_MINUTES, `At most ${LIVE_CLASS_MAX_MINUTES} minutes`),
-  /** A meeting link created by the faculty member in their own tool (no provider API, F-01). */
+  timeZone: z.enum(LIVE_CLASS_TIME_ZONES, { message: 'Choose a supported time zone' }).optional(),
+  /** A meeting link created by staff in their own tool (`provider = 'manual'`). */
   joinUrl: optionalLinkSchema,
 };
 
-export const liveClassCreateSchema = z.object(liveClassFields).strict();
+const meetingField = {
+  meeting: z
+    .enum(LIVE_CLASS_MEETING_OPTIONS, { message: 'Choose how to add the meeting' })
+    .optional(),
+};
+
+/** A pasted link and an automatic Google Meet link are mutually exclusive. */
+function noLinkWithGoogleMeet(value: {
+  meeting?: LiveClassMeetingOption;
+  joinUrl?: string | null;
+}) {
+  return !(value.meeting === 'google_meet' && value.joinUrl);
+}
+const linkConflict = {
+  message: 'Leave the link empty when Google Meet creates it',
+  path: ['joinUrl'],
+};
+
+export const liveClassCreateSchema = z
+  .object({ ...liveClassFields, ...meetingField })
+  .strict()
+  .refine(noLinkWithGoogleMeet, linkConflict);
 export type LiveClassCreateInput = z.infer<typeof liveClassCreateSchema>;
 
+/** Editing never creates a provider meeting; use `POST …/live-classes/:id/meeting` for that. */
 export const liveClassUpdateSchema = z
   .object(liveClassFields)
   .partial()
   .strict()
   .refine((value) => Object.keys(value).length > 0, 'Change at least one field');
 export type LiveClassUpdateInput = z.infer<typeof liveClassUpdateSchema>;
+
+/** Admin scheduling: course and host faculty are chosen explicitly (PHASE 11). */
+export const adminLiveClassCreateSchema = z
+  .object({
+    ...liveClassFields,
+    ...meetingField,
+    courseId: z.uuid({ message: 'Choose a course' }),
+    hostFacultyProfileId: z.uuid({ message: 'Choose the faculty member who hosts the class' }),
+  })
+  .strict()
+  .refine(noLinkWithGoogleMeet, linkConflict);
+export type AdminLiveClassCreateInput = z.infer<typeof adminLiveClassCreateSchema>;
+
+export const adminLiveClassUpdateSchema = z
+  .object({
+    ...liveClassFields,
+    hostFacultyProfileId: z.uuid({ message: 'Choose the faculty member who hosts the class' }),
+  })
+  .partial()
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, 'Change at least one field');
+export type AdminLiveClassUpdateInput = z.infer<typeof adminLiveClassUpdateSchema>;
+
+// --- Recordings (manual YouTube links, F-04) -------------------------------------------------
+
+const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com']);
+
+/**
+ * The 11-character video id of a YouTube watch/live/embed/youtu.be link, or null. Playlists,
+ * channels, shorts and look-alike domains are refused.
+ */
+export function youtubeVideoId(value: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' || url.username || url.password || url.port) return null;
+  const host = url.hostname.toLowerCase();
+  let id: string | null | undefined = null;
+  if (host === 'youtu.be') {
+    id = url.pathname.split('/')[1];
+  } else if (YOUTUBE_HOSTS.has(host)) {
+    const [, first, second] = url.pathname.split('/');
+    if (first === 'watch' && second === undefined) id = url.searchParams.get('v');
+    else if ((first === 'live' || first === 'embed') && second) id = second;
+  }
+  return id && YOUTUBE_ID.test(id) ? id : null;
+}
+
+/**
+ * A YouTube recording link, normalised to `https://www.youtube.com/watch?v=<id>` (tracking and
+ * timestamp parameters are dropped). Unlisted is NOT private: the LMS only decides who is SHOWN
+ * the link (docs/LIVE-CLASSES.md §6).
+ */
+export const youtubeRecordingUrlSchema = z
+  .string()
+  .trim()
+  .max(2048, 'URL must be at most 2048 characters')
+  .transform((value, ctx) => {
+    const id = youtubeVideoId(value);
+    if (!id) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Enter a YouTube video link, e.g. https://www.youtube.com/watch?v=…',
+      });
+      return z.NEVER;
+    }
+    return `https://www.youtube.com/watch?v=${id}`;
+  });
+
+/** `null` (or "") removes the recording link. */
+export const liveClassRecordingSchema = z
+  .object({
+    recordingUrl: z
+      .union([z.literal(''), youtubeRecordingUrlSchema])
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
+  })
+  .strict();
+export type LiveClassRecordingInput = z.infer<typeof liveClassRecordingSchema>;
 
 // --- Profile --------------------------------------------------------------------------------
 
@@ -209,5 +338,7 @@ export type FacultyProfileUpdateInput = z.infer<typeof facultyProfileUpdateSchem
 
 export const studentLiveClassQuerySchema = paginationQuerySchema.extend({
   when: z.enum(LIVE_CLASS_WINDOWS).default('upcoming'),
+  /** Limit to one enrolled course (course pages). */
+  courseId: z.uuid().optional(),
 });
 export type StudentLiveClassQuery = z.infer<typeof studentLiveClassQuerySchema>;

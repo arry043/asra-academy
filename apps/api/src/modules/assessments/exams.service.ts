@@ -41,6 +41,8 @@ import {
   toStudentAttempt,
   toStudentSummary,
 } from './attempts.core.js';
+import { dispatchAfterCommit } from '../notifications/dispatcher.js';
+import { notificationProducers } from '../notifications/producers.js';
 import { audit } from './audit.js';
 import {
   listQuestions,
@@ -328,6 +330,7 @@ export const facultyExamService = {
     id: string,
     action: AssessmentTransition,
   ): Promise<FacultyExamDetail> {
+    let deliveries: string[] = [];
     await prisma.$transaction(async (tx) => {
       await authorisedExam(auth, id, undefined, tx);
       const current = await lockExam(tx, id);
@@ -346,6 +349,8 @@ export const facultyExamService = {
             where: { id },
             data: { status: 'PUBLISHED', publishedAt: now, closedAt: null },
           });
+          // PHASE 11: students of the (published) course hear about the exam once.
+          deliveries = await notificationProducers.examPublished(tx, id);
           break;
         }
         case 'close': {
@@ -394,6 +399,7 @@ export const facultyExamService = {
         entityId: id,
       });
     });
+    dispatchAfterCommit(deliveries);
     return facultyExamService.detail(auth, id);
   },
 
@@ -408,6 +414,7 @@ export const facultyExamService = {
   ): Promise<{ published: boolean; exam: FacultyExamDetail }> {
     await authorisedExam(auth, id, PERMISSIONS.SUBMISSIONS_GRADE_ASSIGNED);
     await sweepExam(id);
+    let deliveries: string[] = [];
     const published = await prisma.$transaction(async (tx) => {
       const current = await lockExam(tx, id);
       if (current.resultsPublishedAt) return false;
@@ -443,8 +450,11 @@ export const facultyExamService = {
         entityType: 'examination',
         entityId: id,
       });
+      // PHASE 11: students who attempted it (and can still access the course) are notified.
+      deliveries = await notificationProducers.examResultsPublished(tx, id);
       return true;
     });
+    dispatchAfterCommit(deliveries);
     return { published, exam: await facultyExamService.detail(auth, id) };
   },
 

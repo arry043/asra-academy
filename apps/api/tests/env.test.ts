@@ -89,3 +89,28 @@ describe('email configuration', () => {
     assert.ok(!reported.includes(RESEND_KEY));
   });
 });
+
+describe('Google Meet configuration (PHASE 11)', () => {
+  const google = {
+    GOOGLE_MEET_CLIENT_ID: 'client.apps.googleusercontent.com',
+    GOOGLE_MEET_CLIENT_SECRET: 'GOCSPX-never-printed',
+    GOOGLE_MEET_REFRESH_TOKEN: '1//refresh-never-printed',
+  };
+
+  it('is optional: none set or all set', () => {
+    assert.equal(parseEnv({ ...base }).success, true);
+    assert.equal(parseEnv({ ...base, ...google }).success, true);
+  });
+
+  it('rejects a partial set, naming the missing variables but never the values', () => {
+    const result = parseEnv({ ...base, ...google, GOOGLE_MEET_REFRESH_TOKEN: '' });
+    assert.equal(result.success, false);
+    assert.deepEqual(
+      result.error!.issues.map((issue) => issue.path.join('.')),
+      ['GOOGLE_MEET_REFRESH_TOKEN'],
+    );
+    const reported = z.prettifyError(result.error!) + JSON.stringify(result.error!.issues);
+    assert.ok(!reported.includes(google.GOOGLE_MEET_CLIENT_SECRET));
+    assert.ok(!reported.includes(google.GOOGLE_MEET_CLIENT_ID));
+  });
+});

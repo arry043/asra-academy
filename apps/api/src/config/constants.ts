@@ -66,3 +66,18 @@ export type PaymentRateLimitName = keyof typeof PAYMENT_RATE_LIMITS;
 
 /** How often the API process re-checks unsettled orders, refunds and confirmation emails. */
 export const PAYMENT_RECONCILE_SWEEP_MS = 60_000;
+
+// --- Notifications & live classes (PHASE 11) ------------------------------------------------
+
+/** How often the API process retries pending notification emails. */
+export const NOTIFICATION_EMAIL_SWEEP_MS = 30_000;
+/** Attempts per notification email before it is marked FAILED (backoff 1, 4, 9, 16 … minutes). */
+export const NOTIFICATION_EMAIL_MAX_ATTEMPTS = 5;
+/** A SENDING claim older than this was left by a crashed process and may be taken over. */
+export const NOTIFICATION_EMAIL_CLAIM_LEASE_MS = 5 * 60_000;
+/** Recipients per notification fan-out insert batch (bounded statement size). */
+export const NOTIFICATION_FANOUT_BATCH = 500;
+/** Upper bound for one Google API call (token refresh or meeting creation). */
+export const GOOGLE_API_TIMEOUT_MS = 10_000;
+/** A meeting-creation claim older than this was left by a crashed process (retry allowed). */
+export const MEETING_CLAIM_LEASE_MS = 2 * 60_000;

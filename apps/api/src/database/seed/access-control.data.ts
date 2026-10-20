@@ -20,6 +20,8 @@ export const PERMISSION_DEFINITIONS: Record<PermissionKey, string> = {
     'Review, grade and release assignment submissions in assigned courses',
   [PERMISSIONS.LIVE_CLASSES_MANAGE_ASSIGNED]:
     'Schedule and manage live classes of assigned courses',
+  [PERMISSIONS.LIVE_CLASSES_MANAGE]:
+    'Schedule and manage live classes of any course and assign their host faculty',
   [PERMISSIONS.ENROLLMENTS_MANAGE]: 'Enrol students in courses and cancel enrolments',
   [PERMISSIONS.CONTENT_VIEW_ENROLLED]: 'View learning content of enrolled courses',
   [PERMISSIONS.PROFILE_MANAGE_OWN]: 'View and update own profile',
@@ -55,6 +57,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       PERMISSIONS.COURSES_MANAGE,
       PERMISSIONS.CONTENT_MANAGE,
       PERMISSIONS.ENROLLMENTS_MANAGE,
+      PERMISSIONS.LIVE_CLASSES_MANAGE,
       PERMISSIONS.PAYMENTS_VIEW,
       PERMISSIONS.PROFILE_MANAGE_OWN,
     ],

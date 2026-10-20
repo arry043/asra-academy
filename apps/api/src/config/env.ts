@@ -133,6 +133,15 @@ const envSchema = z
     RAZORPAY_ALLOW_TEST_MODE_IN_PRODUCTION: boolSetting,
     // Minutes an unpaid order stays open for checkout before a new one is created.
     PAYMENT_ORDER_TTL_MINUTES: intSetting(30, 5, 24 * 60),
+
+    // --- Live classes: Google Meet REST API (PHASE 11, docs/LIVE-CLASSES.md §4) -------------
+    // OAuth 2.0 client of the academy's Google Cloud project plus a refresh token granted by the
+    // Google account that will OWN the meetings (scope meetings.space.created). All three or none:
+    // unset = automatic Google Meet links are disabled and staff paste links manually.
+    // Secrets: never logged, echoed in validation messages or sent to the browser.
+    GOOGLE_MEET_CLIENT_ID: optionalString,
+    GOOGLE_MEET_CLIENT_SECRET: optionalString,
+    GOOGLE_MEET_REFRESH_TOKEN: optionalString,
   })
   .transform((env) => ({
     ...env,
@@ -225,6 +234,26 @@ const envSchema = z
         'RAZORPAY_MODE',
         'Test mode in production requires RAZORPAY_ALLOW_TEST_MODE_IN_PRODUCTION=true (e.g. staging)',
       );
+    }
+  })
+  .superRefine((env, ctx) => {
+    // Google Meet credentials only make sense together (messages name variables, never values).
+    const google = {
+      GOOGLE_MEET_CLIENT_ID: env.GOOGLE_MEET_CLIENT_ID?.trim(),
+      GOOGLE_MEET_CLIENT_SECRET: env.GOOGLE_MEET_CLIENT_SECRET?.trim(),
+      GOOGLE_MEET_REFRESH_TOKEN: env.GOOGLE_MEET_REFRESH_TOKEN?.trim(),
+    };
+    const set = Object.values(google).filter(Boolean).length;
+    if (set === 0 || set === 3) return;
+    for (const [name, value] of Object.entries(google)) {
+      if (!value) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [name],
+          message:
+            'GOOGLE_MEET_CLIENT_ID, GOOGLE_MEET_CLIENT_SECRET and GOOGLE_MEET_REFRESH_TOKEN must be set together',
+        });
+      }
     }
   })
   .superRefine((env, ctx) => {

@@ -1,6 +1,6 @@
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
-import type { EmailMessage, EmailTransport } from './email.types.js';
+import type { EmailMessage, EmailReceipt, EmailTransport } from './email.types.js';
 import {
   createConsoleTransport,
   createMemoryTransport,
@@ -50,9 +50,10 @@ function hoursLabel(minutes: number): string {
   return minutes % 60 === 0 ? `${minutes / 60} hour(s)` : `${minutes} minutes`;
 }
 
-async function deliver(message: EmailMessage): Promise<void> {
+async function deliver(message: EmailMessage): Promise<EmailReceipt> {
   try {
-    await transport.send({ ...message, from: env.EMAIL_FROM });
+    const receipt = await transport.send({ ...message, from: env.EMAIL_FROM });
+    return receipt ?? { providerMessageId: null };
   } catch (error) {
     // Structured log without the message body (it contains the one-time link).
     logger.error(
@@ -64,13 +65,25 @@ async function deliver(message: EmailMessage): Promise<void> {
 }
 
 /** "₹1,499.00" — en-IN grouping; amounts are integer minor units (paise). */
-function formatAmount(amountMinor: number, currency: string): string {
+export function formatAmount(amountMinor: number, currency: string): string {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amountMinor / 100);
 }
 
 /** Authentication and transactional emails. Business code depends on this API, never on a provider SDK. */
 export const emailService = {
-  sendEmailVerification(to: string, fullName: string, token: string): Promise<void> {
+  /**
+   * PHASE 11: a rendered notification email (src/email/templates.ts). Resolves with the
+   * provider's receipt — acceptance by the provider, not proof of inbox delivery.
+   */
+  sendNotification(
+    to: string,
+    content: { subject: string; text: string; html: string },
+    idempotencyKey: string,
+  ): Promise<EmailReceipt> {
+    return deliver({ to, template: 'notification', idempotencyKey, ...content });
+  },
+
+  sendEmailVerification(to: string, fullName: string, token: string): Promise<EmailReceipt> {
     const link = appLink('/verify-email', token);
     return deliver({
       to,
@@ -88,7 +101,7 @@ export const emailService = {
     });
   },
 
-  sendPasswordReset(to: string, fullName: string, token: string): Promise<void> {
+  sendPasswordReset(to: string, fullName: string, token: string): Promise<EmailReceipt> {
     const link = appLink('/reset-password', token);
     return deliver({
       to,
@@ -108,7 +121,7 @@ export const emailService = {
   },
 
   /** Sent instead of a verification email when someone registers with an existing address. */
-  sendAccountExistsNotice(to: string, fullName: string): Promise<void> {
+  sendAccountExistsNotice(to: string, fullName: string): Promise<EmailReceipt> {
     return deliver({
       to,
       template: 'account-exists',
@@ -140,7 +153,7 @@ export const emailService = {
       currency: string;
       orderId: string;
     },
-  ): Promise<void> {
+  ): Promise<EmailReceipt> {
     return deliver({
       to,
       template: 'payment-confirmation',
@@ -168,7 +181,7 @@ export const emailService = {
       amountMinor: number;
       currency: string;
     },
-  ): Promise<void> {
+  ): Promise<EmailReceipt> {
     return deliver({
       to,
       template: 'refund-update',

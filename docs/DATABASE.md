@@ -281,6 +281,24 @@ Details and rationale: [PAYMENTS.md](./PAYMENTS.md) §9.
 
 Foreign keys: orders, payments and refunds are RESTRICT towards users, courses and each other, so financial history can never be cascaded away (a student or course with orders cannot be hard-deleted; deactivate/archive instead). `enrollments.order_id` is RESTRICT. Audit rows have no FK to their subject. `EnrollmentSource` gained `PAYMENT` (the migration only adds the value; `PAYMENT ⇒ order_id` is enforced by the payment service).
 
+### 4.2.7 Phase 11 constraints (`20261020090000_phase11_live_classes_notifications`)
+
+| Table                     | Constraint                                      | Rule                                                         |
+| ------------------------- | ----------------------------------------------- | ------------------------------------------------------------ |
+| `live_class_sessions`     | `live_class_sessions_completed_at_consistent`   | `completed_at` set exactly when `status = COMPLETED`         |
+| `live_class_sessions`     | `live_class_sessions_recording_url_https`       | Recording link is `https://…` and has `recording_updated_at` |
+| `live_class_sessions`     | `live_class_sessions_meeting_id_has_provider`   | A provider meeting id always names its provider              |
+| `live_class_sessions`     | `live_class_sessions_time_zone_not_blank`       | Time zone is not empty                                       |
+| `live_class_sessions`     | UNIQUE `(provider, provider_meeting_id)`        | One class per provider meeting                               |
+| `notifications`           | UNIQUE `(user_id, dedupe_key)`                  | One notification per recipient and event occurrence          |
+| `notifications`           | `notifications_event_format`                    | `event` is `family.action`                                   |
+| `notifications`           | `notifications_action_url_relative`             | Action link is an app path (`/…`, never `//…`)               |
+| `notifications`           | `notifications_resource_pair`                   | Resource type and id set together                            |
+| `notification_deliveries` | UNIQUE `(notification_id, channel)`             | One delivery per channel                                     |
+| `notification_deliveries` | `notification_deliveries_accepted_consistent`   | `accepted_at` set exactly when `ACCEPTED`                    |
+| `notification_deliveries` | `notification_deliveries_claim_consistent`      | `claimed_at` set exactly when `SENDING`                      |
+| `notification_deliveries` | `notification_deliveries_attempts_non_negative` | `attempts >= 0`                                              |
+
 ### 4.3 Indexes
 
 Besides the unique indexes above, there are B-tree indexes on:

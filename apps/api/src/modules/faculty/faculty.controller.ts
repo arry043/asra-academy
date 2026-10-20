@@ -9,12 +9,14 @@ import type {
   GradeSubmissionInput,
   LiveClassCreateInput,
   LiveClassListQuery,
+  LiveClassRecordingInput,
   LiveClassUpdateInput,
   SubmissionListQuery,
 } from '@asra/validation';
 import type { Request, Response } from 'express';
 import { sendSuccess } from '../../utils/api-response.js';
 import { assignmentService, submissionService } from '../assignments/assignments.service.js';
+import { createdMessage } from '../live-classes/live-classes.routes.js';
 import { liveClassService } from '../live-classes/live-classes.service.js';
 import { facultyService } from './faculty.service.js';
 
@@ -100,8 +102,36 @@ export const facultyController = {
     sendSuccess(res, await liveClassService.list(auth(req), query<LiveClassListQuery>(req)));
   },
   async createLiveClass(req: Request, res: Response) {
-    const data = await liveClassService.create(auth(req), id(req), body<LiveClassCreateInput>(req));
-    sendSuccess(res, data, 'Live class scheduled', 201);
+    const result = await liveClassService.create(
+      auth(req),
+      id(req),
+      body<LiveClassCreateInput>(req),
+    );
+    sendSuccess(res, result.liveClass, createdMessage(result), 201);
+  },
+  async completeLiveClass(req: Request, res: Response) {
+    const { completed, liveClass } = await liveClassService.complete(auth(req), id(req));
+    sendSuccess(
+      res,
+      liveClass,
+      completed ? 'Live class marked as completed' : 'Live class was already completed',
+    );
+  },
+  async requestMeeting(req: Request, res: Response) {
+    const { created, liveClass } = await liveClassService.requestMeeting(auth(req), id(req));
+    sendSuccess(
+      res,
+      liveClass,
+      created ? 'Google Meet link created' : 'Google Meet link already exists',
+    );
+  },
+  async setRecording(req: Request, res: Response) {
+    const input = body<LiveClassRecordingInput>(req);
+    const data = await liveClassService.setRecording(auth(req), id(req), input);
+    sendSuccess(res, data, input.recordingUrl ? 'Recording link saved' : 'Recording link removed');
+  },
+  liveClassSettings(_req: Request, res: Response) {
+    sendSuccess(res, liveClassService.settings());
   },
   async updateLiveClass(req: Request, res: Response) {
     const data = await liveClassService.update(auth(req), id(req), body<LiveClassUpdateInput>(req));

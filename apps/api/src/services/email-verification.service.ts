@@ -2,6 +2,8 @@ import { env } from '../config/env.js';
 import { prisma } from '../database/prisma.js';
 import { emailService } from '../email/email.service.js';
 import { logger } from '../lib/logger.js';
+import { dispatchAfterCommit } from '../modules/notifications/dispatcher.js';
+import { notificationProducers } from '../modules/notifications/producers.js';
 import { createOneTimeTokenRepository } from '../repositories/one-time-token.repository.js';
 import { createUserRepository } from '../repositories/user.repository.js';
 import { AppError } from '../utils/app-error.js';
@@ -36,14 +38,21 @@ export const emailVerificationService = {
     );
     if (!record) throw invalidLink();
 
-    return prisma.$transaction(async (tx) => {
+    const { result, deliveries } = await prisma.$transaction(async (tx) => {
       // Single-use: only one concurrent request can consume it.
       if ((await createOneTimeTokenRepository(tx).consume(record.id, now)) === 0) {
         throw invalidLink();
       }
       const changed = await createUserRepository(tx).markEmailVerified(record.userId, now);
-      return changed ? 'verified' : 'already-verified';
+      // PHASE 11: the account became usable → welcome (in-app + email), once per user.
+      const deliveries = changed ? await notificationProducers.welcome(tx, record.userId) : [];
+      return {
+        result: changed ? ('verified' as const) : ('already-verified' as const),
+        deliveries,
+      };
     });
+    dispatchAfterCommit(deliveries);
+    return result;
   },
 
   /**

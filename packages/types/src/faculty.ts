@@ -17,7 +17,7 @@ import type {
 // --- Shared ---------------------------------------------------------------------------------
 
 export type SubmissionStatus = 'SUBMITTED' | 'GRADED';
-export type LiveClassStatus = 'SCHEDULED' | 'CANCELLED';
+export type LiveClassStatus = 'SCHEDULED' | 'CANCELLED' | 'COMPLETED';
 
 /** A course as listed in the faculty portal (any publication status). */
 export interface FacultyCourseRef extends StudentCourseRef {
@@ -217,6 +217,16 @@ export interface SubmissionDetailDto extends SubmissionListItem {
 
 // --- Live classes ---------------------------------------------------------------------------
 
+/** Adapter that produced a class's meeting link (docs/LIVE-CLASSES.md §3). */
+export type LiveClassProvider = 'manual' | 'google_meet';
+
+/**
+ * Where the class's meeting link stands. READY: a link exists. PENDING: a Google Meet link is
+ * being created. FAILED: creating it failed (staff see `meetingError` and can retry).
+ * NONE: no link was requested.
+ */
+export type LiveClassMeetingState = 'READY' | 'PENDING' | 'FAILED' | 'NONE';
+
 export interface LiveClassDto {
   id: string;
   course: { id: string; title: string };
@@ -225,14 +235,32 @@ export interface LiveClassDto {
   startsAt: string;
   endsAt: string;
   durationMinutes: number;
+  /** IANA zone the class is scheduled in (V-09: "Asia/Kolkata"). Instants are always UTC. */
+  timeZone: string;
   status: LiveClassStatus;
-  /** "manual" when faculty entered the link; null when there is no link. */
-  provider: string | null;
-  /** Only returned to the course's faculty and enrolled students. */
+  /** "manual" when staff pasted the link, "google_meet" when created via Google; null = none. */
+  provider: LiveClassProvider | null;
+  meetingState: LiveClassMeetingState;
+  /** Last provider error — staff only; always null for students. */
+  meetingError: string | null;
+  /** Only returned to the course's faculty, administrators and enrolled students. */
   joinUrl: string | null;
   host: string | null;
+  /** Staff only (for editing); null for students. */
+  hostFacultyProfileId: string | null;
+  /** Canonical YouTube link — returned only to authorised viewers of a class that was held. */
+  recordingUrl: string | null;
+  recordingUpdatedAt: string | null;
   cancelledAt: string | null;
+  completedAt: string | null;
   updatedAt: string;
+}
+
+/** Whether automatic Google Meet links can be created on this server (staff screens). */
+export interface LiveClassSettingsDto {
+  googleMeet: FeatureStatus;
+  /** Zones accepted for scheduling (V-09). */
+  timeZones: string[];
 }
 
 // --- Lessons by type (quizzes) ---------------------------------------------------------------

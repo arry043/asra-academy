@@ -17,6 +17,7 @@ import { courseEyebrow, learnHref } from '@/lib/student/learning';
 
 import { EnrolButton } from './student-courses';
 import { CourseOutline, CurriculumNav } from './curriculum-nav';
+import { CourseLiveClasses } from './student-pages';
 import { CourseProgress, CourseThumb, ErrorPanel, LessonPath, LoadingPanel } from './student-ui';
 import { errorMessage, useApiResource, useStudentApi } from './use-student';
 
@@ -105,6 +106,8 @@ export function CourseOverview({ courseId }: { courseId: string }) {
           ))}
         </section>
       ) : null}
+
+      {course.access === 'ENROLLED' ? <CourseLiveClasses courseId={course.id} /> : null}
 
       <section aria-labelledby="curriculum-heading" className="grid gap-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

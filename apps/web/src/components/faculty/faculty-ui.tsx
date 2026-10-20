@@ -144,8 +144,18 @@ export function LateBadge() {
   );
 }
 
-const TIMING_ICONS = { cancelled: Ban, scheduled: CalendarClock, ended: CheckCircle2 } as const;
-const TIMING_BADGE = { cancelled: 'destructive', scheduled: 'info', ended: 'secondary' } as const;
+const TIMING_ICONS = {
+  cancelled: Ban,
+  scheduled: CalendarClock,
+  ended: Clock,
+  completed: CheckCircle2,
+} as const;
+const TIMING_BADGE = {
+  cancelled: 'destructive',
+  scheduled: 'info',
+  ended: 'secondary',
+  completed: 'success',
+} as const;
 
 export function ClassBadge({ item }: { item: Pick<LiveClassDto, 'status' | 'endsAt'> }) {
   const timing = classTiming(item);
