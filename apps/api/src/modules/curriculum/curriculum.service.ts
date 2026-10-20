@@ -21,6 +21,8 @@ import type { AuthContext } from '../../types/auth.js';
 import { AppError, fieldError } from '../../utils/app-error.js';
 import { withoutUndefined } from '../../utils/object.js';
 import { coursePublicationGuard } from '../courses/courses.service.js';
+import { dispatchAfterCommit } from '../notifications/dispatcher.js';
+import { notificationProducers } from '../notifications/producers.js';
 import {
   createCurriculumRepository,
   type ChapterRow,
@@ -387,23 +389,30 @@ export const curriculumService = {
     const owner =
       (await createCurriculumRepository(prisma).chapterOwner(chapterId)) ?? notFound('Chapter');
     const { status, ...fields } = input;
-    return mutate(auth, owner.module.courseId, async (repo) =>
-      toLessonDto(
-        await repo.lessons.create(chapterId, {
-          ...withoutUndefined(fields),
-          title: fields.title,
-          contentType: fields.contentType,
-          status: 'DRAFT',
-          ...lessonStatusColumns(status, 'DRAFT'),
-        }),
-      ),
-    );
+    let deliveries: string[] = [];
+    const lesson = await mutate(auth, owner.module.courseId, async (repo, tx) => {
+      const created = await repo.lessons.create(chapterId, {
+        ...withoutUndefined(fields),
+        title: fields.title,
+        contentType: fields.contentType,
+        status: 'DRAFT',
+        ...lessonStatusColumns(status, 'DRAFT'),
+      });
+      // PHASE 11: a published assignment in a published course → students are notified.
+      if (created.contentType === 'ASSIGNMENT' && created.status === 'PUBLISHED') {
+        deliveries = await notificationProducers.assignmentPublished(tx, created.id);
+      }
+      return toLessonDto(created);
+    });
+    dispatchAfterCommit(deliveries);
+    return lesson;
   },
 
   async updateLesson(auth: AuthContext, id: string, input: LessonUpdateInput): Promise<LessonDto> {
     const owner = (await createCurriculumRepository(prisma).lessonOwner(id)) ?? notFound('Lesson');
     const { status, ...fields } = input;
-    return mutate(auth, owner.chapter.module.courseId, async (repo, tx) => {
+    let deliveries: string[] = [];
+    const lesson = await mutate(auth, owner.chapter.module.courseId, async (repo, tx) => {
       // An assignment that stops being an assignment loses its submission settings — never its
       // students' work (PHASE 08).
       if (
@@ -420,13 +429,22 @@ export const curriculumService = {
       ) {
         await releaseQuiz(tx, id, 'change the type of');
       }
-      return toLessonDto(
-        await repo.lessons.update(id, {
-          ...withoutUndefined(fields),
-          ...lessonStatusColumns(status, owner.status),
-        }),
-      );
+      const updated = await repo.lessons.update(id, {
+        ...withoutUndefined(fields),
+        ...lessonStatusColumns(status, owner.status),
+      });
+      // PHASE 11: the lesson has just become a published assignment (deduped per lesson).
+      if (
+        updated.contentType === 'ASSIGNMENT' &&
+        updated.status === 'PUBLISHED' &&
+        (owner.status !== 'PUBLISHED' || owner.contentType !== 'ASSIGNMENT')
+      ) {
+        deliveries = await notificationProducers.assignmentPublished(tx, id);
+      }
+      return toLessonDto(updated);
     });
+    dispatchAfterCommit(deliveries);
+    return lesson;
   },
 
   async deleteLesson(auth: AuthContext, id: string): Promise<void> {

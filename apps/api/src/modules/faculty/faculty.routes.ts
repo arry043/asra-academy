@@ -17,6 +17,7 @@ import {
   gradeSubmissionSchema,
   liveClassCreateSchema,
   liveClassListQuerySchema,
+  liveClassRecordingSchema,
   liveClassUpdateSchema,
   questionInputSchema,
   questionOrderSchema,
@@ -126,9 +127,14 @@ r.get('/attempts/:id', grading, byId, a.attempt);
 r.put('/attempt-answers/:id/grade', grading, withBody(answerGradeSchema), a.gradeAnswer);
 
 r.get('/live-classes', classes, withQuery(liveClassListQuerySchema), c.liveClasses);
+r.get('/live-classes/settings', classes, c.liveClassSettings);
 r.post('/courses/:id/live-classes', classes, withBody(liveClassCreateSchema), c.createLiveClass);
 r.patch('/live-classes/:id', classes, withBody(liveClassUpdateSchema), c.updateLiveClass);
 r.post('/live-classes/:id/cancel', classes, byId, c.cancelLiveClass);
+// PHASE 11: completion, Google Meet link creation/retry and manual recording links.
+r.post('/live-classes/:id/complete', classes, byId, c.completeLiveClass);
+r.post('/live-classes/:id/meeting', classes, byId, c.requestMeeting);
+r.put('/live-classes/:id/recording', classes, withBody(liveClassRecordingSchema), c.setRecording);
 
 r.get('/profile', own, c.profile);
 r.patch('/profile', own, validateRequest({ body: facultyProfileUpdateSchema }), c.updateProfile);

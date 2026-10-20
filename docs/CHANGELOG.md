@@ -17,6 +17,13 @@ Entry template:
 
 ## [Unreleased]
 
+### Added — PHASE 11 Live Classes & Notifications (uncommitted, pending review)
+
+- Live classes: administrator management (`/admin/live-classes`, new permission `live_classes.manage` for Admin), host assignment restricted to the course's faculty, explicit time zone (IST), `COMPLETED` status, manual YouTube recording links (validated and normalised, shown only to enrolled students), student upcoming/past views with Join and Recording actions, per-course section. See [LIVE-CLASSES.md](./LIVE-CLASSES.md).
+- Google Meet adapter behind a provider port (`POST meet.googleapis.com/v2/spaces`, OAuth refresh token, scope `meetings.space.created`), with a database claim that prevents duplicate meetings, honest failure reporting and an explicit retry. Disabled unless `GOOGLE_MEET_CLIENT_ID/SECRET/REFRESH_TOKEN` are set. **Not verified against Google** (no credentials).
+- Notifications: in-app inbox (`/api/v1/notifications`, bell + page in all portals) and Resend email through a transactional outbox with idempotent creation, claimed sends, Resend idempotency keys, bounded retries with backoff, permanent-failure handling and a sweep worker. Wired to registration, free/admin enrolment, payment and refund (in-app; existing emails kept), live classes, assignment publication and result release, exam publication, exam/quiz results. Branded HTML + text template. See [NOTIFICATIONS.md](./NOTIFICATIONS.md).
+- Migration `20261020090000_phase11_live_classes_notifications` (additive). Tests: `live-classes-phase11`, `notifications`, `google-meet-provider`, env (API); `live-classes-notifications` (web). Client questions: CLIENT-CLARIFICATIONS §AE.
+
 ### Added — PHASE 10 Enrolment & Payment (uncommitted, pending review)
 
 - Razorpay integration with explicit **test and live modes** (`RAZORPAY_MODE`, separate `RAZORPAY_TEST_*` / `RAZORPAY_LIVE_*` keys and webhook secrets; key-prefix and mode checks at startup; live refused outside production; each order bound to the mode it was created in). See [PAYMENTS.md](./PAYMENTS.md).

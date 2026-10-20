@@ -5,6 +5,8 @@ import { coursesAdminRouter, publicCoursesRouter } from '../modules/courses/cour
 import { curriculumAdminRouter } from '../modules/curriculum/curriculum.routes.js';
 import { enrollmentsAdminRouter } from '../modules/enrollments/enrollments.routes.js';
 import { facultyRouter } from '../modules/faculty/faculty.routes.js';
+import { liveClassesAdminRouter } from '../modules/live-classes/live-classes.routes.js';
+import { notificationsRouter } from '../modules/notifications/notifications.routes.js';
 import { paymentsAdminRouter } from '../modules/payments/payments.routes.js';
 import { studentRouter } from '../modules/student/student.routes.js';
 import { authRouter } from './auth.routes.js';
@@ -35,7 +37,12 @@ adminRouter.use(curriculumAdminRouter);
 adminRouter.use(enrollmentsAdminRouter);
 // Orders, payments, refunds and revenue (PHASE 10): `payments.view` / `payments.refund`.
 adminRouter.use(paymentsAdminRouter);
+// Live classes of any course (PHASE 11): `live_classes.manage`.
+adminRouter.use(liveClassesAdminRouter);
 apiRouter.use('/admin', adminRouter);
+
+/** In-app notifications of the signed-in user, any role (PHASE 11). */
+apiRouter.use('/notifications', notificationsRouter);
 
 /**
  * Student portal (PHASE 07): authenticated STUDENT accounts only; every course-content endpoint

@@ -5,6 +5,8 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import type { AuthContext } from '../../types/auth.js';
 import { AppError, fieldError } from '../../utils/app-error.js';
 import { pageArgs, paginated } from '../../utils/pagination.js';
+import { dispatchAfterCommit } from '../notifications/dispatcher.js';
+import { notificationProducers } from '../notifications/producers.js';
 import { calculateCourseProgress } from '../student/progress.js';
 import { toCourseView } from '../student/student.mappers.js';
 import { createStudentRepository } from '../student/student.repository.js';
@@ -119,7 +121,7 @@ export const enrollmentsService = {
     courseId: string,
     input: AdminEnrollmentCreateInput,
   ): Promise<AdminEnrollmentDto> {
-    const id = await prisma.$transaction(async (tx) => {
+    const { id, deliveries } = await prisma.$transaction(async (tx) => {
       const repo = createStudentRepository(tx);
       if (!(await repo.course.lock(courseId))) courseNotFound();
       const course = (await repo.course.findForAccess(courseId))!;
@@ -151,7 +153,11 @@ export const enrollmentsService = {
             cancelledAt: null,
           },
         });
-        return existing.id;
+        // PHASE 11: the student hears about it once the ACTIVE enrolment commits.
+        return {
+          id: existing.id,
+          deliveries: await notificationProducers.enrollmentActivated(tx, existing.id),
+        };
       }
       const created = await tx.enrollment.create({
         data: {
@@ -164,8 +170,12 @@ export const enrollmentsService = {
         },
         select: { id: true },
       });
-      return created.id;
+      return {
+        id: created.id,
+        deliveries: await notificationProducers.enrollmentActivated(tx, created.id),
+      };
     });
+    dispatchAfterCommit(deliveries);
     const row = await prisma.enrollment.findUniqueOrThrow({
       where: { id },
       select: adminEnrollmentSelect,

@@ -31,6 +31,8 @@ import { pageArgs, paginated } from '../../utils/pagination.js';
 import { audit } from '../assessments/audit.js';
 import { coursePublicationGuard } from '../courses/courses.service.js';
 import { createCurriculumRepository } from '../curriculum/curriculum.repository.js';
+import { dispatchAfterCommit } from '../notifications/dispatcher.js';
+import { notificationProducers } from '../notifications/producers.js';
 
 /**
  * Assignments, submissions and grading (PHASE 08, docs/FACULTY-PORTAL.md §5).
@@ -390,6 +392,7 @@ export const assignmentService = {
       (await createCurriculumRepository(prisma).chapterOwner(chapterId)) ?? notFound('Chapter');
     const courseId = owner.module.courseId;
     assertDueDate(input.dueAt);
+    let deliveries: string[] = [];
     const lessonId = await prisma.$transaction(async (tx) => {
       await accessPolicy.assertTeachesCourse(
         auth,
@@ -417,8 +420,13 @@ export const assignmentService = {
         },
       });
       await coursePublicationGuard.assertStillPublishable(tx, courseId);
+      // PHASE 11: published straight away → students of the (published) course are notified.
+      if (input.status === 'PUBLISHED') {
+        deliveries = await notificationProducers.assignmentPublished(tx, lesson.id);
+      }
       return lesson.id;
     });
+    dispatchAfterCommit(deliveries);
     return assignmentService.detail(auth, lessonId);
   },
 
@@ -635,7 +643,8 @@ export const submissionService = {
     auth: AuthContext,
     id: string,
   ): Promise<{ released: boolean; submission: SubmissionDetailDto }> {
-    return prisma.$transaction(async (tx) => {
+    let deliveries: string[] = [];
+    const result = await prisma.$transaction(async (tx) => {
       await requireGradableSubmission(auth, id, tx);
       const current = await lockSubmission(tx, id);
       if (current.resultReleasedAt !== null) {
@@ -656,8 +665,12 @@ export const submissionService = {
         entityId: id,
         data: { marksAwarded: updated.marksAwarded },
       });
+      // PHASE 11: the student learns the result is visible (in-app + email).
+      deliveries = await notificationProducers.assignmentResultReleased(tx, id);
       return { released: true, submission: await toSubmissionDetail(updated, tx) };
     });
+    dispatchAfterCommit(deliveries);
+    return result;
   },
 };
 

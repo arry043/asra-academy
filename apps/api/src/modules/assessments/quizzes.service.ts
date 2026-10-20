@@ -42,6 +42,8 @@ import {
   toStudentAttempt,
   toStudentSummary,
 } from './attempts.core.js';
+import { dispatchAfterCommit } from '../notifications/dispatcher.js';
+import { notificationProducers } from '../notifications/producers.js';
 import { audit } from './audit.js';
 import {
   listQuestions,
@@ -423,6 +425,7 @@ export const facultyQuizService = {
     auth: AuthContext,
     lessonId: string,
   ): Promise<{ published: boolean; quiz: FacultyQuizDetail }> {
+    let deliveries: string[] = [];
     const published = await prisma.$transaction(async (tx) => {
       const row = await authorisedQuizLesson(
         auth,
@@ -446,8 +449,11 @@ export const facultyQuizService = {
         entityType: 'quiz',
         entityId: quiz.id,
       });
+      // PHASE 11: students who attempted it (and can still access the course) are notified.
+      deliveries = await notificationProducers.quizResultsPublished(tx, quiz.id);
       return true;
     });
+    dispatchAfterCommit(deliveries);
     return { published, quiz: await facultyQuizService.detail(auth, lessonId) };
   },
 

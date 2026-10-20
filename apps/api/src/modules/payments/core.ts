@@ -2,6 +2,7 @@ import { prisma } from '../../database/prisma.js';
 import { clock } from '../../lib/clock.js';
 import type { Order, PaymentStatus, Prisma, RefundStatus } from '../../generated/prisma/client.js';
 import { AppError } from '../../utils/app-error.js';
+import { notificationProducers } from '../notifications/producers.js';
 import { createStudentRepository } from '../student/student.repository.js';
 import { paymentAudit } from './audit.js';
 import type { ProviderPayment, ProviderRefund } from './gateway.js';
@@ -258,6 +259,9 @@ export async function applyProviderPayment(
         entityId: order.id,
         data: { courseId: order.courseId, userId: order.userId },
       });
+      // PHASE 11: in-app record of the verified payment, committed with it (deduped per order).
+      // The email is the existing payment confirmation (notifications.ts), not a second one.
+      await notificationProducers.paymentReceived(tx, order.id);
       justPaid = true;
     } else if (captured && !row.appliedAt && !reviewReason) {
       // A second captured payment for an order another payment already paid.
@@ -399,6 +403,8 @@ export async function applyProviderRefund(
       });
     }
     await recomputeRefunded(tx, paymentId);
+    // PHASE 11: in-app record; the email is the existing refund notice (sendRefundNoticeOnce).
+    if (justProcessed) await notificationProducers.refundProcessed(tx, row.id);
     return { refundId: row.id, status: row.status, justProcessed };
   });
 }

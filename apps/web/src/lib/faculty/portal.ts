@@ -103,16 +103,18 @@ export function percentLabel(value: number | null | undefined): string {
 }
 
 /**
- * Where a class stands by the clock. There is deliberately no "live" state: no provider tells the
- * platform that a class is actually running, so it only says "scheduled" until it has ended.
+ * Where a class stands. There is deliberately no "live" state: no provider tells the platform
+ * that a class is actually running, so it only says "scheduled" until it has ended. "completed"
+ * means staff confirmed it was held (PHASE 11).
  */
-export type ClassTiming = 'cancelled' | 'scheduled' | 'ended';
+export type ClassTiming = 'cancelled' | 'scheduled' | 'ended' | 'completed';
 
 export function classTiming(
   item: Pick<LiveClassDto, 'status' | 'endsAt'>,
   now: number = Date.now(),
 ): ClassTiming {
   if (item.status === 'CANCELLED') return 'cancelled';
+  if (item.status === 'COMPLETED') return 'completed';
   return new Date(item.endsAt).getTime() <= now ? 'ended' : 'scheduled';
 }
 
@@ -120,4 +122,34 @@ export const CLASS_TIMING_LABELS: Record<ClassTiming, string> = {
   cancelled: 'Cancelled',
   scheduled: 'Scheduled',
   ended: 'Ended',
+  completed: 'Completed',
+};
+
+/** Staff may mark a scheduled class completed once it has started. */
+export function canCompleteClass(
+  item: Pick<LiveClassDto, 'status' | 'startsAt'>,
+  now: number = Date.now(),
+): boolean {
+  return item.status === 'SCHEDULED' && new Date(item.startsAt).getTime() <= now;
+}
+
+/** Recording links can be added once a class has started, unless it was cancelled. */
+export function canAddRecording(
+  item: Pick<LiveClassDto, 'status' | 'startsAt'>,
+  now: number = Date.now(),
+): boolean {
+  return item.status !== 'CANCELLED' && new Date(item.startsAt).getTime() <= now;
+}
+
+/** "Join" is offered only for a scheduled class that has not ended and has a link. */
+export function canJoinClass(
+  item: Pick<LiveClassDto, 'status' | 'endsAt' | 'joinUrl'>,
+  now: number = Date.now(),
+): boolean {
+  return classTiming(item, now) === 'scheduled' && Boolean(item.joinUrl);
+}
+
+export const MEETING_PROVIDER_LABELS: Record<string, string> = {
+  google_meet: 'Google Meet',
+  manual: 'Meeting link',
 };

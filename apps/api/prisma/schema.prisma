@@ -132,6 +132,8 @@ model User {
   submissions          AssignmentSubmission[] @relation("SubmissionStudent")
   submissionsGraded    AssignmentSubmission[] @relation("SubmissionGradedBy")
   liveClassesScheduled LiveClassSession[]     @relation("LiveClassCreatedBy")
+  liveClassesUpdated   LiveClassSession[]     @relation("LiveClassUpdatedBy")
+  notifications        Notification[]
 
   quizzesCreated      Quiz[]               @relation("QuizCreatedBy")
   examinationsCreated Examination[]        @relation("ExaminationCreatedBy")
@@ -708,9 +710,12 @@ enum SubmissionStatus {
 
 /// Lifecycle of a scheduled live class. "Upcoming"/"past" are derived from the time; the
 /// platform never claims a class is live (no provider reports it, F-01).
+/// SCHEDULED → CANCELLED (before it ends) or → COMPLETED (marked by staff once it has started).
 enum LiveClassStatus {
   SCHEDULED
   CANCELLED
+  /// Confirmed held by faculty/admin (PHASE 11). Recording links may be added before or after.
+  COMPLETED
 
   @@map("live_class_status")
 }
@@ -800,35 +805,55 @@ model AssignmentSubmissionRevision {
   @@map("assignment_submission_revisions")
 }
 
-/// A live online class scheduled for a course. Provider-neutral: no meeting is created through
-/// any provider API (F-01 pending). `joinUrl` is only ever a link entered by faculty
-/// (`provider = 'manual'`) and is returned only to the course's faculty and enrolled students.
+/// A live online class scheduled for a course (PHASE 08; PHASE 11 — docs/LIVE-CLASSES.md).
+/// Provider-neutral: `provider` names the adapter that produced `joinUrl` — "manual" (pasted by
+/// staff) or "google_meet" (created through the Google Meet REST API). `joinUrl` is returned only
+/// to the course's faculty, administrators and enrolled students, never by public endpoints.
+/// Times are UTC instants; `timeZone` is the IANA zone the class is scheduled and shown in.
 model LiveClassSession {
   id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   courseId             String          @map("course_id") @db.Uuid
-  /// Faculty member who hosts the class (the one who scheduled it).
+  /// Faculty member who hosts the class. Must be assigned to the course (service rule).
   hostFacultyProfileId String?         @map("host_faculty_profile_id") @db.Uuid
   title                String          @db.VarChar(200)
   description          String?         @db.Text
   startsAt             DateTime        @map("starts_at") @db.Timestamptz(3)
   /// 15–480 minutes (CHECK).
   durationMinutes      Int             @map("duration_minutes")
+  /// IANA zone for display and input (V-09: "Asia/Kolkata" only for now; CHECK non-empty).
+  timeZone             String          @default("Asia/Kolkata") @map("time_zone") @db.VarChar(64)
   status               LiveClassStatus @default(SCHEDULED)
-  /// Adapter id; "manual" = link typed by faculty. Null = no meeting link.
+  /// Adapter id: "manual" | "google_meet". Null = no meeting link requested.
   provider             String?         @db.VarChar(50)
   joinUrl              String?         @map("join_url") @db.VarChar(2048)
+  /// Provider's identifier of the meeting (Google Meet: "spaces/{id}"). Unique per provider.
+  providerMeetingId    String?         @map("provider_meeting_id") @db.VarChar(255)
+  /// Set while ONE process is creating the provider meeting (lease; prevents duplicate meetings).
+  meetingClaimedAt     DateTime?       @map("meeting_claimed_at") @db.Timestamptz(3)
+  /// Safe, staff-visible reason the last provider call failed (never credentials or bodies).
+  meetingLastError     String?         @map("meeting_last_error") @db.VarChar(300)
   cancelledAt          DateTime?       @map("cancelled_at") @db.Timestamptz(3)
+  completedAt          DateTime?       @map("completed_at") @db.Timestamptz(3)
+  /// Canonical https://www.youtube.com/watch?v=… link added manually after the class (F-04).
+  recordingUrl         String?         @map("recording_url") @db.VarChar(2048)
+  recordingUpdatedAt   DateTime?       @map("recording_updated_at") @db.Timestamptz(3)
   createdById          String?         @map("created_by_id") @db.Uuid
+  /// Last user who changed the class (edit, cancel, complete, recording).
+  updatedById          String?         @map("updated_by_id") @db.Uuid
   createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   course    Course          @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   host      FacultyProfile? @relation(fields: [hostFacultyProfileId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   createdBy User?           @relation("LiveClassCreatedBy", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  updatedBy User?           @relation("LiveClassUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
+  @@unique([provider, providerMeetingId])
   @@index([courseId, startsAt])
   @@index([hostFacultyProfileId, startsAt])
+  @@index([status, startsAt])
   @@index([createdById])
+  @@index([updatedById])
   @@map("live_class_sessions")
 }
 
@@ -1358,4 +1383,106 @@ model PaymentAuditLog {
   @@index([entityType, entityId, createdAt])
   @@index([actorId])
   @@map("payment_audit_logs")
+}
+
+// =============================================================================
+// Notifications (PHASE 11) — see docs/NOTIFICATIONS.md
+// A business event creates one `Notification` per recipient (the in-app record) and, when the
+// event is emailed, one `NotificationDelivery` per channel (a durable outbox row). The outbox is
+// written in the SAME transaction as the business change where possible, so a committed event
+// always has its notification and a rolled-back one never does. Email is sent after commit by the
+// dispatcher (immediately) and the sweep worker (retries); see src/modules/notifications.
+// =============================================================================
+
+/// Business event family (O-01). CERTIFICATE and ANNOUNCEMENT have no producing workflow yet
+/// (no certificate issuance; announcements pending O-04) — no row of those types is created.
+enum NotificationType {
+  REGISTRATION
+  ENROLLMENT
+  PAYMENT
+  LIVE_CLASS
+  ASSIGNMENT
+  EXAMINATION
+  RESULT
+  CERTIFICATE
+  ANNOUNCEMENT
+
+  @@map("notification_type")
+}
+
+/// Delivery channels beyond the in-app record itself (O-02: email only; WhatsApp out of scope).
+enum NotificationChannel {
+  EMAIL
+
+  @@map("notification_channel")
+}
+
+/// PENDING: waiting to be sent (or retried at `nextAttemptAt`). SENDING: claimed by one process.
+/// ACCEPTED: the provider accepted the message — NOT proof that it reached the inbox.
+/// FAILED: permanent provider error or retries exhausted. SKIPPED: no longer applicable
+/// (e.g. the class was cancelled before its "scheduled" email went out).
+enum NotificationDeliveryStatus {
+  PENDING
+  SENDING
+  ACCEPTED
+  FAILED
+  SKIPPED
+
+  @@map("notification_delivery_status")
+}
+
+/// One in-app notification for one user. Rows are only ever read by their recipient.
+model Notification {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String           @map("user_id") @db.Uuid
+  type         NotificationType
+  /// Fine-grained event, e.g. "live_class.scheduled" (CHECK format).
+  event        String           @db.VarChar(60)
+  title        String           @db.VarChar(200)
+  /// Plain text (rendered as text, never HTML).
+  message      String           @db.VarChar(1000)
+  /// App-relative path ("/student/classes"), CHECK starts with "/" — never an external URL.
+  actionUrl    String?          @map("action_url") @db.VarChar(500)
+  resourceType String?          @map("resource_type") @db.VarChar(40)
+  resourceId   String?          @map("resource_id") @db.Uuid
+  /// Non-sensitive details for the email template (course title, amount, schedule …).
+  data         Json?
+  /// Idempotency key per recipient: re-processing the same event never creates a second row.
+  dedupeKey    String           @map("dedupe_key") @db.VarChar(200)
+  readAt       DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  deliveries NotificationDelivery[]
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+/// Outbox row for one notification on one channel. Bounded retries with backoff; the provider's
+/// message id is recorded when it accepts the message.
+model NotificationDelivery {
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notificationId    String                     @map("notification_id") @db.Uuid
+  channel           NotificationChannel
+  status            NotificationDeliveryStatus @default(PENDING)
+  /// CHECK >= 0; at most NOTIFICATION_EMAIL_MAX_ATTEMPTS.
+  attempts          Int                        @default(0)
+  nextAttemptAt     DateTime                   @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  claimedAt         DateTime?                  @map("claimed_at") @db.Timestamptz(3)
+  /// Provider message id (Resend email id) once accepted.
+  providerMessageId String?                    @map("provider_message_id") @db.VarChar(100)
+  acceptedAt        DateTime?                  @map("accepted_at") @db.Timestamptz(3)
+  /// Error class/code of the last failure only — never addresses, bodies or keys.
+  lastError         String?                    @map("last_error") @db.VarChar(300)
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([notificationId, channel])
+  @@index([status, nextAttemptAt])
+  @@map("notification_deliveries")
 }

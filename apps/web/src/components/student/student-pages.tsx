@@ -23,8 +23,10 @@ import {
   NotebookPen,
   PlayCircle,
   TrendingUp,
+  Video,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
@@ -32,7 +34,9 @@ import { EmptyState } from '@/components/public/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatDate, formatDateTime } from '@/lib/format';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CLASS_TIMING_LABELS, canJoinClass, classTiming } from '@/lib/faculty/portal';
+import { formatDate, formatDateTime, isSafeExternalUrl } from '@/lib/format';
 import { formatAmount, ORDER_STATUS, REFUND_STATE_LABEL } from '@/lib/payments';
 import { courseHref, formatClock, LESSON_TYPE_LABELS, learnHref } from '@/lib/student/learning';
 
@@ -147,28 +151,52 @@ export function AssessmentLessonsPage({ kind }: { kind: 'QUIZ' | 'ASSIGNMENT' })
   );
 }
 
-/** Live classes are not available yet; recorded lectures are the video lessons of the courses. */
+/**
+ * Live classes of the student's enrolled courses (PHASE 08/11): upcoming classes with their
+ * joining link, past classes with their recording when faculty added one. Recorded lectures are
+ * the video lessons of the courses.
+ */
 export function ClassesPage() {
   const features = useFeatures();
+  const router = useRouter();
+  // `?when=past` (e.g. from a "recording available" notification) opens the past tab.
+  const when = useSearchParams().get('when') === 'past' ? 'past' : 'upcoming';
+  const setWhen = (next: 'upcoming' | 'past') =>
+    router.replace(next === 'past' ? '/student/classes?when=past' : '/student/classes', {
+      scroll: false,
+    });
   return (
     <>
       <PageHeader title="Classes" breadcrumbs={[home, { label: 'Classes' }]} />
       <section aria-labelledby="live-heading" className="grid gap-3">
-        <h2 id="live-heading" className="type-h2 text-heading">
-          Upcoming live classes
-        </h2>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h2 id="live-heading" className="type-h2 text-heading">
+            Live classes
+          </h2>
+          <Tabs value={when} onValueChange={(value) => setWhen(value as 'upcoming' | 'past')}>
+            <TabsList aria-label="Which classes">
+              <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+              <TabsTrigger value="past">Past and recordings</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
         {features.data ? (
           <p className="type-body-sm text-muted-foreground">{features.data.liveClasses.message}</p>
         ) : null}
         <PagedList<LiveClassDto>
+          key={when}
           path="/student/live-classes"
-          extra={{ when: 'upcoming' }}
+          extra={{ when }}
           label="live classes"
           empty={
             <EmptyState
               icon={<MonitorPlay />}
-              title="No upcoming live classes"
-              description="When your faculty schedule a class for one of your courses, it appears here."
+              title={when === 'upcoming' ? 'No upcoming live classes' : 'No past live classes'}
+              description={
+                when === 'upcoming'
+                  ? 'When a class is scheduled for one of your courses, it appears here and you are notified.'
+                  : 'Classes appear here after they end, with the recording when your faculty adds it.'
+              }
             />
           }
         >
@@ -195,6 +223,27 @@ export function ClassesPage() {
         </PagedList>
       </section>
     </>
+  );
+}
+
+/** Upcoming classes of ONE enrolled course (course page). Renders nothing when there are none. */
+export function CourseLiveClasses({ courseId }: { courseId: string }) {
+  const api = useStudentApi();
+  const url = withPage('/student/live-classes', 1, { courseId, pageSize: '5' });
+  const list = useApiResource(url, () => api.get<Paginated<LiveClassDto>>(url));
+  if (!list.data || list.data.items.length === 0) return null;
+  return (
+    <section aria-labelledby="course-classes-heading" className="grid gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="course-classes-heading" className="type-h2 text-heading">
+          Upcoming live classes
+        </h2>
+        <Link href="/student/classes" className="type-body-sm text-primary hover:underline">
+          All classes
+        </Link>
+      </div>
+      <LiveClassItems items={list.data.items} showCourse={false} />
+    </section>
   );
 }
 
@@ -269,41 +318,72 @@ export function ResultsPage() {
   );
 }
 
-function LiveClassItems({ items }: { items: LiveClassDto[] }) {
+function LiveClassItems({
+  items,
+  showCourse = true,
+}: {
+  items: LiveClassDto[];
+  showCourse?: boolean;
+}) {
   return (
     <ul className="grid gap-3">
-      {items.map((item) => (
-        <li key={item.id} className="grid gap-1 rounded-xl border bg-card p-4">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="type-label text-heading">{item.title}</span>
-            {item.status === 'CANCELLED' ? <Badge variant="destructive">Cancelled</Badge> : null}
-          </span>
-          <span className="type-body-sm text-muted-foreground">
-            {item.course.title} · {formatDateTime(item.startsAt)} IST · {item.durationMinutes} min
-            {item.host ? ` · ${item.host}` : ''}
-          </span>
-          {item.description ? (
-            <p className="type-body-sm whitespace-pre-line">{item.description}</p>
-          ) : null}
-          {item.status === 'CANCELLED' ? null : item.joinUrl ? (
-            <a
-              href={item.joinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 type-body-sm text-primary underline-offset-2 hover:underline"
-            >
-              Join link shared by your faculty
-            </a>
-          ) : (
-            <span className="type-caption text-muted-foreground">
-              Your faculty has not added a joining link yet.
-            </span>
-          )}
-        </li>
-      ))}
+      {items.map((item) => {
+        const timing = classTiming(item);
+        return (
+          <li key={item.id}>
+            <Card className="gap-3 sm:flex-row sm:items-center">
+              <div className="grid min-w-0 flex-1 gap-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  <h3 className="type-h4 break-words text-heading">{item.title}</h3>
+                  <Badge variant={CLASS_BADGE[timing]}>{CLASS_TIMING_LABELS[timing]}</Badge>
+                </span>
+                <span className="type-body-sm text-muted-foreground">
+                  {showCourse ? `${item.course.title} · ` : ''}
+                  {formatDateTime(item.startsAt, item.timeZone)} IST · {item.durationMinutes} min
+                  {item.host ? ` · ${item.host}` : ''}
+                </span>
+                {item.description ? (
+                  <p className="type-body-sm whitespace-pre-line">{item.description}</p>
+                ) : null}
+                {timing === 'scheduled' && !item.joinUrl ? (
+                  <span className="type-caption text-muted-foreground">
+                    The joining link has not been added yet. You will be notified when it is.
+                  </span>
+                ) : null}
+                {(timing === 'ended' || timing === 'completed') && !item.recordingUrl ? (
+                  <span className="type-caption text-muted-foreground">No recording yet.</span>
+                ) : null}
+              </div>
+              <span className="flex flex-wrap gap-2 self-start sm:self-center">
+                {canJoinClass(item) && isSafeExternalUrl(item.joinUrl) ? (
+                  <Button asChild size="sm">
+                    <a href={item.joinUrl} target="_blank" rel="noopener noreferrer">
+                      <Video aria-hidden /> Join class
+                    </a>
+                  </Button>
+                ) : null}
+                {item.recordingUrl && isSafeExternalUrl(item.recordingUrl) ? (
+                  <Button asChild size="sm" variant="outline">
+                    <a href={item.recordingUrl} target="_blank" rel="noopener noreferrer">
+                      <PlayCircle aria-hidden /> Watch recording
+                    </a>
+                  </Button>
+                ) : null}
+              </span>
+            </Card>
+          </li>
+        );
+      })}
     </ul>
   );
 }
+
+const CLASS_BADGE = {
+  scheduled: 'info',
+  ended: 'secondary',
+  completed: 'success',
+  cancelled: 'destructive',
+} as const;
 
 /**
  * Order and payment history (PHASE 10). Every status shown is the server's: an order is "Paid"

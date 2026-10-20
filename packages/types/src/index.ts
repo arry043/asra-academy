@@ -6,3 +6,4 @@ export * from './student.js';
 export * from './faculty.js';
 export * from './assessment.js';
 export * from './payments.js';
+export * from './notifications.js';

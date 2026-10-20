@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Loader2,
   LogOut,
+  MonitorPlay,
   ShieldAlert,
   Shapes,
   Split,
@@ -19,6 +20,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
 import { useAuth } from '@/components/auth/auth-provider';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { AdminLayout } from '@/components/layout/admin-layout';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -81,6 +83,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       brandHref="/admin"
       headerActions={
         <>
+          <NotificationBell />
           <span className="hidden text-right sm:grid">
             <span className="type-label text-heading">{user.fullName}</span>
             <span className="type-caption text-muted-foreground">{user.roles.join(', ')}</span>
@@ -108,6 +111,12 @@ function buildNavigation(can: (permission: string) => boolean): NavGroup[] {
         { label: 'Courses', href: '/admin/courses', icon: <BookOpen /> },
         { label: 'Course categories', href: '/admin/course-categories', icon: <Shapes /> },
       ],
+    });
+  }
+  if (can(PERMISSIONS.LIVE_CLASSES_MANAGE)) {
+    groups.push({
+      label: 'Teaching',
+      items: [{ label: 'Live classes', href: '/admin/live-classes', icon: <MonitorPlay /> }],
     });
   }
   if (can(PERMISSIONS.ACADEMIC_STRUCTURE_MANAGE)) {

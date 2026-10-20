@@ -37,6 +37,8 @@ export const PERMISSIONS = {
   SUBMISSIONS_GRADE_ASSIGNED: 'submissions.grade_assigned',
   /** Schedule and manage live classes of assigned courses — FR-FAC-005 (PHASE 08). */
   LIVE_CLASSES_MANAGE_ASSIGNED: 'live_classes.manage_assigned',
+  /** Schedule live classes for any course and assign their host faculty (PHASE 11). */
+  LIVE_CLASSES_MANAGE: 'live_classes.manage',
   /** Enrol students in courses and cancel enrolments (manual/offline enrolment, PHASE 07). */
   ENROLLMENTS_MANAGE: 'enrollments.manage',
   /** View learning content of courses the student is enrolled in — FR-RBAC-004. */

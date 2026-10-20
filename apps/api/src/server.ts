@@ -9,6 +9,10 @@ import { disconnectPrisma, pingDatabase } from './database/prisma.js';
 import { logger } from './lib/logger.js';
 import { connectRedis, disconnectRedis } from './lib/redis.js';
 import { startAttemptExpiryWorker } from './modules/assessments/expiry-worker.js';
+import {
+  settleNotificationDispatch,
+  startNotificationEmailWorker,
+} from './modules/notifications/dispatcher.js';
 import { startPaymentReconciliationWorker } from './modules/payments/worker.js';
 import { withTimeout } from './utils/with-timeout.js';
 
@@ -52,6 +56,8 @@ void connectRedis();
 const stopExpiryWorker = startAttemptExpiryWorker();
 // Re-checks unsettled orders/refunds and unsent payment emails (PHASE 10, docs/PAYMENTS.md §10).
 const stopPaymentWorker = startPaymentReconciliationWorker();
+// Retries notification emails that could not be sent right after their event (PHASE 11).
+const stopNotificationWorker = startNotificationEmailWorker();
 
 let shuttingDown = false;
 
@@ -68,12 +74,15 @@ async function shutdown(signal: string, exitCode = 0): Promise<void> {
 
   stopExpiryWorker();
   stopPaymentWorker();
+  stopNotificationWorker();
   try {
     // Stop accepting new connections, let in-flight requests finish, then drop idle keep-alives.
     await new Promise<void>((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
       server.closeIdleConnections();
     });
+    // Emails already handed to the dispatcher finish (or stay PENDING for the next start).
+    await settleNotificationDispatch();
     await Promise.allSettled([disconnectPrisma(), disconnectRedis()]);
     logger.info('Shutdown complete');
   } catch (error) {

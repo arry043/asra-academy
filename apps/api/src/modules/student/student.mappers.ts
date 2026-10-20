@@ -252,7 +252,7 @@ const STATIC_FEATURES: Omit<StudentFeatures, 'payments'> = {
   liveClasses: {
     available: true,
     message:
-      'Classes scheduled by your faculty appear here (times in IST). A joining link is shown when your faculty has added one.',
+      'Classes scheduled for your courses appear here (times in IST). Join with the meeting link until the class ends; recordings appear here when your faculty adds them.',
   },
   quizAttempts: {
     available: true,

@@ -23,6 +23,7 @@ import * as React from 'react';
 
 import { canUseAdminPortal } from '@/components/admin/use-admin';
 import { useAuth } from '@/components/auth/auth-provider';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Avatar } from '@/components/ui/avatar';
@@ -132,6 +133,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
       }
       headerActions={
         <>
+          <NotificationBell />
           <span className="hidden text-right sm:grid">
             <span className="type-label text-heading">{user.fullName}</span>
             <span className="type-caption text-muted-foreground">Student</span>

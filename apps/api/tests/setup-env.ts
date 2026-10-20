@@ -31,6 +31,10 @@ for (const name of [
   'RAZORPAY_LIVE_KEY_ID',
   'RAZORPAY_LIVE_KEY_SECRET',
   'RAZORPAY_LIVE_WEBHOOK_SECRET',
+  // Live classes (PHASE 11): tests never reach Google; suites inject a fake Meet client.
+  'GOOGLE_MEET_CLIENT_ID',
+  'GOOGLE_MEET_CLIENT_SECRET',
+  'GOOGLE_MEET_REFRESH_TOKEN',
 ]) {
   process.env[name] = '';
 }

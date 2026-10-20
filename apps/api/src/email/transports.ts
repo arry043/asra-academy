@@ -1,7 +1,7 @@
 import type { Logger } from 'pino';
 import { Resend } from 'resend';
 import { withTimeout } from '../utils/with-timeout.js';
-import type { EmailMessage, EmailTransport } from './email.types.js';
+import type { EmailMessage, EmailReceipt, EmailTransport } from './email.types.js';
 
 type SentMessage = EmailMessage & { from: string };
 
@@ -11,11 +11,25 @@ const RESEND_SEND_TIMEOUT_MS = 10_000;
 /** The part of the Resend SDK this transport uses (tests inject a fake; no network needed). */
 export interface ResendClient {
   emails: {
-    send(payload: { from: string; to: string; subject: string; text: string }): Promise<{
+    send(
+      payload: { from: string; to: string; subject: string; text: string; html?: string },
+      options?: { idempotencyKey?: string },
+    ): Promise<{
       data: { id: string } | null;
       error: { name: string; statusCode: number | null; message: string } | null;
     }>;
   };
+}
+
+/**
+ * Resend errors that will fail again on retry (malformed request / invalid recipient). Auth and
+ * domain errors (401/403) are treated as retryable: they are configuration problems an operator
+ * can fix while the bounded retries are still running.
+ */
+export function isPermanentResendError(error: unknown): boolean {
+  return (
+    error instanceof ResendDeliveryError && (error.statusCode === 400 || error.statusCode === 422)
+  );
 }
 
 /**
@@ -51,18 +65,23 @@ export function createResendTransport(options: {
 
   return {
     name: 'resend',
-    async send(message: SentMessage) {
-      const { error } = await withTimeout(
-        client.emails.send({
-          from: message.from,
-          to: message.to,
-          subject: message.subject,
-          text: message.text,
-        }),
+    async send(message: SentMessage): Promise<EmailReceipt> {
+      const { data, error } = await withTimeout(
+        client.emails.send(
+          {
+            from: message.from,
+            to: message.to,
+            subject: message.subject,
+            text: message.text,
+            ...(message.html ? { html: message.html } : {}),
+          },
+          message.idempotencyKey ? { idempotencyKey: message.idempotencyKey } : undefined,
+        ),
         timeoutMs,
         'Resend email request',
       );
       if (error) throw new ResendDeliveryError(error.name, error.statusCode);
+      return { providerMessageId: data?.id ?? null };
     },
   };
 }
@@ -90,8 +109,9 @@ export function createMemoryTransport(): EmailTransport & { outbox: SentMessage[
   return {
     name: 'memory',
     outbox,
-    async send(message: SentMessage) {
+    async send(message: SentMessage): Promise<EmailReceipt> {
       outbox.push(message);
+      return { providerMessageId: `memory-${outbox.length}` };
     },
   };
 }
