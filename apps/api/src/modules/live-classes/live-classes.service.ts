@@ -29,6 +29,7 @@ import { accessPolicy } from '../../services/access-policy.service.js';
 import type { AuthContext } from '../../types/auth.js';
 import { AppError, fieldError } from '../../utils/app-error.js';
 import { pageArgs, paginated } from '../../utils/pagination.js';
+import { adminAudit } from '../admin/audit.js';
 import { dispatchAfterCommit } from '../notifications/dispatcher.js';
 import { liveClassEvents, type LiveClassFacts } from '../notifications/events.js';
 import { eligibleStudentIds, notifyUsers } from '../notifications/notifications.service.js';
@@ -472,6 +473,19 @@ async function createSession(
     const deliveries = await notifyAudience(tx, created, auth.userId, (audience) =>
       liveClassEvents.scheduled(facts(created), audience),
     );
+    await adminAudit(tx, {
+      action: 'live_class.scheduled',
+      actorId: auth.userId,
+      entityType: 'live_class',
+      entityId: created.id,
+      data: {
+        scope,
+        courseId,
+        startsAt: created.startsAt.toISOString(),
+        durationMinutes: created.durationMinutes,
+        hostFacultyProfileId: created.hostFacultyProfileId,
+      },
+    });
     return { id: created.id, deliveries };
   });
 
@@ -534,6 +548,28 @@ async function updateSession(
       updated.durationMinutes !== current.durationMinutes ||
       updated.timeZone !== current.timeZone;
     const linkChanged = updated.joinUrl !== current.joinUrl && updated.joinUrl !== null;
+    const hostChanged = updated.hostFacultyProfileId !== current.hostFacultyProfileId;
+    if (scheduleChanged || hostChanged) {
+      await adminAudit(tx, {
+        action: 'live_class.rescheduled',
+        actorId: auth.userId,
+        entityType: 'live_class',
+        entityId: id,
+        data: {
+          scope,
+          from: {
+            startsAt: current.startsAt.toISOString(),
+            durationMinutes: current.durationMinutes,
+            hostFacultyProfileId: current.hostFacultyProfileId,
+          },
+          to: {
+            startsAt: updated.startsAt.toISOString(),
+            durationMinutes: updated.durationMinutes,
+            hostFacultyProfileId: updated.hostFacultyProfileId,
+          },
+        },
+      });
+    }
     const deliveries: string[] = [];
     if (scheduleChanged || linkChanged) {
       deliveries.push(
@@ -588,6 +624,13 @@ async function cancelSession(
     const deliveries = await notifyAudience(tx, row, auth.userId, (audience) =>
       liveClassEvents.cancelled(facts(row), audience),
     );
+    await adminAudit(tx, {
+      action: 'live_class.cancelled',
+      actorId: auth.userId,
+      entityType: 'live_class',
+      entityId: id,
+      data: { scope, courseId: row.courseId, startsAt: row.startsAt.toISOString() },
+    });
     return { cancelled: true, row, deliveries };
   });
   dispatchAfterCommit(result.deliveries);

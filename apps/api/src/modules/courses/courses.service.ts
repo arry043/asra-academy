@@ -27,6 +27,7 @@ import {
   toFacultyOption,
   toPublicationSnapshot,
 } from './courses.mappers.js';
+import { adminAudit } from '../admin/audit.js';
 import { createCoursesRepository } from './courses.repository.js';
 import { evaluatePublication } from './publication.js';
 
@@ -241,7 +242,12 @@ export const courseService = {
     });
   },
 
-  async setInstructors(id: string, input: CourseInstructorsInput): Promise<AdminCourseDetail> {
+  /** `actorId` is recorded in the admin audit log (PHASE 12) with the before/after assignment. */
+  async setInstructors(
+    id: string,
+    input: CourseInstructorsInput,
+    actorId: string | null = null,
+  ): Promise<AdminCourseDetail> {
     return prisma.$transaction(async (tx) => {
       await lockOrThrow(tx, id);
       const repo = createCoursesRepository(tx);
@@ -272,12 +278,31 @@ export const courseService = {
       await repo.instructors.replace(id, input.instructors);
       // Assignment changes are course edits: bump `updatedAt` for concurrency checks and lists.
       await repo.courses.update(id, { updatedAt: new Date() });
+      const before = current.instructors
+        .map((item) => ({ facultyProfileId: item.facultyProfile.id, isPrimary: item.isPrimary }))
+        .sort((a, b) => a.facultyProfileId.localeCompare(b.facultyProfileId));
+      const after = input.instructors
+        .map((item) => ({ facultyProfileId: item.facultyProfileId, isPrimary: item.isPrimary }))
+        .sort((a, b) => a.facultyProfileId.localeCompare(b.facultyProfileId));
+      if (JSON.stringify(before) !== JSON.stringify(after)) {
+        await adminAudit(tx, {
+          action: 'course.instructors_changed',
+          actorId,
+          entityType: 'course',
+          entityId: id,
+          data: { before, after },
+        });
+      }
       await coursePublicationGuard.assertStillPublishable(tx, id);
       return detail(tx, id);
     });
   },
 
-  async publish(id: string, input: CourseTransitionInput): Promise<AdminCourseDetail> {
+  async publish(
+    id: string,
+    input: CourseTransitionInput,
+    actorId: string | null = null,
+  ): Promise<AdminCourseDetail> {
     return prisma.$transaction(async (tx) => {
       await lockOrThrow(tx, id);
       const { row, check } = await checkPublication(tx, id);
@@ -296,34 +321,56 @@ export const courseService = {
         status: 'PUBLISHED',
         publishedAt: new Date(),
       });
+      await adminAudit(tx, {
+        action: 'course.published',
+        actorId,
+        entityType: 'course',
+        entityId: id,
+        data: { from: row.status, to: 'PUBLISHED' },
+      });
       return detail(tx, id);
     });
   },
 
-  async unpublish(id: string, input: CourseTransitionInput): Promise<AdminCourseDetail> {
+  async unpublish(
+    id: string,
+    input: CourseTransitionInput,
+    actorId: string | null = null,
+  ): Promise<AdminCourseDetail> {
     return transition(
       id,
       input,
+      { actorId, action: 'course.unpublished' },
       'PUBLISHED',
       { status: 'DRAFT', publishedAt: null },
       'Only published courses can be unpublished',
     );
   },
 
-  async archive(id: string, input: CourseTransitionInput): Promise<AdminCourseDetail> {
+  async archive(
+    id: string,
+    input: CourseTransitionInput,
+    actorId: string | null = null,
+  ): Promise<AdminCourseDetail> {
     return transition(
       id,
       input,
+      { actorId, action: 'course.archived' },
       'DRAFT',
       { status: 'ARCHIVED' },
       'Only draft courses can be archived. Unpublish it first.',
     );
   },
 
-  async restore(id: string, input: CourseTransitionInput): Promise<AdminCourseDetail> {
+  async restore(
+    id: string,
+    input: CourseTransitionInput,
+    actorId: string | null = null,
+  ): Promise<AdminCourseDetail> {
     return transition(
       id,
       input,
+      { actorId, action: 'course.restored' },
       'ARCHIVED',
       { status: 'DRAFT' },
       'Only archived courses can be restored',
@@ -368,6 +415,10 @@ export const courseService = {
 async function transition(
   id: string,
   input: CourseTransitionInput,
+  audit: {
+    actorId: string | null;
+    action: 'course.unpublished' | 'course.archived' | 'course.restored';
+  },
   from: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED',
   data: Prisma.CourseUncheckedUpdateInput,
   wrongStateMessage: string,
@@ -379,6 +430,13 @@ async function transition(
     assertFresh(current, input.expectedUpdatedAt);
     if (current.status !== from) throw new AppError('CONFLICT', wrongStateMessage);
     await repo.update(id, data);
+    await adminAudit(tx, {
+      action: audit.action,
+      actorId: audit.actorId,
+      entityType: 'course',
+      entityId: id,
+      data: { from, to: data.status as string },
+    });
     return detail(tx, id);
   });
 }

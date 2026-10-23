@@ -43,23 +43,43 @@ export const courseController = {
   },
   async setInstructors(req: Request, res: Response): Promise<void> {
     const body = req.body as CourseInstructorsInput;
-    sendSuccess(res, await courseService.setInstructors(id(req), body), 'Faculty assignment saved');
+    sendSuccess(
+      res,
+      await courseService.setInstructors(id(req), body, req.auth!.userId),
+      'Faculty assignment saved',
+    );
   },
   async publish(req: Request, res: Response): Promise<void> {
     const body = req.body as CourseTransitionInput;
-    sendSuccess(res, await courseService.publish(id(req), body), 'Course published');
+    sendSuccess(
+      res,
+      await courseService.publish(id(req), body, req.auth!.userId),
+      'Course published',
+    );
   },
   async unpublish(req: Request, res: Response): Promise<void> {
     const body = req.body as CourseTransitionInput;
-    sendSuccess(res, await courseService.unpublish(id(req), body), 'Course unpublished');
+    sendSuccess(
+      res,
+      await courseService.unpublish(id(req), body, req.auth!.userId),
+      'Course unpublished',
+    );
   },
   async archive(req: Request, res: Response): Promise<void> {
     const body = req.body as CourseTransitionInput;
-    sendSuccess(res, await courseService.archive(id(req), body), 'Course archived');
+    sendSuccess(
+      res,
+      await courseService.archive(id(req), body, req.auth!.userId),
+      'Course archived',
+    );
   },
   async restore(req: Request, res: Response): Promise<void> {
     const body = req.body as CourseTransitionInput;
-    sendSuccess(res, await courseService.restore(id(req), body), 'Course restored to draft');
+    sendSuccess(
+      res,
+      await courseService.restore(id(req), body, req.auth!.userId),
+      'Course restored to draft',
+    );
   },
   async facultyOptions(req: Request, res: Response): Promise<void> {
     sendSuccess(

@@ -10,3 +10,4 @@ export * from './faculty.js';
 export * from './assessment.js';
 export * from './payments.js';
 export * from './notifications.js';
+export * from './admin.js';
