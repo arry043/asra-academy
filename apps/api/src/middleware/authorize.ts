@@ -22,6 +22,20 @@ export function requireRole(...roles: [UserRole, ...UserRole[]]) {
   };
 }
 
+/**
+ * Allows the request if the user has ANY of the listed permissions — a coarse gate for routes
+ * whose exact permission depends on the resource (the service then checks the specific one).
+ */
+export function requireAnyPermission(...permissions: [PermissionKey, ...PermissionKey[]]) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.auth) throw new AppError('UNAUTHORIZED', 'Authentication required');
+    if (!permissions.some((permission) => req.auth?.permissions.has(permission))) {
+      throw new AppError('FORBIDDEN', 'You do not have permission to perform this action');
+    }
+    next();
+  };
+}
+
 /** Allows the request only if the user has ALL of the listed permissions. */
 export function requirePermission(...permissions: [PermissionKey, ...PermissionKey[]]) {
   return (req: Request, _res: Response, next: NextFunction): void => {

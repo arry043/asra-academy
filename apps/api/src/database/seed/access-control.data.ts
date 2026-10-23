@@ -28,6 +28,9 @@ export const PERMISSION_DEFINITIONS: Record<PermissionKey, string> = {
   [PERMISSIONS.PAYMENTS_MAKE_OWN]: 'Buy courses online and view own orders, payments and receipts',
   [PERMISSIONS.PAYMENTS_VIEW]: 'View orders, payments, refunds and revenue; reconcile payments',
   [PERMISSIONS.PAYMENTS_REFUND]: 'Issue refunds through the payment provider',
+  [PERMISSIONS.ANALYTICS_VIEW]: 'View the admin dashboard KPIs and analytics reports',
+  [PERMISSIONS.NOTIFICATIONS_VIEW]: 'Inspect notification and email delivery activity',
+  [PERMISSIONS.AUDIT_LOGS_VIEW]: 'Read the administrative, payment and assessment audit logs',
 };
 
 interface SystemRoleDefinition {
@@ -59,6 +62,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       PERMISSIONS.ENROLLMENTS_MANAGE,
       PERMISSIONS.LIVE_CLASSES_MANAGE,
       PERMISSIONS.PAYMENTS_VIEW,
+      PERMISSIONS.ANALYTICS_VIEW,
+      PERMISSIONS.NOTIFICATIONS_VIEW,
       PERMISSIONS.PROFILE_MANAGE_OWN,
     ],
   },

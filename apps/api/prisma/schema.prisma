@@ -145,8 +145,11 @@ model User {
   payments         Payment[]         @relation("PaymentStudent")
   refundsRequested Refund[]          @relation("RefundRequestedBy")
   paymentAuditLogs PaymentAuditLog[] @relation("PaymentAuditActor")
+  adminAuditLogs   AdminAuditLog[]   @relation("AdminAuditActor")
 
   @@index([status])
+  /// Student-growth analytics bucket accounts by creation time (PHASE 12).
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -658,6 +661,8 @@ model Enrollment {
   @@index([lastLessonId])
   @@index([enrolledById])
   @@index([orderId])
+  /// Enrolment analytics filter and bucket by activation time (PHASE 12).
+  @@index([enrolledAt])
   @@map("enrollments")
 }
 
@@ -1485,4 +1490,33 @@ model NotificationDelivery {
   @@unique([notificationId, channel])
   @@index([status, nextAttemptAt])
   @@map("notification_deliveries")
+}
+
+// =============================================================================
+// Administration (PHASE 12) — see docs/ADMIN-DASHBOARD.md §7
+// =============================================================================
+
+/// Append-only record of sensitive administrative actions that are not already covered by the
+/// payment and assessment audit logs: account status and role changes, course publication and
+/// faculty assignment, live-class scheduling/cancellation and manual enrolments. Written in the
+/// SAME transaction as the change it describes. No FK on the subject so history survives
+/// deletions; no secrets, passwords or tokens are ever stored in `data`.
+model AdminAuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// e.g. "user.status_changed", "user.role_granted", "course.published".
+  action     String   @db.VarChar(60)
+  /// The signed-in user who acted (SET NULL if that account is ever deleted).
+  actorId    String?  @map("actor_id") @db.Uuid
+  entityType String   @map("entity_type") @db.VarChar(40)
+  entityId   String   @map("entity_id") @db.Uuid
+  data       Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation("AdminAuditActor", fields: [actorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@map("admin_audit_logs")
 }

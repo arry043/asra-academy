@@ -17,6 +17,20 @@ Entry template:
 
 ## [Unreleased]
 
+### Added — PHASE 12 Admin Dashboard & Analytics (uncommitted, pending review)
+
+- Admin dashboard (`/admin`, `GET /api/v1/admin/dashboard`): database-backed KPIs (students, faculty, courses, enrolments, net revenue, upcoming live classes, work awaiting grading, examinations) with 30-day comparisons, permission-scoped overview lists and a "needs attention" panel. See [ADMIN-DASHBOARD.md](./ADMIN-DASHBOARD.md).
+- Analytics (`/admin/analytics/*`): student growth, enrolments (new vs active, by course/class/subject/source), popular courses, revenue (captured − processed refunds, per mode and currency), completion rate (ACTIVE-enrolment denominator), exam performance (evaluated attempts only; pending grading separate), faculty activity (operational counts). PostgreSQL aggregation, IST calendar days, validated date ranges (≤ 731 days). Dependency-free accessible charts with table views.
+- User administration: student/faculty/admin directories, account detail (enrolments with progress, orders, teaching), status changes and role grant/revoke with server-side escalation guards (no self-changes, subset-of-own-permissions rule, last active Super Admin protected). Read-only roles & permissions matrix.
+- Administrative audit log (`admin_audit_logs`) written in the same transaction for account status/roles, course publication and faculty assignment, live-class schedule/reschedule/cancel and manual enrolments; audit viewer over the admin, payment and assessment trails.
+- Cross-course lists: enrolments, assessments (assignments, quizzes, exams), email delivery activity.
+- Permissions `analytics.view`, `notifications.view` (Admin, Super Admin) and `audit_logs.view` (Super Admin) — run `npm run db:seed`. `requireAnyPermission` middleware.
+- Migration `20261023090000_phase12_admin_dashboard` (additive: audit table, `users(created_at)` and `enrollments(enrolled_at)` indexes). Tests: `admin-dashboard-phase12` (API), `admin-dashboard` (web). Client questions: CLIENT-CLARIFICATIONS §AF.
+
+### Changed — PHASE 12
+
+- Admin navigation regrouped (Dashboard, Users, Academic, Courses, Learning, Commerce, Communication, Settings); the old overview became the dashboard. Course transition, faculty-assignment, live-class and enrolment-cancel services accept the acting user for auditing; their behaviour is otherwise unchanged.
+
 ### Added — PHASE 11 Live Classes & Notifications (uncommitted, pending review)
 
 - Live classes: administrator management (`/admin/live-classes`, new permission `live_classes.manage` for Admin), host assignment restricted to the course's faculty, explicit time zone (IST), `COMPLETED` status, manual YouTube recording links (validated and normalised, shown only to enrolled students), student upcoming/past views with Join and Recording actions, per-course section. See [LIVE-CLASSES.md](./LIVE-CLASSES.md).

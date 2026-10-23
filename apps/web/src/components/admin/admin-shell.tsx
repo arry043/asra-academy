@@ -2,18 +2,28 @@
 
 import { PERMISSIONS } from '@asra/types';
 import {
+  BarChart3,
+  Bell,
   BookOpen,
+  ClipboardList,
   CreditCard,
   FolderTree,
   GraduationCap,
+  History,
+  KeyRound,
   Layers,
   LayoutDashboard,
   Loader2,
   LogOut,
+  Mail,
   MonitorPlay,
+  School,
   ShieldAlert,
+  ShieldCheck,
   Shapes,
   Split,
+  UserRoundCheck,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -24,7 +34,7 @@ import { NotificationBell } from '@/components/notifications/notification-bell';
 import { AdminLayout } from '@/components/layout/admin-layout';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import type { NavGroup } from '@/lib/navigation';
+import type { NavGroup, NavItem } from '@/lib/navigation';
 
 import { canUseAdminPortal, hasPermission } from './use-admin';
 
@@ -100,41 +110,121 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function buildNavigation(can: (permission: string) => boolean): NavGroup[] {
+/**
+ * Admin navigation (PHASE 12, docs/ADMIN-DASHBOARD.md §2). Each item appears only with the
+ * permission its API requires — a convenience, not a security boundary. Modules that do not exist
+ * yet (certificates, coupons, announcements, enquiries, blog) are not listed; see
+ * docs/CLIENT-CLARIFICATIONS.md AF.
+ */
+export function buildNavigation(can: (permission: string) => boolean): NavGroup[] {
   const groups: NavGroup[] = [
-    { items: [{ label: 'Overview', href: '/admin', icon: <LayoutDashboard />, exact: true }] },
+    {
+      items: [
+        { label: 'Dashboard', href: '/admin', icon: <LayoutDashboard />, exact: true },
+        ...(can(PERMISSIONS.ANALYTICS_VIEW)
+          ? [{ label: 'Analytics', href: '/admin/analytics', icon: <BarChart3 /> }]
+          : []),
+      ],
+    },
   ];
-  if (can(PERMISSIONS.COURSES_MANAGE)) {
-    groups.push({
+  const push = (label: string, items: (NavItem | false)[]) => {
+    const visible = items.filter((item): item is NavItem => item !== false);
+    if (visible.length > 0) groups.push({ label, items: visible });
+  };
+  push('Users', [
+    can(PERMISSIONS.STUDENTS_MANAGE) && {
+      label: 'Students',
+      href: '/admin/students',
+      icon: <GraduationCap />,
+    },
+    can(PERMISSIONS.FACULTY_MANAGE) && {
+      label: 'Faculty',
+      href: '/admin/faculty',
+      icon: <UserRoundCheck />,
+    },
+    can(PERMISSIONS.ADMINS_MANAGE) && {
+      label: 'Administrators',
+      href: '/admin/admins',
+      icon: <ShieldCheck />,
+    },
+  ]);
+  push('Academic', [
+    can(PERMISSIONS.ACADEMIC_STRUCTURE_MANAGE) && {
+      label: 'Academic levels',
+      href: '/admin/academic-levels',
+      icon: <Layers />,
+    },
+    can(PERMISSIONS.ACADEMIC_STRUCTURE_MANAGE) && {
+      label: 'Classes',
+      href: '/admin/classes',
+      icon: <School />,
+    },
+    can(PERMISSIONS.ACADEMIC_STRUCTURE_MANAGE) && {
+      label: 'Streams',
+      href: '/admin/streams',
+      icon: <Split />,
+    },
+    can(PERMISSIONS.ACADEMIC_STRUCTURE_MANAGE) && {
+      label: 'Subjects',
+      href: '/admin/subjects',
+      icon: <FolderTree />,
+    },
+  ]);
+  push('Courses', [
+    can(PERMISSIONS.COURSES_MANAGE) && {
       label: 'Courses',
-      items: [
-        { label: 'Courses', href: '/admin/courses', icon: <BookOpen /> },
-        { label: 'Course categories', href: '/admin/course-categories', icon: <Shapes /> },
-      ],
-    });
-  }
-  if (can(PERMISSIONS.LIVE_CLASSES_MANAGE)) {
-    groups.push({
-      label: 'Teaching',
-      items: [{ label: 'Live classes', href: '/admin/live-classes', icon: <MonitorPlay /> }],
-    });
-  }
-  if (can(PERMISSIONS.ACADEMIC_STRUCTURE_MANAGE)) {
-    groups.push({
-      label: 'Academic structure',
-      items: [
-        { label: 'Academic levels', href: '/admin/academic-levels', icon: <Layers /> },
-        { label: 'Classes', href: '/admin/classes', icon: <GraduationCap /> },
-        { label: 'Streams', href: '/admin/streams', icon: <Split /> },
-        { label: 'Subjects', href: '/admin/subjects', icon: <FolderTree /> },
-      ],
-    });
-  }
-  if (can(PERMISSIONS.PAYMENTS_VIEW)) {
-    groups.push({
-      label: 'Finance',
-      items: [{ label: 'Payments', href: '/admin/payments', icon: <CreditCard /> }],
-    });
-  }
+      href: '/admin/courses',
+      icon: <BookOpen />,
+    },
+    can(PERMISSIONS.COURSES_MANAGE) && {
+      label: 'Categories',
+      href: '/admin/course-categories',
+      icon: <Shapes />,
+    },
+  ]);
+  push('Learning', [
+    can(PERMISSIONS.LIVE_CLASSES_MANAGE) && {
+      label: 'Live classes',
+      href: '/admin/live-classes',
+      icon: <MonitorPlay />,
+    },
+    can(PERMISSIONS.CONTENT_MANAGE) && {
+      label: 'Assessments',
+      href: '/admin/assessments',
+      icon: <ClipboardList />,
+    },
+  ]);
+  push('Commerce', [
+    can(PERMISSIONS.PAYMENTS_VIEW) && {
+      label: 'Orders & payments',
+      href: '/admin/payments',
+      icon: <CreditCard />,
+    },
+    can(PERMISSIONS.ENROLLMENTS_MANAGE) && {
+      label: 'Enrolments',
+      href: '/admin/enrollments',
+      icon: <Users />,
+    },
+  ]);
+  push('Communication', [
+    { label: 'My notifications', href: '/admin/notifications', icon: <Bell /> },
+    can(PERMISSIONS.NOTIFICATIONS_VIEW) && {
+      label: 'Email delivery',
+      href: '/admin/email-deliveries',
+      icon: <Mail />,
+    },
+  ]);
+  push('Settings', [
+    can(PERMISSIONS.ROLES_MANAGE) && {
+      label: 'Roles & permissions',
+      href: '/admin/roles',
+      icon: <KeyRound />,
+    },
+    can(PERMISSIONS.AUDIT_LOGS_VIEW) && {
+      label: 'Audit logs',
+      href: '/admin/audit-logs',
+      icon: <History />,
+    },
+  ]);
   return groups;
 }

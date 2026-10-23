@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
 import { academicsAdminRouter } from '../modules/academics/academics.routes.js';
+import { adminPortalRouter } from '../modules/admin/admin.routes.js';
 import { coursesAdminRouter, publicCoursesRouter } from '../modules/courses/courses.routes.js';
 import { curriculumAdminRouter } from '../modules/curriculum/curriculum.routes.js';
 import { enrollmentsAdminRouter } from '../modules/enrollments/enrollments.routes.js';
@@ -39,6 +40,8 @@ adminRouter.use(enrollmentsAdminRouter);
 adminRouter.use(paymentsAdminRouter);
 // Live classes of any course (PHASE 11): `live_classes.manage`.
 adminRouter.use(liveClassesAdminRouter);
+// Dashboard, analytics, users & roles, audit logs and operational lists (PHASE 12).
+adminRouter.use(adminPortalRouter);
 apiRouter.use('/admin', adminRouter);
 
 /** In-app notifications of the signed-in user, any role (PHASE 11). */

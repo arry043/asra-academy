@@ -50,6 +50,10 @@ enrollmentsAdminRouter.post(
   allowed,
   validateRequest({ params: idParamsSchema }),
   async (req: Request, res: Response) => {
-    sendSuccess(res, await enrollmentsService.cancel(id(req)), 'Enrolment cancelled');
+    sendSuccess(
+      res,
+      await enrollmentsService.cancel(id(req), req.auth!.userId),
+      'Enrolment cancelled',
+    );
   },
 );

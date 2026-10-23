@@ -5,6 +5,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import type { AuthContext } from '../../types/auth.js';
 import { AppError, fieldError } from '../../utils/app-error.js';
 import { pageArgs, paginated } from '../../utils/pagination.js';
+import { adminAudit } from '../admin/audit.js';
 import { dispatchAfterCommit } from '../notifications/dispatcher.js';
 import { notificationProducers } from '../notifications/producers.js';
 import { calculateCourseProgress } from '../student/progress.js';
@@ -142,6 +143,14 @@ export const enrollmentsService = {
         throw fieldError('CONFLICT', 'email', 'This student is already enrolled.');
       }
       const now = new Date();
+      const audit = (enrollmentId: string) =>
+        adminAudit(tx, {
+          action: 'enrollment.created_by_admin',
+          actorId: auth.userId,
+          entityType: 'enrollment',
+          entityId: enrollmentId,
+          data: { courseId, studentId: student.id, reactivated: Boolean(existing) },
+        });
       if (existing) {
         await tx.enrollment.update({
           where: { id: existing.id },
@@ -153,6 +162,7 @@ export const enrollmentsService = {
             cancelledAt: null,
           },
         });
+        await audit(existing.id);
         // PHASE 11: the student hears about it once the ACTIVE enrolment commits.
         return {
           id: existing.id,
@@ -170,6 +180,7 @@ export const enrollmentsService = {
         },
         select: { id: true },
       });
+      await audit(created.id);
       return {
         id: created.id,
         deliveries: await notificationProducers.enrollmentActivated(tx, created.id),
@@ -183,8 +194,8 @@ export const enrollmentsService = {
     return (await toDtos(courseId, [row]))[0]!;
   },
 
-  /** Cancels access immediately. Progress records are kept for history. */
-  async cancel(id: string): Promise<AdminEnrollmentDto> {
+  /** Cancels access immediately. Progress records are kept for history (audited, PHASE 12). */
+  async cancel(id: string, actorId: string | null = null): Promise<AdminEnrollmentDto> {
     const updated = await prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<{ id: string }[]>`
         SELECT "id" FROM "enrollments" WHERE "id" = ${id}::uuid FOR UPDATE`;
@@ -196,11 +207,19 @@ export const enrollmentsService = {
       if (current.status === 'CANCELLED') {
         throw new AppError('CONFLICT', 'This enrolment is already cancelled.');
       }
-      return tx.enrollment.update({
+      const row = await tx.enrollment.update({
         where: { id },
         data: { status: 'CANCELLED', cancelledAt: new Date() },
         select: adminEnrollmentSelect,
       });
+      await adminAudit(tx, {
+        action: 'enrollment.cancelled_by_admin',
+        actorId,
+        entityType: 'enrollment',
+        entityId: id,
+        data: { courseId: row.courseId },
+      });
+      return row;
     });
     return (await toDtos(updated.courseId, [updated]))[0]!;
   },

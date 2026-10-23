@@ -51,6 +51,12 @@ export const PERMISSIONS = {
   PAYMENTS_VIEW: 'payments.view',
   /** Issue refunds through the payment provider (PHASE 10; S-02 pending → Super Admin only). */
   PAYMENTS_REFUND: 'payments.refund',
+  /** Dashboard KPIs and analytics reports (PHASE 12; S-03 pending — reports listed there). */
+  ANALYTICS_VIEW: 'analytics.view',
+  /** Inspect notification delivery activity of all users (PHASE 12). */
+  NOTIFICATIONS_VIEW: 'notifications.view',
+  /** Read the administrative, payment and assessment audit trails (PHASE 12; Super Admin only). */
+  AUDIT_LOGS_VIEW: 'audit_logs.view',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

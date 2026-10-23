@@ -86,6 +86,7 @@ This document covers the data model, its conventions and constraints, and how to
 | `Refund`                        | `refunds`                                             | Phase 10: a (partial) refund of a captured payment; payment row never rewritten        |
 | `PaymentWebhookEvent`           | `payment_webhook_events`                              | Phase 10: received webhooks, deduplicated by event id, with processing state           |
 | `PaymentAuditLog`               | `payment_audit_logs`                                  | Phase 10: append-only audit of financial events and administrator actions              |
+| `AdminAuditLog`                 | `admin_audit_logs`                                    | Phase 12: append-only audit of account, role, course, live-class and enrolment actions |
 
 ### Why the two additional models
 
@@ -299,12 +300,20 @@ Foreign keys: orders, payments and refunds are RESTRICT towards users, courses a
 | `notification_deliveries` | `notification_deliveries_claim_consistent`      | `claimed_at` set exactly when `SENDING`                      |
 | `notification_deliveries` | `notification_deliveries_attempts_non_negative` | `attempts >= 0`                                              |
 
+### 4.2.8 Phase 12 constraints (`20261023090000_phase12_admin_dashboard`)
+
+| Table              | Constraint                            | Rule                                                   |
+| ------------------ | ------------------------------------- | ------------------------------------------------------ |
+| `admin_audit_logs` | `admin_audit_logs_action_format`      | `action` is `family.action` (e.g. `user.role_granted`) |
+| `admin_audit_logs` | `admin_audit_logs_entity_type_format` | `entity_type` is lower-case `snake_case`               |
+
 ### 4.3 Indexes
 
 Besides the unique indexes above, there are B-tree indexes on:
 
 - every foreign key not already covered by a unique or composite index (`user_roles.role_id`, `role_permissions.permission_id`, `student_profiles.class_id`/`stream_id`, `course_instructors.faculty_profile_id`, `courses.category_id`/`stream_id`/`subject_id`, and `(class_id, subject_id)`);
-- the main listing filters: `users.status`, `courses(status, published_at)`, `lessons.status`, `faculty_profiles.is_public`, `classes.grade_number`, and `(is_active, sort_order)` on catalogue tables.
+- the main listing filters: `users.status`, `courses(status, published_at)`, `lessons.status`, `faculty_profiles.is_public`, `classes.grade_number`, and `(is_active, sort_order)` on catalogue tables;
+- Phase 12 analytics time series: `users.created_at` (student registrations) and `enrollments.enrolled_at` (new enrolments); `admin_audit_logs` on `created_at`, `(action, created_at)`, `(entity_type, entity_id, created_at)` and `actor_id` for the audit viewer. Payment analytics reuse the Phase 10 `(status, mode, captured_at)` index.
 
 ## 5. Connections: local vs. Neon
 
@@ -414,8 +423,15 @@ Nothing resets the database automatically: not `npm run dev`, not API startup, a
 | `enrollments.manage`           | Phase 07 (manual enrolment) |      ✓      |   ✓   |         |         |
 | `content.view_enrolled`        | FR-RBAC-004                 |      ✓      |       |         |    ✓    |
 | `profile.manage_own`           | FR-STU-008                  |      ✓      |   ✓   |    ✓    |    ✓    |
+| `payments.make_own`            | Phase 10                    |      ✓      |       |         |    ✓    |
+| `payments.view`                | Phase 10                    |      ✓      |   ✓   |         |         |
+| `payments.refund`              | Phase 10 (AD-03)            |      ✓      |       |         |         |
+| `live_classes.manage`          | Phase 11                    |      ✓      |   ✓   |         |         |
+| `analytics.view`               | Phase 12 (S-03)             |      ✓      |   ✓   |         |         |
+| `notifications.view`           | Phase 12                    |      ✓      |   ✓   |         |         |
+| `audit_logs.view`              | Phase 12 (AF-03)            |      ✓      |       |         |         |
 
-Permission keys are shared with the web app as `PERMISSIONS` in `@asra/types`. Permissions for later modules (payments, assessments, certificates, notifications and reports) will be added in their phases. Because the seed is additive, run `npm run db:seed` once on existing databases to grant `enrollments.manage` (Phase 07) and the three faculty permissions (Phase 08). The `*_assigned` permissions always also require a `CourseInstructor` assignment (FACULTY-PORTAL.md §2).
+Permission keys are shared with the web app as `PERMISSIONS` in `@asra/types`. Permissions for later modules (payments, assessments, certificates, notifications and reports) will be added in their phases. Because the seed is additive, run `npm run db:seed` once on existing databases to grant `enrollments.manage` (Phase 07), the three faculty permissions (Phase 08) and the Phase 12 permissions `analytics.view`, `notifications.view` and `audit_logs.view` — the admin dashboard returns 403 until this is done. The `*_assigned` permissions always also require a `CourseInstructor` assignment (FACULTY-PORTAL.md §2).
 
 Properties:
 
