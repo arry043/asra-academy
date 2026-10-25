@@ -13,7 +13,7 @@ import { useAuth } from '@/components/auth/auth-provider';
 export { errorMessage, useApiResource } from '@/components/admin/use-admin';
 
 export function useStudentApi() {
-  const { authorizedRequest } = useAuth();
+  const { authorizedRequest, authorizedDownload } = useAuth();
   return React.useMemo(
     () => ({
       get: <T>(path: string) => authorizedRequest<T>(path),
@@ -23,8 +23,9 @@ export function useStudentApi() {
       patch: <T>(path: string, body: unknown) =>
         authorizedRequest<T>(path, { method: 'PATCH', body }),
       del: <T>(path: string) => authorizedRequest<T>(path, { method: 'DELETE' }),
+      download: (path: string) => authorizedDownload(path),
     }),
-    [authorizedRequest],
+    [authorizedRequest, authorizedDownload],
   );
 }
 

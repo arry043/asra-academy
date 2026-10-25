@@ -81,3 +81,10 @@ export const NOTIFICATION_FANOUT_BATCH = 500;
 export const GOOGLE_API_TIMEOUT_MS = 10_000;
 /** A meeting-creation claim older than this was left by a crashed process (retry allowed). */
 export const MEETING_CLAIM_LEASE_MS = 2 * 60_000;
+
+// --- Certificates (PHASE 13) ----------------------------------------------------------------
+
+/** Per-IP limits for public certificate verification endpoint (fixed 1-minute window). */
+export const CERTIFICATE_RATE_LIMITS = {
+  verify: { windowMinutes: 1, limit: 60 },
+} as const;

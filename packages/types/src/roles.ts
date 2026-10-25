@@ -57,6 +57,10 @@ export const PERMISSIONS = {
   NOTIFICATIONS_VIEW: 'notifications.view',
   /** Read the administrative, payment and assessment audit trails (PHASE 12; Super Admin only). */
   AUDIT_LOGS_VIEW: 'audit_logs.view',
+  /** View certificates and public verification records (PHASE 13). */
+  CERTIFICATES_VIEW: 'certificates.view',
+  /** Manage certificates, generate and revoke certificates (PHASE 13). */
+  CERTIFICATES_MANAGE: 'certificates.manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

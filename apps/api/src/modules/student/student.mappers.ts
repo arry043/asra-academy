@@ -275,9 +275,8 @@ const STATIC_FEATURES: Omit<StudentFeatures, 'payments'> = {
       'Assignment marks and feedback, quiz scores and exam results appear here once they are released.',
   },
   certificates: {
-    available: false,
-    message:
-      'Certificates are not issued online yet. Completed courses are listed here so you can track them.',
+    available: true,
+    message: 'Earn and download verified certificates of completion for your completed courses.',
   },
 };
 

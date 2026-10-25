@@ -35,6 +35,7 @@ import { withoutUndefined } from '../../utils/object.js';
 import { pageArgs, paginated } from '../../utils/pagination.js';
 import { dispatchAfterCommit } from '../notifications/dispatcher.js';
 import { notificationProducers } from '../notifications/producers.js';
+import { certificatesService } from '../certificates/certificates.service.js';
 import {
   calculateCourseProgress,
   countsTowardProgress,
@@ -179,7 +180,7 @@ async function recordLearningAction(
     now: Date,
   ) => Promise<Awaited<ReturnType<StudentRepository['progress']['update']>>>,
 ): Promise<LessonProgressUpdateDto> {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const { lesson, courseId, enrollment } = await requireAccessibleLesson(auth, lessonId, tx);
     const repo = repoFor(tx);
     const now = new Date();
@@ -194,12 +195,20 @@ async function recordLearningAction(
       enrollment.completedAt,
     );
     let course = progress;
+    let newlyCompleted = false;
     if (enrollment.completedAt === null && isCourseComplete(progress)) {
       await repo.enrollments.markCompleted(enrollment.id, now);
       course = { ...progress, completedAt: now.toISOString() };
+      newlyCompleted = true;
     }
-    return { lessonId, progress: toProgressDto(updated), course };
+    return { lessonId, progress: toProgressDto(updated), course, courseId, newlyCompleted };
   });
+
+  if (result.newlyCompleted) {
+    void certificatesService.issueCertificate(auth, result.courseId).catch(() => {});
+  }
+
+  return { lessonId: result.lessonId, progress: result.progress, course: result.course };
 }
 
 // --- Service --------------------------------------------------------------------------------

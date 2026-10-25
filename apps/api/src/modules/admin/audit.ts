@@ -29,9 +29,11 @@ export type AdminAuditAction =
   | 'live_class.rescheduled'
   | 'live_class.cancelled'
   | 'enrollment.created_by_admin'
-  | 'enrollment.cancelled_by_admin';
+  | 'enrollment.cancelled_by_admin'
+  | 'certificate.issued_by_admin'
+  | 'certificate.revoked_by_admin';
 
-export type AdminAuditEntity = 'user' | 'course' | 'live_class' | 'enrollment';
+export type AdminAuditEntity = 'user' | 'course' | 'live_class' | 'enrollment' | 'certificate';
 
 export async function adminAudit(
   db: DbClient,

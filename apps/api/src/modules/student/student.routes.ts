@@ -20,6 +20,7 @@ import { assessmentRateLimit } from '../../middleware/rate-limit.js';
 import { validateRequest } from '../../middleware/validate-request.js';
 import { idParamsSchema } from '../../validators/common.validators.js';
 import { studentAssessmentController as a } from '../assessments/assessments.controller.js';
+import { studentCertificatesRouter } from '../certificates/certificates.routes.js';
 import { studentPaymentsRouter } from '../payments/payments.routes.js';
 import { studentController as c } from './student.controller.js';
 
@@ -138,3 +139,6 @@ r.patch('/profile', own, validateRequest({ body: studentProfileUpdateSchema }), 
 // Checkout, orders, payment history and receipts (PHASE 10, docs/PAYMENTS.md §14). Each route
 // requires `payments.make_own`; every order is scoped to `req.auth.userId`.
 r.use(studentPaymentsRouter);
+
+// Certificates & eligibility (PHASE 13, docs/CERTIFICATE-SYSTEM.md).
+r.use(studentCertificatesRouter);

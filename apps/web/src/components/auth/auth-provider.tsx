@@ -5,6 +5,7 @@ import type { LoginInput } from '@asra/validation';
 import * as React from 'react';
 import { ApiClientError, apiRequest, type ApiRequestOptions } from '@/lib/api';
 import { authApi } from '@/lib/auth/auth-api';
+import { publicEnv } from '@/lib/env';
 
 type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 
@@ -19,6 +20,8 @@ interface AuthContextValue {
     path: string,
     options?: Omit<ApiRequestOptions, 'accessToken'>,
   ) => Promise<T>;
+  /** Downloads a binary asset from a protected endpoint with authentication. */
+  authorizedDownload: (path: string) => Promise<Blob>;
 }
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
@@ -134,6 +137,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
           return apiRequest<T>(path, { ...options, accessToken: renewed.accessToken });
         }
+      },
+      async authorizedDownload(path: string): Promise<Blob> {
+        let token = accessToken.current ?? (await refresh())?.accessToken;
+        if (!token) throw new ApiClientError(401, 'UNAUTHORIZED', 'Please sign in to continue.');
+        const url = `${publicEnv.NEXT_PUBLIC_API_URL}${path}`;
+        let res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+        if (res.status === 401) {
+          const renewed = await refresh();
+          if (!renewed) {
+            throw new ApiClientError(
+              401,
+              'UNAUTHORIZED',
+              'Your session has expired. Please sign in again.',
+            );
+          }
+          token = renewed.accessToken;
+          res = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` },
+            credentials: 'include',
+          });
+        }
+        if (!res.ok) {
+          throw new ApiClientError(res.status, 'BAD_REQUEST', 'Failed to download file.');
+        }
+        return res.blob();
       },
     }),
     [status, user, applySession, clearSession, refresh],

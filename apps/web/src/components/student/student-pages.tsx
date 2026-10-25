@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  CertificateDto,
   LearningHistoryItem,
   LiveClassDto,
   LessonContentType,
@@ -16,6 +17,8 @@ import {
   Award,
   CheckCircle2,
   CreditCard,
+  Download,
+  ExternalLink,
   FileQuestion,
   GraduationCap,
   History,
@@ -579,9 +582,31 @@ export function ProgressPage() {
   );
 }
 
-/** Completed courses; no certificate is generated until the certificate system exists. */
+/** Official certificates earned upon course completion (PHASE 13). */
 export function CertificatesPage() {
   const features = useFeatures();
+  const api = useStudentApi();
+  const [downloadingId, setDownloadingId] = React.useState<string | null>(null);
+
+  const handleDownload = async (cert: CertificateDto) => {
+    try {
+      setDownloadingId(cert.id);
+      const blob = await api.download(`/api/v1/student/certificates/${cert.id}/download`);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ASRA-Certificate-${cert.certificateNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert('Unable to download certificate at this time. Please try again.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -589,33 +614,67 @@ export function CertificatesPage() {
         breadcrumbs={[home, { label: 'Certificates' }]}
         description={features.data?.certificates.message}
       />
-      <PagedList<StudentEnrollmentRecord>
-        path="/student/enrollments"
-        extra={{ completed: 'true' }}
-        label="completed courses"
+      <PagedList<CertificateDto>
+        path="/student/certificates"
+        label="certificates"
         empty={
           <EmptyState
             icon={<Award />}
-            title="No certificates"
-            description="No certificate has been issued to you. Completed courses will be listed here."
+            title="No certificates earned yet"
+            description="When you complete all lessons and pass the required assessments for an enrolled course, your official certificate will appear here."
           />
         }
       >
         {(items) => (
-          <ul className="grid gap-3">
-            {items.map((item) => (
-              <li key={item.enrollment.id}>
-                <Card className="gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="grid gap-1">
-                    <h2 className="type-h4 text-heading">{item.course.title}</h2>
-                    <span className="type-caption text-muted-foreground">
-                      All lessons completed on {formatDate(item.completedAt)}
-                    </span>
-                  </div>
-                  <Badge variant="secondary">No certificate issued</Badge>
-                </Card>
-              </li>
-            ))}
+          <ul className="grid gap-4">
+            {items.map((item) => {
+              const isIssued = item.status === 'ISSUED';
+              return (
+                <li key={item.id}>
+                  <Card className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="type-h4 font-semibold text-heading">{item.courseTitle}</h2>
+                        {isIssued ? (
+                          <Badge
+                            variant="outline"
+                            className="border-emerald-300 bg-emerald-50 font-medium text-emerald-700"
+                          >
+                            Verified Credential
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive">Revoked</Badge>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                        <span>Completed: {formatDate(item.completedAt)}</span>
+                        <span>Issued: {formatDate(item.issuedAt)}</span>
+                        <span className="flex items-center gap-1 rounded border bg-muted px-2 py-0.5 font-mono text-xs">
+                          ID: {item.certificateNumber}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-2 md:pt-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={downloadingId === item.id}
+                        onClick={() => void handleDownload(item)}
+                      >
+                        <Download className="mr-1.5 h-4 w-4" />
+                        {downloadingId === item.id ? 'Downloading...' : 'Download PDF'}
+                      </Button>
+                      <Button size="sm" variant="ghost" asChild>
+                        <Link href={`/verify/${item.certificateNumber}`} target="_blank">
+                          <ExternalLink className="mr-1.5 h-4 w-4" />
+                          Verify
+                        </Link>
+                      </Button>
+                    </div>
+                  </Card>
+                </li>
+              );
+            })}
           </ul>
         )}
       </PagedList>

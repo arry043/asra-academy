@@ -27,6 +27,8 @@ export const ADMIN_PERMISSIONS = [
   PERMISSIONS.NOTIFICATIONS_VIEW,
   PERMISSIONS.ROLES_MANAGE,
   PERMISSIONS.AUDIT_LOGS_VIEW,
+  PERMISSIONS.CERTIFICATES_VIEW,
+  PERMISSIONS.CERTIFICATES_MANAGE,
 ] as const;
 
 export function hasPermission(user: AuthUser | null, permission: string): boolean {
@@ -39,7 +41,7 @@ export function canUseAdminPortal(user: AuthUser | null): boolean {
 }
 
 export function useAdminApi() {
-  const { authorizedRequest } = useAuth();
+  const { authorizedRequest, authorizedDownload } = useAuth();
   return React.useMemo(() => {
     const send =
       (method: NonNullable<ApiRequestOptions['method']>) =>
@@ -51,8 +53,9 @@ export function useAdminApi() {
       patch: send('PATCH'),
       put: send('PUT'),
       del: send('DELETE'),
+      download: (path: string) => authorizedDownload(path),
     };
-  }, [authorizedRequest]);
+  }, [authorizedRequest, authorizedDownload]);
 }
 
 export type AdminApi = ReturnType<typeof useAdminApi>;

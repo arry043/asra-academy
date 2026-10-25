@@ -100,6 +100,14 @@ enum ResourceType {
   @@map("resource_type")
 }
 
+/// Lifecycle status of a certificate (PHASE 13).
+enum CertificateStatus {
+  ISSUED
+  REVOKED
+
+  @@map("certificate_status")
+}
+
 // =============================================================================
 // Identity & access control
 // =============================================================================
@@ -146,6 +154,8 @@ model User {
   refundsRequested Refund[]          @relation("RefundRequestedBy")
   paymentAuditLogs PaymentAuditLog[] @relation("PaymentAuditActor")
   adminAuditLogs   AdminAuditLog[]   @relation("AdminAuditActor")
+  certificates       Certificate[]     @relation("CertificateStudent")
+  certificatesIssued Certificate[]     @relation("CertificateIssuedBy")
 
   @@index([status])
   /// Student-growth analytics bucket accounts by creation time (PHASE 12).
@@ -479,6 +489,7 @@ model Course {
   liveClasses  LiveClassSession[]
   examinations Examination[]
   orders       Order[]
+  certificates Certificate[]
 
   @@index([status, publishedAt])
   @@index([status, visibility])
@@ -654,6 +665,7 @@ model Enrollment {
   enrolledBy User?   @relation("EnrollmentEnrolledBy", fields: [enrolledById], references: [id], onDelete: SetNull, onUpdate: Cascade)
   lastLesson Lesson? @relation(fields: [lastLessonId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   order      Order?  @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  certificate Certificate?
 
   @@unique([userId, courseId])
   @@index([userId, status, lastActivityAt])
@@ -1519,4 +1531,46 @@ model AdminAuditLog {
   @@index([createdAt])
   @@index([action, createdAt])
   @@map("admin_audit_logs")
+}
+
+// =============================================================================
+// Certificate System (PHASE 13) — see docs/CERTIFICATE-SYSTEM.md
+// =============================================================================
+
+/// A durable, verifiable credential issued upon successful course completion.
+/// One certificate per qualifying enrollment (enforced via unique enrollmentId).
+model Certificate {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Unique public credential code, e.g. "ASRA-2026-XXXX-XXXX" (CHECK `certificates_certificate_number_format`).
+  certificateNumber String            @unique @map("certificate_number") @db.VarChar(50)
+  enrollmentId      String            @unique @map("enrollment_id") @db.Uuid
+  userId            String            @map("user_id") @db.Uuid
+  courseId          String            @map("course_id") @db.Uuid
+  /// Recipient's full name at the time of issue (frozen snapshot for audit and printing).
+  recipientName     String            @map("recipient_name") @db.VarChar(150)
+  /// Course title at the time of issue (frozen snapshot).
+  courseTitle       String            @map("course_title") @db.VarChar(200)
+  /// Historical completion date recorded on the qualifying enrolment.
+  completedAt       DateTime          @map("completed_at") @db.Timestamptz(3)
+  /// Timestamp when the certificate was issued.
+  issuedAt          DateTime          @default(now()) @map("issued_at") @db.Timestamptz(3)
+  status            CertificateStatus @default(ISSUED)
+  revokedAt         DateTime?         @map("revoked_at") @db.Timestamptz(3)
+  revokedReason     String?           @map("revoked_reason") @db.VarChar(500)
+  metadata          Json?
+  /// Administrator who issued or re-issued this certificate (null if issued automatically by LMS).
+  issuedById        String?           @map("issued_by_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user       User       @relation("CertificateStudent", fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  course     Course     @relation(fields: [courseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  issuedBy   User?      @relation("CertificateIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId, status, issuedAt])
+  @@index([courseId, status])
+  @@index([status, issuedAt])
+  @@index([issuedById])
+  @@map("certificates")
 }

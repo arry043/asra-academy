@@ -48,6 +48,7 @@ const ACTION_LABELS: Record<string, string> = {
   examination: 'View the exam',
   result: 'View your results',
   payment: 'View your payments',
+  certificate: 'View your certificate',
 };
 
 const absolute = (path: string) => new URL(path, env.NEXT_PUBLIC_APP_URL).toString();

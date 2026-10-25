@@ -216,9 +216,15 @@ export const refundsService = {
     } catch (error) {
       // A concurrent identical request (same idempotency key) won the insert.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        const winner = await prisma.refund.findUnique({
+        let winner = await prisma.refund.findUnique({
           where: { idempotencyKey: input.idempotencyKey },
         });
+        for (let i = 0; i < 15 && winner?.status === 'REQUESTED'; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          winner = await prisma.refund.findUnique({
+            where: { idempotencyKey: input.idempotencyKey },
+          });
+        }
         if (winner) return refundDto(winner.id);
       }
       throw error;
