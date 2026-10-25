@@ -382,3 +382,6 @@ Hosting targets for web and API are pending (CLIENT-CLARIFICATIONS §W).
 | ADR-027 | Lesson resources are HTTPS references only until a storage provider exists; stored-object locations refused (R-01)                  | Accepted |
 | ADR-028 | Admin data hooks over `authorizedRequest` instead of TanStack Query (not yet approved); explicit up/down reordering, no DnD library | Accepted |
 | ADR-029 | `/courses` and `/courses/[slug]` render per request (`no-store`, `force-dynamic`) — supersedes the static catalogue part of ADR-021 | Accepted |
+| ADR-030 | API responses default to `Cache-Control: no-store`; only the anonymous public catalogue opts into `s-maxage=60`                     | Accepted |
+| ADR-031 | Web CSP without nonces in `next.config.ts` (static prerendering kept); allow-list: API, Razorpay, video embeds                      | Accepted |
+| ADR-032 | Sitemap lists published PUBLIC courses (`GET /api/v1/sitemap/courses`, hourly ISR); indexing needs a production URL                 | Accepted |

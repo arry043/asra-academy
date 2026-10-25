@@ -1,3 +1,6 @@
+// Must stay first: configures Zod before any schema below is constructed.
+import './zod-config.js';
+
 export * from './academics.js';
 export * from './auth.js';
 export * from './common.js';

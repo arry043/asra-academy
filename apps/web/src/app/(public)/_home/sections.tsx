@@ -87,7 +87,9 @@ export function HomeHero() {
               height={logo.full.height}
               alt={logo.alt}
               priority
-              sizes="(min-width: 640px) 18rem, 60vw"
+              // 3/5 of the card's content box: (24rem − 5rem) × 0.6 ≈ 11.4rem on phones,
+              // (28rem − 7rem) × 0.6 ≈ 12.6rem from sm up.
+              sizes="(min-width: 640px) 13rem, 12rem"
               className="h-auto w-3/5"
             />
           </div>

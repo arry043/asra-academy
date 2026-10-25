@@ -43,6 +43,14 @@ export function createApp(): Express {
       maxAge: 600,
     }),
   );
+  // Default-deny caching (PHASE 14): nothing the API returns may be stored by a browser or shared
+  // cache unless its route opts in explicitly after success — only the anonymous public catalogue
+  // does (PUBLIC_CATALOGUE_CACHE_CONTROL). Personal data can't leak through a CDN because a new
+  // route forgot its header. Routers that already set `no-store` keep doing so.
+  app.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use(cookieParser());
   // Payment webhooks need the RAW body for signature verification (docs/PAYMENTS.md §7), so they
   // are mounted before the JSON parser, which would otherwise consume and transform it.

@@ -254,6 +254,15 @@ export interface PublicCourseSummary {
   publishedAt: string;
 }
 
+/**
+ * One entry of `GET /api/v1/sitemap/courses` (PHASE 14): a published, PUBLIC course URL for the
+ * website's sitemap. Slug and last-modified time only — nothing else about the course.
+ */
+export interface PublicSitemapCourse {
+  slug: string;
+  updatedAt: string;
+}
+
 export interface PublicLessonOutline {
   title: string;
   contentType: LessonContentType;

@@ -36,6 +36,9 @@ export function Footer({ columns = [], legalLinks = [], className }: FooterProps
             width={siteConfig.logo.full.width}
             height={siteConfig.logo.full.height}
             alt={siteConfig.logo.alt}
+            // Rendered at w-28 (7rem). Without `sizes` the 1007px intrinsic width produced a
+            // 1x/2x srcset and phones fetched the 2048px variant (~160 KB) on every page.
+            sizes="7rem"
             className="h-auto w-28"
           />
           <p className="max-w-xs type-body-sm text-muted-foreground">{siteConfig.description}</p>

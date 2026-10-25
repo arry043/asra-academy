@@ -22,6 +22,9 @@ export function BrandMark({
   return (
     <Link
       href={href}
+      // The text may be hidden on small portal headers, leaving only the decorative emblem; the
+      // label keeps the link named (it starts with the visible text, so label-in-name holds).
+      aria-label={siteConfig.name}
       className={cn(
         'inline-flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
         className,

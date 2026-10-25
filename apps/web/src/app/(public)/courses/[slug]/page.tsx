@@ -50,6 +50,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     path: `/courses/${course.slug}`,
     // Unlisted courses are reachable by link only and must stay out of search results.
     noIndex: course.visibility === 'UNLISTED',
+    // The administrator-supplied cover (HTTPS only) is the share image when there is one.
+    ...(course.thumbnailUrl
+      ? { image: { url: course.thumbnailUrl, alt: `${course.title} cover image` } }
+      : {}),
   });
 }
 

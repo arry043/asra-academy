@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 
 /**
- * Crockford Base32 alphabet excluding easily confused characters (0, O, 1, I, L).
- * 32 characters = 5 bits per character. 8 characters = 40 bits of entropy (~1.1 trillion per year).
+ * Base32-style alphabet excluding easily confused characters (0, O, 1, I, L, U): 30 symbols,
+ * ~4.9 bits per character. 8 characters ≈ 39 bits (30^8 ≈ 6.6 × 10^11 numbers per year).
  */
 const CROCKFORD_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
 
@@ -17,12 +17,11 @@ export const CERTIFICATE_NUMBER_REGEX =
  * Example: ASRA-2026-F9KC-M28V
  */
 export function generateCertificateNumber(year = new Date().getUTCFullYear()): string {
-  const bytes = crypto.randomBytes(8);
   let randomPart = '';
 
+  // randomInt is uniform (rejection sampling); `byte % 30` would favour the first 16 symbols.
   for (let i = 0; i < 8; i++) {
-    const index = bytes[i]! % CROCKFORD_ALPHABET.length;
-    randomPart += CROCKFORD_ALPHABET[index];
+    randomPart += CROCKFORD_ALPHABET[crypto.randomInt(CROCKFORD_ALPHABET.length)];
   }
 
   const segment1 = randomPart.slice(0, 4);
