@@ -17,6 +17,18 @@ Entry template:
 
 ## [Unreleased]
 
+### Added — PHASE 13 Certificate System (uncommitted, pending review)
+
+- Certificate lifecycle engine: course completion verification, server-side eligibility check, idempotent certificate issuance with unique tamper-resistant public IDs (`ASRA-YYYY-XXXX-XXXX`), frozen student name and course title snapshots, PDF generation, and public verification. See [CERTIFICATE-SYSTEM.md](./CERTIFICATE-SYSTEM.md).
+- Server-side eligibility engine (`certificates.service.ts`): enforces active student enrolment, 100% curriculum completion (or completion recorded at `completedAt`), and passing status on all published examinations (`passed = true`, with no pending subjective grading).
+- Publication-grade PDF rendering (`pdf.service.ts`): built with `pdfkit` in landscape A4 format matching ASRA Academy brand tokens (deep emerald `#012114`, forest green `#034729`, warm gold `#c88717`, ivory `#fdfbf7`, vector decorative guilloche-style borders, official academy seal, and authorized signatory blocks).
+- Student Portal integration (`/student/certificates`): list earned credentials, download high-resolution PDF, copy verification link, and view credential details.
+- Public Verification (`/verify` and `/verify/:certificateId`): search and verify certificates by public ID with responsive verification card, authenticity badge, issue date, recipient name, course title, and revocation alerts. Sensitive student data (emails, phone numbers, database UUIDs) is strictly redacted. Public endpoint is rate-limited (`RATE_LIMIT_CERTIFICATES_VERIFY`).
+- Administrator Portal (`/admin/certificates`): search and filter all issued and revoked certificates, download certificate PDFs, and revoke credentials with mandatory administrative reason and append-only audit logging (`admin_audit_logs`).
+- Permissions: `certificates.view` granted to Student, Faculty, Admin, and Super Admin; `certificates.manage` granted to Admin and Super Admin.
+- Migration `20261025090000_phase13_certificate_system` (additive: `certificates` table, enum `certificate_status`, unique enrollment constraint, format check constraints, revocation consistency constraint, listing indexes).
+- Automated tests: `apps/api/tests/certificates.test.ts` (15 tests covering eligibility, idempotent issuance, student downloads, public verification, and admin revocation).
+
 ### Added — PHASE 12 Admin Dashboard & Analytics (uncommitted, pending review)
 
 - Admin dashboard (`/admin`, `GET /api/v1/admin/dashboard`): database-backed KPIs (students, faculty, courses, enrolments, net revenue, upcoming live classes, work awaiting grading, examinations) with 30-day comparisons, permission-scoped overview lists and a "needs attention" panel. See [ADMIN-DASHBOARD.md](./ADMIN-DASHBOARD.md).

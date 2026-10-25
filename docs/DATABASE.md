@@ -45,48 +45,50 @@ This document covers the data model, its conventions and constraints, and how to
  AssignmentSubmission ──< AssignmentSubmissionRevision ; AssessmentAuditLog (append-only)  (Phase 09)
  User ──< Order >── Course ; Order ──< Payment ──< Refund ; Enrollment ?──> Order       (Phase 10)
  PaymentWebhookEvent (dedup by provider event id) ; PaymentAuditLog (append-only)        (Phase 10)
+ Enrollment ──1:1── Certificate ; User ──< Certificate ; Course ──< Certificate         (Phase 13)
 ```
 
 `A ──< B` = one A has many B. `?` = optional (nullable foreign key).
 
-| Model                           | Table                                                 | Purpose                                                                                |
-| ------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `User`                          | `users`                                               | Central identity: email, password hash (Phase 03), name, status, email verification    |
-| `Role`                          | `roles`                                               | Named permission set (`SUPER_ADMIN`, `ADMIN`, `FACULTY`, `STUDENT`; more can be added) |
-| `Permission`                    | `permissions`                                         | Grantable capability with a stable key, e.g. `courses.manage`                          |
-| `UserRole`                      | `user_roles`                                          | **Additional join model** — User ↔ Role (many-to-many)                                 |
-| `RolePermission`                | `role_permissions`                                    | **Additional join model** — Role ↔ Permission (many-to-many)                           |
-| `StudentProfile`                | `student_profiles`                                    | Student academic data, 1:1 with User                                                   |
-| `FacultyProfile`                | `faculty_profiles`                                    | Faculty professional data, 1:1 with User                                               |
-| `AcademicLevel`                 | `academic_levels`                                     | Band of school education, e.g. "Classes 6–10", "Classes 11–12"                         |
-| `Class`                         | `classes`                                             | School grade, e.g. "Class 10"; belongs to one academic level                           |
-| `Stream`                        | `streams`                                             | Stream within a level, e.g. Science (Classes 11–12); list pending                      |
-| `Subject`                       | `subjects`                                            | Reusable subject, e.g. Mathematics                                                     |
-| `CourseCategory`                | `course_categories`                                   | Admin-managed course grouping                                                          |
-| `Course`                        | `courses`                                             | Enrollable unit: a subject for a class (± stream), or a special course                 |
-| `CourseInstructor`              | `course_instructors`                                  | Course ↔ FacultyProfile assignment with `isPrimary`                                    |
-| `Module`                        | `modules`                                             | Ordered section of a course                                                            |
-| `Chapter`                       | `chapters`                                            | Ordered section of a module                                                            |
-| `Lesson`                        | `lessons`                                             | Ordered learning item in a chapter (video, document, text, link)                       |
-| `Resource`                      | `resources`                                           | Learning material attached to a lesson (storage object or external URL)                |
-| `Enrollment`                    | `enrollments`                                         | Phase 07: a student's entitlement to a course (ACTIVE/CANCELLED, FREE/ADMIN source)    |
-| `LessonProgress`                | `lesson_progress`                                     | Phase 07: one student's progress in one lesson (viewed, completed, video telemetry)    |
-| `Assignment`                    | `assignments`                                         | Phase 08: submission settings (max marks, due date) of one ASSIGNMENT lesson           |
-| `AssignmentSubmission`          | `assignment_submissions`                              | Phase 08: a student's work, marks, feedback, reviewer and result release               |
-| `LiveClassSession`              | `live_class_sessions`                                 | Phase 08: a scheduled live class of a course (provider-neutral, optional manual link)  |
-| `Quiz`                          | `quizzes`                                             | Phase 09: rules of one QUIZ lesson's online quiz                                       |
-| `Examination`                   | `examinations`                                        | Phase 09: scheduled, timed exam of a course                                            |
-| `AssessmentQuestion`(+`Option`) | `assessment_questions`, `assessment_question_options` | Phase 09: questions of one quiz XOR exam                                               |
-| `AssessmentAttempt`             | `assessment_attempts`                                 | Phase 09: one attempt with server times, status, evaluation and scores                 |
-| `AttemptQuestion`               | `attempt_questions`                                   | Phase 09: frozen question snapshot + the student's answer + outcome                    |
-| `AssignmentSubmissionRevision`  | `assignment_submission_revisions`                     | Phase 09: earlier versions archived on resubmission                                    |
-| `AssessmentAuditLog`            | `assessment_audit_logs`                               | Phase 09: append-only audit of publication, finalization, grading and release          |
-| `Order`                         | `orders`                                              | Phase 10: a purchase request for one course at a frozen price, in TEST or LIVE mode    |
-| `Payment`                       | `payments`                                            | Phase 10: one Razorpay payment (attempt) of an order; monotonic status                 |
-| `Refund`                        | `refunds`                                             | Phase 10: a (partial) refund of a captured payment; payment row never rewritten        |
-| `PaymentWebhookEvent`           | `payment_webhook_events`                              | Phase 10: received webhooks, deduplicated by event id, with processing state           |
-| `PaymentAuditLog`               | `payment_audit_logs`                                  | Phase 10: append-only audit of financial events and administrator actions              |
-| `AdminAuditLog`                 | `admin_audit_logs`                                    | Phase 12: append-only audit of account, role, course, live-class and enrolment actions |
+| Model                           | Table                                                 | Purpose                                                                                                                       |
+| ------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `User`                          | `users`                                               | Central identity: email, password hash (Phase 03), name, status, email verification                                           |
+| `Role`                          | `roles`                                               | Named permission set (`SUPER_ADMIN`, `ADMIN`, `FACULTY`, `STUDENT`; more can be added)                                        |
+| `Permission`                    | `permissions`                                         | Grantable capability with a stable key, e.g. `courses.manage`                                                                 |
+| `UserRole`                      | `user_roles`                                          | **Additional join model** — User ↔ Role (many-to-many)                                                                        |
+| `RolePermission`                | `role_permissions`                                    | **Additional join model** — Role ↔ Permission (many-to-many)                                                                  |
+| `StudentProfile`                | `student_profiles`                                    | Student academic data, 1:1 with User                                                                                          |
+| `FacultyProfile`                | `faculty_profiles`                                    | Faculty professional data, 1:1 with User                                                                                      |
+| `AcademicLevel`                 | `academic_levels`                                     | Band of school education, e.g. "Classes 6–10", "Classes 11–12"                                                                |
+| `Class`                         | `classes`                                             | School grade, e.g. "Class 10"; belongs to one academic level                                                                  |
+| `Stream`                        | `streams`                                             | Stream within a level, e.g. Science (Classes 11–12); list pending                                                             |
+| `Subject`                       | `subjects`                                            | Reusable subject, e.g. Mathematics                                                                                            |
+| `CourseCategory`                | `course_categories`                                   | Admin-managed course grouping                                                                                                 |
+| `Course`                        | `courses`                                             | Enrollable unit: a subject for a class (± stream), or a special course                                                        |
+| `CourseInstructor`              | `course_instructors`                                  | Course ↔ FacultyProfile assignment with `isPrimary`                                                                           |
+| `Module`                        | `modules`                                             | Ordered section of a course                                                                                                   |
+| `Chapter`                       | `chapters`                                            | Ordered section of a module                                                                                                   |
+| `Lesson`                        | `lessons`                                             | Ordered learning item in a chapter (video, document, text, link)                                                              |
+| `Resource`                      | `resources`                                           | Learning material attached to a lesson (storage object or external URL)                                                       |
+| `Enrollment`                    | `enrollments`                                         | Phase 07: a student's entitlement to a course (ACTIVE/CANCELLED, FREE/ADMIN source)                                           |
+| `LessonProgress`                | `lesson_progress`                                     | Phase 07: one student's progress in one lesson (viewed, completed, video telemetry)                                           |
+| `Assignment`                    | `assignments`                                         | Phase 08: submission settings (max marks, due date) of one ASSIGNMENT lesson                                                  |
+| `AssignmentSubmission`          | `assignment_submissions`                              | Phase 08: a student's work, marks, feedback, reviewer and result release                                                      |
+| `LiveClassSession`              | `live_class_sessions`                                 | Phase 08: a scheduled live class of a course (provider-neutral, optional manual link)                                         |
+| `Quiz`                          | `quizzes`                                             | Phase 09: rules of one QUIZ lesson's online quiz                                                                              |
+| `Examination`                   | `examinations`                                        | Phase 09: scheduled, timed exam of a course                                                                                   |
+| `AssessmentQuestion`(+`Option`) | `assessment_questions`, `assessment_question_options` | Phase 09: questions of one quiz XOR exam                                                                                      |
+| `AssessmentAttempt`             | `assessment_attempts`                                 | Phase 09: one attempt with server times, status, evaluation and scores                                                        |
+| `AttemptQuestion`               | `attempt_questions`                                   | Phase 09: frozen question snapshot + the student's answer + outcome                                                           |
+| `AssignmentSubmissionRevision`  | `assignment_submission_revisions`                     | Phase 09: earlier versions archived on resubmission                                                                           |
+| `AssessmentAuditLog`            | `assessment_audit_logs`                               | Phase 09: append-only audit of publication, finalization, grading and release                                                 |
+| `Order`                         | `orders`                                              | Phase 10: a purchase request for one course at a frozen price, in TEST or LIVE mode                                           |
+| `Payment`                       | `payments`                                            | Phase 10: one Razorpay payment (attempt) of an order; monotonic status                                                        |
+| `Refund`                        | `refunds`                                             | Phase 10: a (partial) refund of a captured payment; payment row never rewritten                                               |
+| `PaymentWebhookEvent`           | `payment_webhook_events`                              | Phase 10: received webhooks, deduplicated by event id, with processing state                                                  |
+| `PaymentAuditLog`               | `payment_audit_logs`                                  | Phase 10: append-only audit of financial events and administrator actions                                                     |
+| `AdminAuditLog`                 | `admin_audit_logs`                                    | Phase 12: append-only audit of account, role, course, live-class and enrolment actions                                        |
+| `Certificate`                   | `certificates`                                        | Phase 13: verifiable completion credential with tamper-resistant code, frozen recipient/course snapshot, and revocation audit |
 
 ### Why the two additional models
 
@@ -307,13 +309,33 @@ Foreign keys: orders, payments and refunds are RESTRICT towards users, courses a
 | `admin_audit_logs` | `admin_audit_logs_action_format`      | `action` is `family.action` (e.g. `user.role_granted`) |
 | `admin_audit_logs` | `admin_audit_logs_entity_type_format` | `entity_type` is lower-case `snake_case`               |
 
+### 4.2.9 Phase 13 constraints (`20261025090000_phase13_certificate_system`)
+
+| Table          | Constraint                               | Rule                                                                                                   |
+| -------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `certificates` | UNIQUE `certificate_number`              | Unique public verification code                                                                        |
+| `certificates` | UNIQUE `enrollment_id`                   | One certificate per qualifying enrollment                                                              |
+| `certificates` | `certificates_certificate_number_format` | `certificate_number` matches `^ASRA-[0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$`                                 |
+| `certificates` | `certificates_recipient_name_not_blank`  | `recipient_name` is non-empty                                                                          |
+| `certificates` | `certificates_course_title_not_blank`    | `course_title` is non-empty                                                                            |
+| `certificates` | `certificates_revocation_consistent`     | If `status = 'REVOKED'`, `revoked_at` and `revoked_reason` must be set; if `ISSUED`, both must be null |
+
+Foreign keys:
+
+- `enrollment_id` references `enrollments(id)` ON DELETE RESTRICT ON UPDATE CASCADE.
+- `user_id` references `users(id)` ON DELETE RESTRICT ON UPDATE CASCADE.
+- `course_id` references `courses(id)` ON DELETE RESTRICT ON UPDATE CASCADE.
+- `issued_by_id` references `users(id)` ON DELETE SET NULL ON UPDATE CASCADE.
+  Historical completion integrity: a student, course, or enrollment with an issued certificate cannot be hard-deleted.
+
 ### 4.3 Indexes
 
 Besides the unique indexes above, there are B-tree indexes on:
 
 - every foreign key not already covered by a unique or composite index (`user_roles.role_id`, `role_permissions.permission_id`, `student_profiles.class_id`/`stream_id`, `course_instructors.faculty_profile_id`, `courses.category_id`/`stream_id`/`subject_id`, and `(class_id, subject_id)`);
 - the main listing filters: `users.status`, `courses(status, published_at)`, `lessons.status`, `faculty_profiles.is_public`, `classes.grade_number`, and `(is_active, sort_order)` on catalogue tables;
-- Phase 12 analytics time series: `users.created_at` (student registrations) and `enrollments.enrolled_at` (new enrolments); `admin_audit_logs` on `created_at`, `(action, created_at)`, `(entity_type, entity_id, created_at)` and `actor_id` for the audit viewer. Payment analytics reuse the Phase 10 `(status, mode, captured_at)` index.
+- Phase 12 analytics time series: `users.created_at` (student registrations) and `enrollments.enrolled_at` (new enrolments); `admin_audit_logs` on `created_at`, `(action, created_at)`, `(entity_type, entity_id, created_at)` and `actor_id` for the audit viewer. Payment analytics reuse the Phase 10 `(status, mode, captured_at)` index;
+- Phase 13 certificates: `(user_id, status, issued_at)` for student portal listings, `(course_id, status)` for course credential reporting, `(status, issued_at)` for administrative filtering, and `issued_by_id` for staff action auditing. Public verification uses the unique index on `certificate_number`.
 
 ## 5. Connections: local vs. Neon
 

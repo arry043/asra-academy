@@ -244,6 +244,11 @@ export function StudentDashboard() {
                   ))}
                 </ul>
               )}
+              <div className="pt-3">
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/student/certificates">View certificates</Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

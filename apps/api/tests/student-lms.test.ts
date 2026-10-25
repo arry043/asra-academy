@@ -536,7 +536,7 @@ describe('learning progress', () => {
     assert.equal(dashboard.body.data.stats.activeCourses, 1);
     assert.equal(dashboard.body.data.assessments.quizzes, 1);
     assert.equal(dashboard.body.data.features.payments.available, false);
-    assert.equal(dashboard.body.data.features.certificates.available, false);
+    assert.equal(dashboard.body.data.features.certificates.available, true);
 
     // When the resume lesson is unpublished, resume falls back to the first accessible lesson.
     expectStatus(await admin('PATCH', `/admin/lessons/${course.pdf}`, { status: 'DRAFT' }), 200);
@@ -718,14 +718,15 @@ describe('profile and records', () => {
       '/student/features',
     );
     // PHASE 08 made assignment submission, assignment results and scheduled classes available;
-    // PHASE 09 added quiz attempts and examinations. Certificates and payments are still
-    // reported as unavailable.
+    // PHASE 09 added quiz attempts and examinations; PHASE 13 added certificates.
+    // Payments follows the deployment's checkout configuration.
     const available = Object.entries(features.body.data)
       .filter(([, feature]) => feature.available)
       .map(([key]) => key)
       .sort();
     assert.deepEqual(available, [
       'assignmentSubmissions',
+      'certificates',
       'exams',
       'liveClasses',
       'quizAttempts',

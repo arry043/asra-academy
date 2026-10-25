@@ -31,6 +31,8 @@ export const PERMISSION_DEFINITIONS: Record<PermissionKey, string> = {
   [PERMISSIONS.ANALYTICS_VIEW]: 'View the admin dashboard KPIs and analytics reports',
   [PERMISSIONS.NOTIFICATIONS_VIEW]: 'Inspect notification and email delivery activity',
   [PERMISSIONS.AUDIT_LOGS_VIEW]: 'Read the administrative, payment and assessment audit logs',
+  [PERMISSIONS.CERTIFICATES_VIEW]: 'View certificates and public verification records',
+  [PERMISSIONS.CERTIFICATES_MANAGE]: 'Manage certificates, generate and revoke certificates',
 };
 
 interface SystemRoleDefinition {
@@ -64,6 +66,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       PERMISSIONS.PAYMENTS_VIEW,
       PERMISSIONS.ANALYTICS_VIEW,
       PERMISSIONS.NOTIFICATIONS_VIEW,
+      PERMISSIONS.CERTIFICATES_VIEW,
+      PERMISSIONS.CERTIFICATES_MANAGE,
       PERMISSIONS.PROFILE_MANAGE_OWN,
     ],
   },

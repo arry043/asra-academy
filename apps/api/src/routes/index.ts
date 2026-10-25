@@ -2,6 +2,10 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
 import { academicsAdminRouter } from '../modules/academics/academics.routes.js';
 import { adminPortalRouter } from '../modules/admin/admin.routes.js';
+import {
+  certificatesAdminRouter,
+  publicCertificatesRouter,
+} from '../modules/certificates/certificates.routes.js';
 import { coursesAdminRouter, publicCoursesRouter } from '../modules/courses/courses.routes.js';
 import { curriculumAdminRouter } from '../modules/curriculum/curriculum.routes.js';
 import { enrollmentsAdminRouter } from '../modules/enrollments/enrollments.routes.js';
@@ -21,6 +25,9 @@ apiRouter.use('/auth', authRouter);
 
 /** Public, read-only catalogue (published courses only). */
 apiRouter.use('/courses', publicCoursesRouter);
+
+/** Public certificate verification (PHASE 13). */
+apiRouter.use('/certificates', publicCertificatesRouter);
 
 /**
  * Administration (PHASE 06). Every request is authenticated here; each route then requires its
@@ -42,6 +49,8 @@ adminRouter.use(paymentsAdminRouter);
 adminRouter.use(liveClassesAdminRouter);
 // Dashboard, analytics, users & roles, audit logs and operational lists (PHASE 12).
 adminRouter.use(adminPortalRouter);
+// Certificates management (PHASE 13): `certificates.view` / `certificates.manage`.
+adminRouter.use(certificatesAdminRouter);
 apiRouter.use('/admin', adminRouter);
 
 /** In-app notifications of the signed-in user, any role (PHASE 11). */

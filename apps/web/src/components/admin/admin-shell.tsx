@@ -2,6 +2,7 @@
 
 import { PERMISSIONS } from '@asra/types';
 import {
+  Award,
   BarChart3,
   Bell,
   BookOpen,
@@ -192,6 +193,11 @@ export function buildNavigation(can: (permission: string) => boolean): NavGroup[
       label: 'Assessments',
       href: '/admin/assessments',
       icon: <ClipboardList />,
+    },
+    can(PERMISSIONS.CERTIFICATES_VIEW) && {
+      label: 'Certificates',
+      href: '/admin/certificates',
+      icon: <Award />,
     },
   ]);
   push('Commerce', [
