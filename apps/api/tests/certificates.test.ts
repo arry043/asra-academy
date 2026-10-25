@@ -374,6 +374,39 @@ describe('PHASE 13 — Certificate System', () => {
       assert.equal(eligRes.body.data.certificate?.id, firstCert.id);
     });
 
+    // PHASE 14: a double click / two tabs must never surface a 500. Inside an interactive
+    // PostgreSQL transaction a unique violation aborts the transaction, so issuance is serialised
+    // on the enrolment row instead of recovering from P2002.
+    it('concurrent issuance requests all succeed with the same single certificate', async () => {
+      const student = await newStudent('Concurrent Claimant');
+      const { course } = await createCompletedCourseForStudent(student.userId, 'Race Course');
+
+      const responses = await Promise.all(
+        Array.from({ length: 6 }, () =>
+          student.client.request<CertificateDto>(
+            'POST',
+            `/student/courses/${course.id}/certificate`,
+            { token: student.token },
+          ),
+        ),
+      );
+
+      assert.deepEqual(
+        responses.map((r) => r.status),
+        responses.map(() => 201),
+      );
+      const ids = new Set(responses.map((r) => r.body.data.id));
+      assert.equal(ids.size, 1);
+      assert.equal(
+        await prisma.certificate.count({ where: { userId: student.userId, courseId: course.id } }),
+        1,
+      );
+      assert.equal(
+        await prisma.notification.count({ where: { userId: student.userId, type: 'CERTIFICATE' } }),
+        1,
+      );
+    });
+
     it('rejects issuance when student is not eligible', async () => {
       const student = await newStudent();
       const s = uniqueSuffix();

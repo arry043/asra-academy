@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { Section } from '@/components/layout/section';
 import { CtaBand } from '@/components/public/cta-band';
+import { JsonLd } from '@/components/public/json-ld';
 import { PageHero } from '@/components/public/page-hero';
 import { WhatsAppLink } from '@/components/public/whatsapp-link';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { LESSON_TYPE_LABELS } from '@/lib/admin/format';
 import { toParagraphs } from '@/lib/catalog';
 import { formatDuration } from '@/lib/format';
+import { courseJsonLd } from '@/lib/seo';
 
 /**
  * Public page of a published course (FR-CRS-004). Shows only what the public API returns: the
@@ -37,9 +39,21 @@ export function PublicCoursePage({ course }: { course: PublicCourseDetail }) {
     ['Mode', 'Online'],
   ];
   const description = toParagraphs(course.description);
+  const jsonLdDescription = course.summary ?? description[0];
 
   return (
     <>
+      {/* Structured data only with a real description (schema.org Course requires one). */}
+      {jsonLdDescription ? (
+        <JsonLd
+          data={courseJsonLd({
+            name: course.title,
+            description: jsonLdDescription,
+            path,
+            image: course.thumbnailUrl,
+          })}
+        />
+      ) : null}
       <PageHero
         path={path}
         breadcrumbs={[{ label: 'Courses', href: '/courses' }, { label: course.title }]}

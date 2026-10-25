@@ -16,25 +16,24 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { publicEnv } from '@/lib/env';
+import { lookupCertificate, type CertificateLookup } from '@/lib/certificates';
 import { formatDate } from '@/lib/format';
 
 interface Props {
   initialCode?: string;
-  initialData?: PublicCertificateVerificationDto | null;
-  notFound?: boolean;
+  /** Server-side lookup for `/verify/<id>`; omitted on the empty search page. */
+  initialLookup?: CertificateLookup | null;
 }
 
-export function CertificateVerificationView({
-  initialCode = '',
-  initialData = null,
-  notFound = false,
-}: Props) {
+export function CertificateVerificationView({ initialCode = '', initialLookup = null }: Props) {
   const [code, setCode] = React.useState(initialCode);
-  const [data, setData] = React.useState<PublicCertificateVerificationDto | null>(initialData);
-  const [isNotFound, setIsNotFound] = React.useState(notFound);
+  const [lookup, setLookup] = React.useState<CertificateLookup | null>(initialLookup);
   const [loading, setLoading] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const data: PublicCertificateVerificationDto | null =
+    lookup?.status === 'found' ? lookup.data : null;
+  const isNotFound = lookup?.status === 'not-found';
+  const isUnavailable = lookup?.status === 'unavailable';
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,33 +41,14 @@ export function CertificateVerificationView({
     if (!trimmed) return;
 
     setLoading(true);
-    setIsNotFound(false);
-    setData(null);
-
+    setLookup(null);
     try {
-      const res = await fetch(
-        `${publicEnv.NEXT_PUBLIC_API_URL}/api/v1/certificates/verify/${encodeURIComponent(trimmed)}`,
-        {
-          headers: { Accept: 'application/json' },
-        },
-      );
-
-      if (!res.ok) {
-        setIsNotFound(true);
-        setData(null);
-      } else {
-        const json = await res.json();
-        if (json.success && json.data) {
-          setData(json.data);
-          setIsNotFound(false);
-          // Update URL without full page reload
-          window.history.replaceState(null, '', `/verify/${encodeURIComponent(trimmed)}`);
-        } else {
-          setIsNotFound(true);
-        }
+      const result = await lookupCertificate(trimmed);
+      setLookup(result);
+      if (result.status === 'found') {
+        // Update URL without full page reload
+        window.history.replaceState(null, '', `/verify/${encodeURIComponent(trimmed)}`);
       }
-    } catch {
-      setIsNotFound(true);
     } finally {
       setLoading(false);
     }
@@ -249,6 +229,21 @@ export function CertificateVerificationView({
               No matching certificate was found for identifier{' '}
               <span className="font-mono font-semibold">{code}</span>. Please verify the code and
               try again.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {isUnavailable && (
+        <Card className="border-amber-200 bg-amber-50/50" role="status">
+          <CardContent className="space-y-3 p-8 text-center">
+            <div className="mb-1 inline-flex items-center justify-center rounded-full bg-amber-100 p-3 text-amber-800">
+              <AlertTriangle className="h-7 w-7" />
+            </div>
+            <h3 className="text-xl font-bold text-amber-900">Verification unavailable</h3>
+            <p className="mx-auto max-w-md text-sm text-amber-800">
+              The verification service could not be reached, so this certificate could not be
+              checked. This does not mean it is invalid — please try again in a moment.
             </p>
           </CardContent>
         </Card>

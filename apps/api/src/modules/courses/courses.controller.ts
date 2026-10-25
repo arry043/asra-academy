@@ -8,6 +8,10 @@ import type {
   PublicCourseListQuery,
 } from '@asra/validation';
 import type { Request, Response } from 'express';
+import {
+  PUBLIC_CATALOGUE_CACHE_CONTROL,
+  SITEMAP_FEED_CACHE_CONTROL,
+} from '../../config/constants.js';
 import { sendSuccess } from '../../utils/api-response.js';
 import { courseService } from './courses.service.js';
 import { publicCatalogService } from './public-catalog.service.js';
@@ -89,14 +93,21 @@ export const courseController = {
   },
 };
 
+/** Public responses become cacheable only once they succeeded — errors keep the `no-store` default. */
 export const publicCourseController = {
   async list(req: Request, res: Response): Promise<void> {
-    sendSuccess(
-      res,
-      await publicCatalogService.list(req.query as unknown as PublicCourseListQuery),
-    );
+    const data = await publicCatalogService.list(req.query as unknown as PublicCourseListQuery);
+    res.setHeader('Cache-Control', PUBLIC_CATALOGUE_CACHE_CONTROL);
+    sendSuccess(res, data);
   },
   async get(req: Request, res: Response): Promise<void> {
-    sendSuccess(res, await publicCatalogService.getBySlug(String(req.params.slug)));
+    const data = await publicCatalogService.getBySlug(String(req.params.slug));
+    res.setHeader('Cache-Control', PUBLIC_CATALOGUE_CACHE_CONTROL);
+    sendSuccess(res, data);
+  },
+  async sitemap(_req: Request, res: Response): Promise<void> {
+    const data = await publicCatalogService.sitemapEntries();
+    res.setHeader('Cache-Control', SITEMAP_FEED_CACHE_CONTROL);
+    sendSuccess(res, data);
   },
 };

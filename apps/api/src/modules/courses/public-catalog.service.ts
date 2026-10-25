@@ -1,11 +1,17 @@
-import type { Paginated, PublicCourseDetail, PublicCourseSummary } from '@asra/types';
+import type {
+  Paginated,
+  PublicCourseDetail,
+  PublicCourseSummary,
+  PublicSitemapCourse,
+} from '@asra/types';
 import type { PublicCourseListQuery } from '@asra/validation';
+import { SITEMAP_COURSE_LIMIT } from '../../config/constants.js';
 import { prisma } from '../../database/prisma.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { AppError } from '../../utils/app-error.js';
 import { pageArgs, paginated } from '../../utils/pagination.js';
 import { toPublicCourseDetail, toPublicCourseSummary } from './courses.mappers.js';
-import { createCoursesRepository } from './courses.repository.js';
+import { createCoursesRepository, PUBLIC_LISTING_WHERE } from './courses.repository.js';
 
 /**
  * Anonymous, read-only course catalogue (FR-CRS-004). Visibility is enforced in the database
@@ -42,5 +48,19 @@ export const publicCatalogService = {
     const row = await createCoursesRepository(prisma).public.findBySlug(slug);
     if (!row) throw new AppError('NOT_FOUND', 'Course not found');
     return toPublicCourseDetail(row);
+  },
+
+  /**
+   * Sitemap feed (PHASE 14): the LISTING rule (published + PUBLIC — never unlisted or private),
+   * two columns only, bounded. Served by the `courses(status, visibility)` index.
+   */
+  async sitemapEntries(): Promise<PublicSitemapCourse[]> {
+    const rows = await prisma.course.findMany({
+      where: PUBLIC_LISTING_WHERE,
+      select: { slug: true, updatedAt: true },
+      orderBy: [{ publishedAt: 'desc' }, { slug: 'asc' }],
+      take: SITEMAP_COURSE_LIMIT,
+    });
+    return rows.map((row) => ({ slug: row.slug, updatedAt: row.updatedAt.toISOString() }));
   },
 };

@@ -62,11 +62,11 @@ ASRA-YYYY-XXXX-XXXX
 ```
 
 - `YYYY`: 4-digit Gregorian issuance year (e.g. `2026`).
-- `XXXX-XXXX`: 8 characters drawn from Crockford's Base32 alphabet (`23456789ABCDEFGHJKMNPQRSTVWXYZ`), omitting ambiguous characters `0`, `O`, `1`, `I`, `L`.
-- Entropy: 40 bits of cryptographic randomness (~1.1 trillion permutations per calendar year).
+- `XXXX-XXXX`: 8 characters drawn uniformly (`crypto.randomInt`) from a 30-symbol alphabet (`23456789ABCDEFGHJKMNPQRSTVWXYZ`), omitting ambiguous characters `0`, `O`, `1`, `I`, `L`, `U`.
+- Entropy: ≈39 bits of cryptographic randomness (30^8 ≈ 6.6 × 10^11 numbers per calendar year). _(Corrected in PHASE 14: previously documented as 40 bits / Base32, and drawn with a slight modulo bias.)_
 - Constraint: Enforced in PostgreSQL via CHECK constraint `certificates_certificate_number_format` and UNIQUE index `certificates_certificate_number_key`.
-- Collision handling: Generation retries up to 5 times in the astronomically unlikely event of an identifier collision.
-- One-per-enrolment guarantee: Enforced at the database level via UNIQUE constraint `certificates_enrollment_id_key`.
+- Collision handling: a drawn number is checked for existence before the insert, with up to 5 draws. (A unique violation cannot be retried inside the issuing transaction — PostgreSQL aborts it.)
+- One-per-enrolment guarantee: Enforced at the database level via UNIQUE constraint `certificates_enrollment_id_key`. Concurrent claims (double click, two tabs) are serialised by locking the enrolment row (`SELECT … FOR UPDATE`) at the start of issuance, so every request returns the same certificate (PHASE 14, `certificates.test.ts`).
 
 ---
 
@@ -101,6 +101,8 @@ GET /api/v1/certificates/verify/:certificateNumber
 ```
 
 and via the public web page `/verify/:certificateNumber`.
+
+PHASE 14: the web page calls the API through `apps/web/src/lib/certificates.ts` (the earlier direct `fetch` doubled the `/api/v1` prefix and always reported "not found"). Individual verification pages are `noindex`, and their title/description never contain the recipient's name or course; an API outage is shown as "Verification unavailable", never as "not found". Responses are `Cache-Control: no-store`, so a revocation is visible immediately.
 
 ### Privacy Boundaries
 

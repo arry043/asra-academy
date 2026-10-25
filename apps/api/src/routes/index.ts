@@ -6,7 +6,11 @@ import {
   certificatesAdminRouter,
   publicCertificatesRouter,
 } from '../modules/certificates/certificates.routes.js';
-import { coursesAdminRouter, publicCoursesRouter } from '../modules/courses/courses.routes.js';
+import {
+  coursesAdminRouter,
+  publicCoursesRouter,
+  publicSitemapRouter,
+} from '../modules/courses/courses.routes.js';
 import { curriculumAdminRouter } from '../modules/curriculum/curriculum.routes.js';
 import { enrollmentsAdminRouter } from '../modules/enrollments/enrollments.routes.js';
 import { facultyRouter } from '../modules/faculty/faculty.routes.js';
@@ -25,6 +29,8 @@ apiRouter.use('/auth', authRouter);
 
 /** Public, read-only catalogue (published courses only). */
 apiRouter.use('/courses', publicCoursesRouter);
+/** Public course URLs for the website sitemap (PHASE 14). */
+apiRouter.use('/sitemap', publicSitemapRouter);
 
 /** Public certificate verification (PHASE 13). */
 apiRouter.use('/certificates', publicCertificatesRouter);

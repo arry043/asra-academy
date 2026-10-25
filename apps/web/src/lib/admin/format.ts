@@ -133,12 +133,32 @@ export function joinMinutes(hours: string, minutes: string): number | null | und
   return h * 60 + m;
 }
 
+/** Control characters, DEL and backslashes: the URL parser strips or reinterprets them. */
+function hasUnsafePathCharacter(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f || code === 0x5c) return true;
+  }
+  return false;
+}
+
+const SAME_ORIGIN_PROBE = 'https://same-origin.invalid';
+
 /**
  * Validates a post-login redirect target. Only same-site absolute paths are allowed — never
  * `//host`, `/\host` or full URLs — so `?next=` cannot be used as an open redirect.
+ *
+ * PHASE 14: browsers drop tabs/newlines while parsing, so `/\t/evil.example` would become
+ * `//evil.example`; such characters are refused, and the WHATWG parser must agree the result
+ * stays on this origin.
  */
 export function safeNextPath(value: string | null | undefined, fallback = '/'): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) {
+  if (!value || !value.startsWith('/') || value.startsWith('//') || hasUnsafePathCharacter(value)) {
+    return fallback;
+  }
+  try {
+    if (new URL(value, SAME_ORIGIN_PROBE).origin !== SAME_ORIGIN_PROBE) return fallback;
+  } catch {
     return fallback;
   }
   return value;

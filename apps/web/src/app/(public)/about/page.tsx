@@ -90,7 +90,8 @@ export default function AboutPage() {
               width={siteConfig.logo.full.width}
               height={siteConfig.logo.full.height}
               alt={siteConfig.logo.alt}
-              sizes="16rem"
+              // max-w-xs (20rem) minus p-10 padding.
+              sizes="15rem"
               className="h-auto w-full"
             />
           </div>

@@ -196,6 +196,12 @@ export const certificatesService = {
     adminActorId?: string,
   ): Promise<CertificateDto> {
     return prisma.$transaction(async (tx) => {
+      // 0. Serialise issuance per enrolment (double clicks, two tabs). A unique violation would
+      //    abort this PostgreSQL transaction, so a concurrent duplicate cannot be recovered from
+      //    after the fact; instead the second request waits here and then sees the first
+      //    request's committed certificate (READ COMMITTED re-reads per statement).
+      await tx.$queryRaw`SELECT "id" FROM "enrollments" WHERE "user_id" = ${auth.userId}::uuid AND "course_id" = ${courseId}::uuid FOR UPDATE`;
+
       // 1. Verify eligibility inside transaction
       const eligibility = await certificatesService.checkEligibility(auth, courseId, tx);
 
@@ -231,51 +237,37 @@ export const certificatesService = {
         });
       }
 
-      // 3. Generate unique certificate number with collision retry
-      let certNumber = '';
-      let createdCert: Certificate | null = null;
+      // 3. Allocate an unused certificate number. Checked BEFORE inserting: a unique violation
+      //    would abort the transaction (see step 0). With ~6.6 × 10^11 numbers per year a
+      //    collision is already improbable; a concurrent identical draw is left to the constraint.
       const currentYear = now.getUTCFullYear();
-
-      for (let attempt = 0; attempt < 5; attempt++) {
-        certNumber = generateCertificateNumber(currentYear);
-        try {
-          createdCert = await tx.certificate.create({
-            data: {
-              certificateNumber: certNumber,
-              enrollmentId: enrollment.id,
-              userId: auth.userId,
-              courseId: enrollment.courseId,
-              recipientName: student.fullName,
-              courseTitle: enrollment.course.title,
-              completedAt,
-              issuedAt: now,
-              status: 'ISSUED',
-              issuedById: adminActorId ?? null,
-            },
-          });
-          break;
-        } catch (error: unknown) {
-          // If collision on unique constraint, retry
-          const prismaError = error as { code?: string; meta?: { target?: string[] } };
-          if (prismaError.code === 'P2002') {
-            // Unique violation: if enrollmentId already exists, someone else created it in race condition
-            const target = prismaError.meta?.target;
-            if (Array.isArray(target) && target.includes('enrollment_id')) {
-              const existing = await tx.certificate.findUniqueOrThrow({
-                where: { enrollmentId: enrollment.id },
-              });
-              return toCertificateDto(existing);
-            }
-            // If certificate_number collided, loop again
-            continue;
-          }
-          throw error;
-        }
+      let certNumber = '';
+      for (let attempt = 0; attempt < 5 && !certNumber; attempt++) {
+        const candidate = generateCertificateNumber(currentYear);
+        const taken = await tx.certificate.findUnique({
+          where: { certificateNumber: candidate },
+          select: { id: true },
+        });
+        if (!taken) certNumber = candidate;
       }
-
-      if (!createdCert) {
+      if (!certNumber) {
         throw new AppError('INTERNAL_ERROR', 'Failed to allocate unique certificate number');
       }
+
+      const createdCert = await tx.certificate.create({
+        data: {
+          certificateNumber: certNumber,
+          enrollmentId: enrollment.id,
+          userId: auth.userId,
+          courseId: enrollment.courseId,
+          recipientName: student.fullName,
+          courseTitle: enrollment.course.title,
+          completedAt,
+          issuedAt: now,
+          status: 'ISSUED',
+          issuedById: adminActorId ?? null,
+        },
+      });
 
       // 4. In-app and email notification
       const deliveryIds = await notifyUsers(tx, [auth.userId], {

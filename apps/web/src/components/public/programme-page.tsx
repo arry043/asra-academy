@@ -5,6 +5,7 @@ import { Section } from '@/components/layout/section';
 import { CheckList } from '@/components/public/check-list';
 import { CtaBand } from '@/components/public/cta-band';
 import { EmptyState } from '@/components/public/empty-state';
+import { JsonLd } from '@/components/public/json-ld';
 import { PageHero } from '@/components/public/page-hero';
 import { ProgrammeGrid } from '@/components/public/programme-grid';
 import { WhatsAppLink } from '@/components/public/whatsapp-link';
@@ -13,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PROGRAMME_CATEGORIES, type Programme } from '@/content/programmes';
 import { getRelatedProgrammes } from '@/lib/programmes';
+import { courseJsonLd } from '@/lib/seo';
 
 /**
  * One template for every programme page — the two class bands and the five special courses — so
@@ -30,6 +32,16 @@ export function ProgrammePage({ programme }: { programme: Programme }) {
 
   return (
     <>
+      {/* A class band is a group of classes, not one course, so only special courses are marked up. */}
+      {isClassBand ? null : (
+        <JsonLd
+          data={courseJsonLd({
+            name: programme.title,
+            description: programme.summary,
+            path: programme.href,
+          })}
+        />
+      )}
       <PageHero
         path={programme.href}
         breadcrumbs={[{ label: 'Courses', href: '/courses' }, { label: programme.title }]}

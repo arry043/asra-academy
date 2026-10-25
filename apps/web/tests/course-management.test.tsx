@@ -214,6 +214,27 @@ describe('admin access helpers', () => {
       assert.equal(safeNextPath(unsafe, '/'), '/', String(unsafe));
     }
   });
+
+  // PHASE 14: the URL parser removes tabs/newlines, turning these into `//evil.example`.
+  it('refuses control characters and backslashes that the URL parser would reinterpret', () => {
+    for (const unsafe of [
+      '/\t/evil.example',
+      '/\n/evil.example',
+      '/\r\n/evil.example',
+      '/\u0000/evil.example',
+      '/ok\\..\\evil',
+      '/\u007f',
+    ]) {
+      assert.equal(safeNextPath(unsafe, '/'), '/', JSON.stringify(unsafe));
+      // Proof that the payload is dangerous without the guard:
+      if (/[\t\n\r]/.test(unsafe)) {
+        assert.equal(new URL(unsafe, 'https://asra.example').host, 'evil.example');
+      }
+    }
+    for (const safe of ['/student/checkout/arabic-1?x=1#top', '/courses/%2F%2Fnot-a-host']) {
+      assert.equal(safeNextPath(safe, '/'), safe);
+    }
+  });
 });
 
 describe('reserved course slugs', () => {

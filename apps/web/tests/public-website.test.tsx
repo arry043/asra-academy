@@ -360,8 +360,10 @@ describe('sitemap and robots', () => {
     }
     assert.equal(new Set(paths).size, paths.length);
   });
-  it('emits absolute URLs on the configured origin', () => {
-    const entries = sitemap();
+  it('emits absolute URLs on the configured origin', async () => {
+    // No API in unit tests: the sitemap falls back to the static pages.
+    const entries = await sitemap();
+    assert.ok(entries.length >= getIndexablePaths().length);
     assert.ok(entries.every((entry) => entry.url.startsWith(absoluteUrl('/'))));
   });
   it('disallows everything unless indexing is enabled', () => {
@@ -374,7 +376,7 @@ describe('sitemap and robots', () => {
       assert.deepEqual(enabled.rules, {
         userAgent: '*',
         allow: '/',
-        disallow: ['/design-system'],
+        disallow: ['/admin', '/student', '/faculty', '/design-system'],
       });
       assert.equal(enabled.sitemap, absoluteUrl('/sitemap.xml'));
     } finally {

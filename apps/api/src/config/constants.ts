@@ -8,6 +8,22 @@ export const SHUTDOWN_TIMEOUT_MS = 10_000;
 /** Maximum time a readiness probe waits for a dependency (PostgreSQL / Redis). */
 export const DEPENDENCY_CHECK_TIMEOUT_MS = 2_000;
 
+// --- HTTP caching (PHASE 14) --------------------------------------------------------------
+
+/**
+ * Every API response is `Cache-Control: no-store` by default (app.ts). Only anonymous,
+ * non-personalised GET responses opt in, and only on success. Browsers always revalidate
+ * (`max-age=0`); a shared cache/CDN may keep a copy for `s-maxage` seconds, so an unpublished
+ * course can stay visible on the public site for at most about a minute (docs/PERFORMANCE.md).
+ */
+export const PUBLIC_CATALOGUE_CACHE_CONTROL =
+  'public, max-age=0, s-maxage=60, stale-while-revalidate=60';
+export const SITEMAP_FEED_CACHE_CONTROL =
+  'public, max-age=0, s-maxage=300, stale-while-revalidate=300';
+
+/** Upper bound of course URLs in the sitemap feed (one sitemap file holds up to 50,000 URLs). */
+export const SITEMAP_COURSE_LIMIT = 5_000;
+
 // --- Authentication (PHASE 03) ------------------------------------------------------------
 
 /** HttpOnly cookie carrying the refresh token. Scoped to the auth routes only. */

@@ -26,6 +26,8 @@ type PageMetadataInput = {
   absoluteTitle?: boolean;
   /** Keep this page out of search indexes (thin or placeholder pages). */
   noIndex?: boolean;
+  /** Page-specific share image (e.g. a course thumbnail); defaults to the site image. */
+  image?: { url: string; alt: string };
 };
 
 /**
@@ -38,8 +40,10 @@ export function buildPageMetadata({
   path,
   absoluteTitle = false,
   noIndex = false,
+  image,
 }: PageMetadataInput): Metadata {
   const fullTitle = absoluteTitle ? title : `${title} | ${siteConfig.name}`;
+  const shareImage = image ?? siteConfig.ogImage;
   return {
     title: absoluteTitle ? { absolute: title } : title,
     description,
@@ -51,13 +55,13 @@ export function buildPageMetadata({
       url: path,
       title: fullTitle,
       description,
-      images: [siteConfig.ogImage],
+      images: [shareImage],
     },
     twitter: {
       card: 'summary_large_image',
       title: fullTitle,
       description,
-      images: [siteConfig.ogImage],
+      images: [shareImage],
     },
     ...(noIndex ? { robots: { index: false, follow: true } } : {}),
   };
@@ -107,6 +111,35 @@ export function breadcrumbJsonLd(items: BreadcrumbItem[], currentPath: string) {
       name: item.label,
       item: absoluteUrl(item.href ?? currentPath),
     })),
+  };
+}
+
+export interface CourseJsonLdInput {
+  name: string;
+  /** Required by schema.org consumers; callers skip the markup when there is none. */
+  description: string;
+  path: string;
+  image?: string | null;
+}
+
+/**
+ * schema.org `Course` (PHASE 14) from what the page shows: name, description, URL, provider and
+ * an optional image. Deliberately no `offers`/prices (Z-03), `hasCourseInstance` (schedules are
+ * not public), ratings, reviews, credentials or outcomes.
+ */
+export function courseJsonLd({ name, description, path, image }: CourseJsonLdInput) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Course',
+    name,
+    description,
+    url: absoluteUrl(path),
+    provider: {
+      '@type': 'EducationalOrganization',
+      name: siteConfig.name,
+      url: absoluteUrl('/'),
+    },
+    ...(image ? { image } : {}),
   };
 }
 

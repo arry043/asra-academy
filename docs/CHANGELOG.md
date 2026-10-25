@@ -17,6 +17,30 @@ Entry template:
 
 ## [Unreleased]
 
+### Security — PHASE 14 SEO, Security & Performance Hardening (uncommitted, pending review)
+
+- Review, findings and remaining risks: [SECURITY.md](./SECURITY.md); measurements: [PERFORMANCE.md](./PERFORMANCE.md). Internal code/configuration review with tests — not a penetration test, nothing verified on a deployment.
+- Fixed (SEC-01): public certificate verification called `/api/v1/api/v1/…` and reported every genuine certificate as "not found". Lookups now go through `apiRequest` (`apps/web/src/lib/certificates.ts`), and an outage shows "Verification unavailable" instead of "not found".
+- Fixed (SEC-02): `body-parser` 2.3.0 → 2.4.0 (GHSA-27r3-jxmh-p828, compressed-body DoS; runtime via Express). Lockfile only, within Express's range; `qs` 6.16.0 → 6.16.1 with it.
+- Added (SEC-03): web security headers for documents — CSP without nonces (API origin, Razorpay Checkout and YouTube-nocookie/Vimeo explicitly allowed; `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP `same-origin-allow-popups`, HSTS on HTTPS production builds (`apps/web/src/config/deployment.ts`). Build assets under `/_next` get `nosniff` only. Zod runs `jitless` in browsers so its eval probe no longer triggers CSP reports.
+- Fixed (SEC-04): concurrent certificate claims returned 500 (unique violation inside an interactive transaction). Issuance now locks the enrolment row; the certificate number is checked before insert and drawn uniformly (`crypto.randomInt`).
+- Fixed (SEC-05): `/verify/<id>` pages are `noindex`; titles/descriptions no longer contain the recipient's name or course, and malformed ids are not reflected into metadata.
+- Fixed (SEC-06): `safeNextPath` refuses control characters and backslashes (`/\t/evil` → `//evil` after URL parsing) and requires a same-origin parse.
+- Changed (SEC-07): every API response defaults to `Cache-Control: no-store`; only successful public catalogue reads send `public, max-age=0, s-maxage=60, stale-while-revalidate=60`.
+
+### Added — PHASE 14 SEO
+
+- `GET /api/v1/sitemap/courses`: slug + `updatedAt` of published PUBLIC courses (bounded, `s-maxage=300`), mounted outside `/courses` so it cannot shadow a slug. `sitemap.xml` lists those courses with `lastModified`, plus `/verify`; hourly ISR with a static fallback when the API is unreachable.
+- `Course` JSON-LD on special-course programme pages and on published course pages with a summary/description (name, description, URL, provider, real thumbnail — no prices, ratings or outcomes). Course thumbnails are used as the page's Open Graph/Twitter image.
+- robots.txt (when indexing is enabled) also disallows `/admin`, `/student` and `/faculty`. The build fails when `SITE_INDEXING_ENABLED=true` and `NEXT_PUBLIC_APP_URL` is not an https production origin (localhost, private IPs, `*.vercel.app`).
+
+### Changed — PHASE 14 Performance & accessibility
+
+- Logo images declare accurate `sizes`: phones fetched the 2048 px footer logo (160 KB) for a 112 px slot — now 26 KB; home hero 87 → 42 KB.
+- Portal brand link has an accessible name when its text is hidden (Lighthouse accessibility 96 → 100 on student/faculty portals).
+- No database migration or index: no measured query justified one (PERFORMANCE.md §4).
+- Tests: `apps/api/tests/hardening-phase14.test.ts` (5), a concurrency test in `certificates.test.ts`, `apps/web/tests/hardening-phase14.test.tsx` (17), redirect cases in `course-management.test.tsx`; sitemap/robots expectations updated. Client questions: CLIENT-CLARIFICATIONS §AH; Z-09 updated.
+
 ### Added — PHASE 13 Certificate System (uncommitted, pending review)
 
 - Certificate lifecycle engine: course completion verification, server-side eligibility check, idempotent certificate issuance with unique tamper-resistant public IDs (`ASRA-YYYY-XXXX-XXXX`), frozen student name and course title snapshots, PDF generation, and public verification. See [CERTIFICATE-SYSTEM.md](./CERTIFICATE-SYSTEM.md).

@@ -83,3 +83,11 @@ publicCoursesRouter.get(
   validateRequest({ params: slugParamsSchema }),
   publicCourseController.get,
 );
+
+/**
+ * `/api/v1/sitemap` — URL feed for the website's sitemap.xml (PHASE 14). Mounted outside
+ * `/courses` so it can never shadow a course slug.
+ */
+export const publicSitemapRouter = Router();
+
+publicSitemapRouter.get('/courses', publicCourseController.sitemap);
