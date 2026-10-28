@@ -8,8 +8,10 @@ import { absoluteUrl } from '@/lib/seo';
  * crawlers do not spend budget on login redirects (e.g. "Enrol now" → /student/checkout/…).
  * Account pages (/login, /register…) stay crawlable on purpose: they are linked from public pages
  * and their `noindex` must be readable, or they could be indexed as bare URLs.
+ * The faculty portal is `/faculty/…` with a trailing slash: `/faculty` itself is the public
+ * "Our faculty" page and is listed in the sitemap (robots rules are prefix matches).
  */
-export const PRIVATE_PATH_PREFIXES = ['/admin', '/student', '/faculty', '/design-system'] as const;
+export const PRIVATE_PATH_PREFIXES = ['/admin', '/student', '/faculty/', '/design-system'] as const;
 
 /**
  * /robots.txt. Crawling guidance only — NOT access control (protected routes are enforced by the

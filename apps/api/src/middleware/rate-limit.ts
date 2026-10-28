@@ -13,6 +13,7 @@ import {
   AUTH_RATE_LIMITS,
   CERTIFICATE_RATE_LIMITS,
   PAYMENT_RATE_LIMITS,
+  REFRESH_COOKIE_NAME,
   type AssessmentRateLimitName,
   type AuthRateLimitName,
   type PaymentRateLimitName,
@@ -129,6 +130,10 @@ export function authRateLimit(name: AuthRateLimitName): RateLimitRequestHandler 
     windowMs: config.windowMinutes * 60 * 1000,
     limit: config.limit,
     skipSuccessfulRequests: 'skipSuccessfulRequests' in config && config.skipSuccessfulRequests,
+    // A request without the cookie has nothing to guess and is refused without a lookup.
+    ...('requireCookie' in config && {
+      skip: (req) => !(req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE_NAME],
+    }),
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     store: createStore(name),

@@ -11,6 +11,7 @@ import type { PublicCourseDetail, PublicCertificateVerificationDto } from '@asra
 
 import { generateMetadata as verifyMetadata } from '@/app/(public)/verify/[certificateId]/page';
 import sitemap from '@/app/sitemap';
+import { CertificateVerificationView } from '@/components/public/certificate-verification';
 import { ProgrammePage } from '@/components/public/programme-page';
 import { PublicCoursePage } from '@/components/public/public-course-page';
 import {
@@ -184,6 +185,12 @@ describe('certificate verification (PHASE 13 regression)', () => {
       throw new TypeError('fetch failed');
     }) as typeof fetch;
     assert.deepEqual(await lookupCertificate('ASRA-2026-AAAA-BBBB'), { status: 'unavailable' });
+  });
+
+  // PHASE 15 (QA-DEF-04): the search field had only a placeholder (no accessible name).
+  it('gives the certificate search field an accessible name', () => {
+    const html = renderToStaticMarkup(<CertificateVerificationView />);
+    assert.match(html, /<input[^>]*aria-label="Certificate ID"/);
   });
 
   it('never sends malformed input to the API', async () => {
