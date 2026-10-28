@@ -48,7 +48,8 @@ export const certificatesController = {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', buffer.length);
-    res.setHeader('Cache-Control', 'private, max-age=0, must-revalidate');
+    // Personal document (often a minor's name): never kept in any cache, browser included.
+    res.setHeader('Cache-Control', 'no-store');
     res.send(buffer);
   },
 
@@ -88,7 +89,7 @@ export const certificatesController = {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', buffer.length);
-    res.setHeader('Cache-Control', 'private, max-age=0, must-revalidate');
+    res.setHeader('Cache-Control', 'no-store');
     res.send(buffer);
   },
 };

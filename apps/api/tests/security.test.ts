@@ -186,4 +186,30 @@ describe('rate limiting', () => {
     }
     assert.equal(statuses[5], 429);
   });
+
+  // PHASE 15 (QA-DEF-03): every page load refreshes the session, and a 429 signs the user out.
+  // A per-IP budget shared by a school network (or mobile CGNAT) must not log students out.
+  it('refresh never throttles valid sessions or cookie-less visitors behind one IP', async () => {
+    const student = new TestClient(baseUrl);
+    await login(student, await registerVerifiedStudent(student));
+    for (let i = 0; i < 70; i += 1) {
+      const anonymous = await new TestClient(baseUrl).request('POST', '/auth/refresh');
+      assert.equal(anonymous.status, 401, `anonymous refresh #${i + 1}`);
+    }
+    for (let i = 0; i < 70; i += 1) {
+      const refreshed = await student.request('POST', '/auth/refresh');
+      assert.equal(refreshed.status, 200, `valid refresh #${i + 1}`);
+    }
+  });
+
+  it('refresh still limits invalid refresh tokens per IP', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 61; i += 1) {
+      const guesser = new TestClient(baseUrl);
+      guesser.cookies.set('asra_refresh', `guess${String(i).padStart(38, '0')}`);
+      statuses.push((await guesser.request('POST', '/auth/refresh')).status);
+    }
+    assert.ok(statuses.slice(0, 60).every((status) => status === 401));
+    assert.equal(statuses[60], 429);
+  });
 });

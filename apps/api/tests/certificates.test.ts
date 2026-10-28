@@ -486,10 +486,21 @@ describe('PHASE 13 — Certificate System', () => {
         new RegExp(`attachment; filename="ASRA-Certificate-${cert.certificateNumber}.pdf"`),
       );
 
+      // PHASE 15 (QA-DEF-01): personal document, never stored by any cache (browser included).
+      assert.equal(rawRes.headers.get('cache-control'), 'no-store');
+
       const buffer = Buffer.from(await rawRes.arrayBuffer());
       assert.ok(buffer.length > 1000);
       // PDF Magic bytes: %PDF-
       assert.equal(buffer.subarray(0, 5).toString('ascii'), '%PDF-');
+
+      const adminToken = await tokenFor(student.client, 'ADMIN');
+      const adminRes = await fetch(`${baseUrl}/api/v1/admin/certificates/${cert.id}/download`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(adminRes.status, 200);
+      assert.equal(adminRes.headers.get('content-type'), 'application/pdf');
+      assert.equal(adminRes.headers.get('cache-control'), 'no-store');
     });
 
     it('forbids another student from downloading a certificate they do not own', async () => {

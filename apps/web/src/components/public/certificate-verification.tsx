@@ -83,6 +83,7 @@ export function CertificateVerificationView({ initialCode = '', initialLookup = 
             <div className="relative flex-1">
               <Search className="absolute top-3 left-3.5 h-4 w-4 text-muted-foreground" />
               <Input
+                aria-label="Certificate ID"
                 placeholder="Enter Certificate ID (e.g. ASRA-2026-F9KC-M28V)"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}

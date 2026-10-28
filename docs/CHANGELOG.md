@@ -17,6 +17,15 @@ Entry template:
 
 ## [Unreleased]
 
+### QA — PHASE 15 Complete QA & Release Readiness (uncommitted, pending review)
+
+- QA documents: [QA-STRATEGY.md](./QA-STRATEGY.md), [QA-TEST-MATRIX.md](./QA-TEST-MATRIX.md), [QA-DEFECT-LOG.md](./QA-DEFECT-LOG.md), [QA-REPORT.md](./QA-REPORT.md) (recommendation: **conditionally ready**); client questions CLIENT-CLARIFICATIONS §AI.
+- Fixed (QA-DEF-03, P1 — needs sign-off AI-01): `/auth/refresh` rate limit counted successful refreshes per IP, so students sharing a network were signed out after 60 page loads in 15 minutes. It now counts only failed attempts that present a refresh cookie.
+- Fixed (QA-DEF-02, P2): robots.txt disallowed the public `/faculty` page listed in the sitemap; the portal is now disallowed as `/faculty/`.
+- Fixed (QA-DEF-01): certificate PDF downloads (student and admin) are `Cache-Control: no-store`.
+- Fixed (QA-DEF-04): certificate search field has an accessible name.
+- Tests: `apps/api/tests/qa-route-guards-phase15.test.ts` (enumerates all 222 protected route×method pairs: 401/403/Super-Admin-only set), `qa-idor-phase15.test.ts` (cross-student/faculty attempts, orders, receipts), refresh-limit cases in `security.test.ts`, cache assertion in `certificates.test.ts`; web robots/sitemap consistency and accessible-name tests. API 418 → 431, web 190 → 192, all passing.
+
 ### Security — PHASE 14 SEO, Security & Performance Hardening (uncommitted, pending review)
 
 - Review, findings and remaining risks: [SECURITY.md](./SECURITY.md); measurements: [PERFORMANCE.md](./PERFORMANCE.md). Internal code/configuration review with tests — not a penetration test, nothing verified on a deployment.
@@ -49,7 +58,7 @@ Entry template:
 - Student Portal integration (`/student/certificates`): list earned credentials, download high-resolution PDF, copy verification link, and view credential details.
 - Public Verification (`/verify` and `/verify/:certificateId`): search and verify certificates by public ID with responsive verification card, authenticity badge, issue date, recipient name, course title, and revocation alerts. Sensitive student data (emails, phone numbers, database UUIDs) is strictly redacted. Public endpoint is rate-limited (`RATE_LIMIT_CERTIFICATES_VERIFY`).
 - Administrator Portal (`/admin/certificates`): search and filter all issued and revoked certificates, download certificate PDFs, and revoke credentials with mandatory administrative reason and append-only audit logging (`admin_audit_logs`).
-- Permissions: `certificates.view` granted to Student, Faculty, Admin, and Super Admin; `certificates.manage` granted to Admin and Super Admin.
+- Permissions: `certificates.view` and `certificates.manage` granted to Admin and Super Admin (students reach their own certificates through `content.view_enrolled`). _Corrected in Phase 15 (QA-DEF-10): this line previously listed Student and Faculty, which the seed never granted._
 - Migration `20261025090000_phase13_certificate_system` (additive: `certificates` table, enum `certificate_status`, unique enrollment constraint, format check constraints, revocation consistency constraint, listing indexes).
 - Automated tests: `apps/api/tests/certificates.test.ts` (15 tests covering eligibility, idempotent issuance, student downloads, public verification, and admin revocation).
 

@@ -219,15 +219,15 @@ Checklist for a new protected endpoint:
 
 `express-rate-limit`, per client IP (IPv6 grouped by /56), fixed windows, responding 429 `RATE_LIMITED` with `RateLimit` and `Retry-After` headers:
 
-| Endpoint            | Limit                           |
-| ------------------- | ------------------------------- |
-| login               | 10 **failed** attempts / 15 min |
-| register            | 5 / hour                        |
-| refresh             | 60 / 15 min                     |
-| forgot-password     | 5 / 15 min                      |
-| reset-password      | 10 / 15 min                     |
-| verify-email        | 10 / 15 min                     |
-| resend-verification | 3 / 15 min                      |
+| Endpoint            | Limit                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| login               | 10 **failed** attempts / 15 min                                                     |
+| register            | 5 / hour                                                                            |
+| refresh             | 60 **failed** attempts that present a refresh cookie / 15 min (PHASE 15, QA-DEF-03) |
+| forgot-password     | 5 / 15 min                                                                          |
+| reset-password      | 10 / 15 min                                                                         |
+| verify-email        | 10 / 15 min                                                                         |
+| resend-verification | 3 / 15 min                                                                          |
 
 **Store.** With `RATE_LIMIT_STORE=redis` (the default outside tests), counters live in Redis via `rate-limit-redis` and are shared by all API instances.
 

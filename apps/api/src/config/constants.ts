@@ -33,11 +33,14 @@ export const REFRESH_COOKIE_PATH = `${API_PREFIX}/auth`;
 /**
  * Rate limits for the public auth endpoints, per client IP and fixed window.
  * Login counts only FAILED attempts so a user who logs in successfully is never throttled.
+ * Refresh counts only failed attempts that PRESENT a refresh cookie (token guessing): every page
+ * load refreshes and a 429 signs the user out, so valid sessions and cookie-less visitors must not
+ * share a per-IP budget (school networks, mobile CGNAT).
  */
 export const AUTH_RATE_LIMITS = {
   login: { windowMinutes: 15, limit: 10, skipSuccessfulRequests: true },
   register: { windowMinutes: 60, limit: 5 },
-  refresh: { windowMinutes: 15, limit: 60 },
+  refresh: { windowMinutes: 15, limit: 60, skipSuccessfulRequests: true, requireCookie: true },
   forgotPassword: { windowMinutes: 15, limit: 5 },
   resetPassword: { windowMinutes: 15, limit: 10 },
   verifyEmail: { windowMinutes: 15, limit: 10 },

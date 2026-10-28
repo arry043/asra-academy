@@ -12,7 +12,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { enquirySchema } from '@asra/validation';
 
-import robots from '@/app/robots';
+import robots, { PRIVATE_PATH_PREFIXES } from '@/app/robots';
 import sitemap from '@/app/sitemap';
 import { EmptyState } from '@/components/public/empty-state';
 import { LegalPage } from '@/components/public/legal-page';
@@ -376,12 +376,26 @@ describe('sitemap and robots', () => {
       assert.deepEqual(enabled.rules, {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin', '/student', '/faculty', '/design-system'],
+        disallow: ['/admin', '/student', '/faculty/', '/design-system'],
       });
       assert.equal(enabled.sitemap, absoluteUrl('/sitemap.xml'));
     } finally {
       if (previous === undefined) delete process.env.SITE_INDEXING_ENABLED;
       else process.env.SITE_INDEXING_ENABLED = previous;
+    }
+  });
+  // PHASE 15 (QA-DEF-02): robots rules are prefix matches; `/faculty` (public page) was blocked.
+  it('never disallows a page the sitemap submits, but still covers every portal', () => {
+    const blocked = (path: string) =>
+      PRIVATE_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+    assert.deepEqual(getIndexablePaths().filter(blocked), []);
+    for (const portal of [
+      '/admin',
+      '/student/dashboard',
+      '/faculty/dashboard',
+      '/faculty/courses',
+    ]) {
+      assert.ok(blocked(portal), `${portal} must stay disallowed`);
     }
   });
 });
