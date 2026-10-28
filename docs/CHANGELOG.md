@@ -17,6 +17,18 @@ Entry template:
 
 ## [Unreleased]
 
+### Ops — PHASE 17 Production Deployment review (documents only; no production change)
+
+- Audited the live Vercel deployment of `d6ca7c7` (www/api.asraacademy.in): health, readiness, TLS, DNS, headers, CORS, robots and read-only smoke tests recorded in [PRODUCTION-SMOKE-TESTS.md](./PRODUCTION-SMOKE-TESTS.md). Release gates re-run: build, lint, typecheck, API 431/431, web 192/192.
+- New: [PRODUCTION-DEPLOYMENT.md](./PRODUCTION-DEPLOYMENT.md) (status **deployed, not release-ready**; blockers B1–B11), [PRODUCTION-ENVIRONMENT.md](./PRODUCTION-ENVIRONMENT.md), [DATABASE-BACKUP-AND-RECOVERY.md](./DATABASE-BACKUP-AND-RECOVERY.md) (not verified), [ROLLBACK-RUNBOOK.md](./ROLLBACK-RUNBOOK.md).
+- Findings needing authorised action: Preview shares the production database and JWT secret; test course live on the public site; design-system showcase enabled in production; canonical URL uses the redirecting apex; no error monitoring; backups unverified.
+
+### UAT — PHASE 16 User Acceptance Testing (documents only; UAT not started)
+
+- UAT documents: [UAT-PLAN.md](./UAT-PLAN.md), [UAT-TEST-CASES.md](./UAT-TEST-CASES.md) (68 cases, none run), [UAT-FEEDBACK-LOG.md](./UAT-FEEDBACK-LOG.md) (empty), [UAT-ACCESS-SETUP.md](./UAT-ACCESS-SETUP.md) (operator checklist; nothing provisioned), [CLIENT-ACCEPTANCE.md](./CLIENT-ACCEPTANCE.md) — status **Pending client sign-off**.
+- Recorded UAT prerequisites: staging must be same-site with the API (SameSite=Strict cookie), and a production-mode staging API needs a Resend sender on a verified domain to start.
+- No code, configuration, account or environment changed.
+
 ### QA — PHASE 15 Complete QA & Release Readiness (uncommitted, pending review)
 
 - QA documents: [QA-STRATEGY.md](./QA-STRATEGY.md), [QA-TEST-MATRIX.md](./QA-TEST-MATRIX.md), [QA-DEFECT-LOG.md](./QA-DEFECT-LOG.md), [QA-REPORT.md](./QA-REPORT.md) (recommendation: **conditionally ready**); client questions CLIENT-CLARIFICATIONS §AI.
