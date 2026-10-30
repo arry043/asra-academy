@@ -10,7 +10,7 @@ Version 0.1.0 · 2026-10-28 · Platform: Vercel (projects `asra-academy`, `api-a
 4. **Migrations** (if any, additive): `npm run db:migrate:deploy` (+ `db:seed` if required).
 5. **Merge to `main`** → Vercel builds and promotes both projects automatically.
 6. **Health + smoke:** PRODUCTION-SMOKE-TESTS §2.
-7. **Monitoring window:** 30 minutes actively, then 24 hours on call. Watch Vercel runtime logs (5xx, "PostgreSQL unreachable", "Rate limiter using in-memory fallback"), Admin → Email deliveries, Admin → Payments.
+7. **Monitoring window:** 30 minutes actively, then 24 hours on call. Watch Vercel runtime logs (5xx, "PostgreSQL unreachable", "Rate limiter using in-memory fallback"), Admin → Email deliveries, Admin → Payments. Filtering on Vercel's `level:error` misses real errors, and logs last about an hour: use the queries in [POST-LAUNCH-MONITORING.md](./POST-LAUNCH-MONITORING.md) §2.
 
 Note the web and API deploy independently. A release that changes the API contract must keep the old web working (or the reverse) during the minute both are building.
 

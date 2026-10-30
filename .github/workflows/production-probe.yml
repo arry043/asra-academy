@@ -1,0 +1,27 @@
+name: Production probe
+
+# External availability check (docs/POST-LAUNCH-MONITORING.md). Read-only; needs no secrets.
+# GitHub runs schedules from the default branch only, so this is inactive until merged to main.
+# It starts on a slow schedule because each run can wake the Neon database. Tighten it once the
+# Neon plan is known (PRODUCTION-DEPLOYMENT B7).
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Probe production
+        run: node scripts/production-probe.mjs
