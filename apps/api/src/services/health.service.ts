@@ -3,7 +3,7 @@ import { DEPENDENCY_CHECK_TIMEOUT_MS } from '../config/constants.js';
 import { env } from '../config/env.js';
 import { pingDatabase } from '../database/prisma.js';
 import { logger } from '../lib/logger.js';
-import { redis } from '../lib/redis.js';
+import { pingRedis } from '../lib/redis.js';
 import { withTimeout } from '../utils/with-timeout.js';
 
 /** Lightweight probes for each dependency. Injectable so readiness can be tested in isolation. */
@@ -14,7 +14,7 @@ export interface ReadinessProbes {
 
 const defaultProbes: ReadinessProbes = {
   database: () => pingDatabase(),
-  redis: () => redis.ping(),
+  redis: () => pingRedis(),
 };
 
 async function probe(name: string, check: () => Promise<unknown>): Promise<DependencyStatus> {

@@ -17,6 +17,14 @@ Entry template:
 
 ## [Unreleased]
 
+### Ops — PHASE 18 Post-Launch Stabilization (uncommitted, pending review; nothing deployed)
+
+- Fixed (INC-2026-001, P3): `GET /health/ready` reported `redis: down` and 503 on the first request to a new Vercel function instance, because `server.ts` (and so `connectRedis()`) never runs there and ioredis refuses commands before the connection is ready. New `pingRedis()` in `lib/redis.ts` waits for the connection within the existing 2 s budget. Regression: `apps/api/tests/redis-readiness.test.ts`.
+- Added: `scripts/production-probe.mjs` (`npm run probe:production`), a read-only availability check, and `.github/workflows/production-probe.yml`, running it hourly. Inactive until merged to `main`.
+- New: [POST-LAUNCH-MONITORING.md](./POST-LAUNCH-MONITORING.md), [INCIDENT-RESPONSE.md](./INCIDENT-RESPONSE.md) (proposed), [PRODUCTION-INCIDENT-LOG.md](./PRODUCTION-INCIDENT-LOG.md), [USAGE-ANALYTICS.md](./USAGE-ANALYTICS.md), [RELEASE-LOG.md](./RELEASE-LOG.md), [POST-LAUNCH-REPORT.md](./POST-LAUNCH-REPORT.md).
+- Changed: ROLLBACK-RUNBOOK §1 warns that Vercel's `level:error` filter misses real application errors.
+- Findings needing a decision: production runs on Vercel's Hobby plan, which is for non-commercial use and keeps logs for about an hour; Phase 17 blockers B1–B4 and B8 are still present; the repository holding the incident and security documents is public.
+
 ### Ops — PHASE 17 Production Deployment review (documents only; no production change)
 
 - Audited the live Vercel deployment of `d6ca7c7` (www/api.asraacademy.in): health, readiness, TLS, DNS, headers, CORS, robots and read-only smoke tests recorded in [PRODUCTION-SMOKE-TESTS.md](./PRODUCTION-SMOKE-TESTS.md). Release gates re-run: build, lint, typecheck, API 431/431, web 192/192.

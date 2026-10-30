@@ -38,6 +38,7 @@
     "db:seed": "npm run db:seed -w @asra/api",
     "db:reset": "npm run db:reset -w @asra/api",
     "check:services": "npm run check:services -w @asra/api",
+    "probe:production": "node scripts/production-probe.mjs",
     "test": "npm run build:packages && npm test -w @asra/api",
     "auth:create-user": "npm run auth:create-user -w @asra/api --",
     "docker:up": "docker compose up -d",
