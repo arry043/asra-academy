@@ -61,6 +61,8 @@ export const PERMISSIONS = {
   CERTIFICATES_VIEW: 'certificates.view',
   /** Manage certificates, generate and revoke certificates (PHASE 13). */
   CERTIFICATES_MANAGE: 'certificates.manage',
+  /** Manage recruitment, job postings, applications, interviews, and candidate communications. */
+  RECRUITMENT_MANAGE: 'recruitment.manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

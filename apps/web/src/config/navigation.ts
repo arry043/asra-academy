@@ -20,6 +20,7 @@ export const publicNavigation: NavItem[] = [
   },
   { label: 'Faculty', href: '/faculty' },
   { label: 'Admission', href: '/admission' },
+  { label: 'Careers', href: '/careers' },
   { label: 'Contact', href: '/contact' },
 ];
 
@@ -29,7 +30,7 @@ export const publicHeaderActions = {
   cta: { label: 'Enquire now', href: '/contact' },
 } as const;
 
-export const footerNavigation: { title: string; links: NavItem[] }[] = [
+export const footerNavigation: { title: string; href?: string; links: NavItem[] }[] = [
   {
     title: 'Learn',
     links: [{ label: 'All courses', href: '/courses' }, ...programmeLinks],
@@ -44,6 +45,11 @@ export const footerNavigation: { title: string; links: NavItem[] }[] = [
       { label: 'Contact', href: '/contact' },
       { label: 'Student login', href: '/login' },
     ],
+  },
+  {
+    title: 'Careers',
+    href: '/careers',
+    links: [{ label: 'All openings', href: '/careers' }],
   },
 ];
 

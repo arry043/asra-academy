@@ -17,6 +17,10 @@ import { facultyRouter } from '../modules/faculty/faculty.routes.js';
 import { liveClassesAdminRouter } from '../modules/live-classes/live-classes.routes.js';
 import { notificationsRouter } from '../modules/notifications/notifications.routes.js';
 import { paymentsAdminRouter } from '../modules/payments/payments.routes.js';
+import {
+  publicCareersRouter,
+  recruitmentAdminRouter,
+} from '../modules/recruitment/recruitment.routes.js';
 import { studentRouter } from '../modules/student/student.routes.js';
 import { authRouter } from './auth.routes.js';
 import { healthRouter } from './health.routes.js';
@@ -34,6 +38,9 @@ apiRouter.use('/sitemap', publicSitemapRouter);
 
 /** Public certificate verification (PHASE 13). */
 apiRouter.use('/certificates', publicCertificatesRouter);
+
+/** Public careers & job applications (PHASE 16). */
+apiRouter.use('/careers', publicCareersRouter);
 
 /**
  * Administration (PHASE 06). Every request is authenticated here; each route then requires its
@@ -57,6 +64,8 @@ adminRouter.use(liveClassesAdminRouter);
 adminRouter.use(adminPortalRouter);
 // Certificates management (PHASE 13): `certificates.view` / `certificates.manage`.
 adminRouter.use(certificatesAdminRouter);
+// Recruitment & Careers management (PHASE 16): `recruitment.manage`.
+adminRouter.use(recruitmentAdminRouter);
 apiRouter.use('/admin', adminRouter);
 
 /** In-app notifications of the signed-in user, any role (PHASE 11). */

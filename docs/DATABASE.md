@@ -2,8 +2,8 @@
 
 | Field   | Value                                                                |
 | ------- | -------------------------------------------------------------------- |
-| Version | 0.6.0                                                                |
-| Status  | Phase 06 — course fields, visibility and lesson types added          |
+| Version | 0.16.0                                                               |
+| Status  | Phase 16 — Careers & Recruitment subsystem added (10 models)         |
 | Schema  | [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma)  |
 | Engine  | PostgreSQL 17 (Docker, local) · Neon PostgreSQL (staging/production) |
 | ORM     | Prisma 7.10 with the `@prisma/adapter-pg` driver adapter             |
@@ -46,6 +46,14 @@ This document covers the data model, its conventions and constraints, and how to
  User ──< Order >── Course ; Order ──< Payment ──< Refund ; Enrollment ?──> Order       (Phase 10)
  PaymentWebhookEvent (dedup by provider event id) ; PaymentAuditLog (append-only)        (Phase 10)
  Enrollment ──1:1── Certificate ; User ──< Certificate ; Course ──< Certificate         (Phase 13)
+
+ JobSequence ; ApplicationSequence (atomic year-based sequence counters)                 (Phase 16)
+ Job ──< JobApplicationQuestion                                                          (Phase 16)
+ Job ──< JobApplication ──< JobApplicationAnswer                                         (Phase 16)
+ JobApplication ──< JobApplicationStatusHistory (append-only)                            (Phase 16)
+ JobApplication ──< JobApplicationNote (confidential)                                    (Phase 16)
+ JobApplication ──< JobInterview (Google Meet sessions)                                  (Phase 16)
+ JobApplication ──< JobApplicationCommunication (Resend outbox log)                      (Phase 16)
 ```
 
 `A ──< B` = one A has many B. `?` = optional (nullable foreign key).
@@ -89,6 +97,16 @@ This document covers the data model, its conventions and constraints, and how to
 | `PaymentAuditLog`               | `payment_audit_logs`                                  | Phase 10: append-only audit of financial events and administrator actions                                                     |
 | `AdminAuditLog`                 | `admin_audit_logs`                                    | Phase 12: append-only audit of account, role, course, live-class and enrolment actions                                        |
 | `Certificate`                   | `certificates`                                        | Phase 13: verifiable completion credential with tamper-resistant code, frozen recipient/course snapshot, and revocation audit |
+| `JobSequence`                   | `job_sequences`                                       | Phase 16: atomic year-based counter for unique job identifiers (`ASRA-JOB-YYYY-XXXXX`)                                        |
+| `ApplicationSequence`           | `application_sequences`                               | Phase 16: atomic year-based counter for unique application reference numbers (`ASRA-APP-YYYY-XXXXX`)                          |
+| `Job`                           | `jobs`                                                | Phase 16: recruitment vacancy with compensation visibility, department, deadlines, and state                                  |
+| `JobApplicationQuestion`        | `job_application_questions`                           | Phase 16: dynamic screening questions configured per job with type, options, and limits                                       |
+| `JobApplication`                | `job_applications`                                    | Phase 16: guest candidate application, resume metadata, and recruitment pipeline stage                                        |
+| `JobApplicationAnswer`          | `job_application_answers`                             | Phase 16: immutable candidate answers with snapshotted question labels and option definitions                                 |
+| `JobApplicationStatusHistory`   | `job_application_status_history`                      | Phase 16: append-only audit log of application status transitions, actor, and remarks                                         |
+| `JobApplicationNote`            | `job_application_notes`                               | Phase 16: confidential internal evaluation notes added by recruitment administrators                                          |
+| `JobInterview`                  | `job_interviews`                                      | Phase 16: scheduled interviews with Google Meet link, interviewers, timestamps, and outcome                                   |
+| `JobApplicationCommunication`   | `job_application_communications`                      | Phase 16: outbox log of transactional recruitment emails sent via Resend with delivery status                                 |
 
 ### Why the two additional models
 
@@ -147,6 +165,16 @@ Course ──< Module ──< Chapter ──< Lesson ──< Resource
   - an external URL: `external_url`.
 
   The CHECK `resources_location_exclusive` enforces this, and `EXTERNAL_LINK` resources must use a URL. The Zod schema `resourceInputSchema` in `@asra/validation` mirrors the same rule for API input. Since Phase 06 external URLs must be `https://` on a public domain, and the API refuses stored-object locations while no storage provider is configured (`apps/api/src/config/storage.ts`). Upload and signed URLs come in a later phase (R-01, G-01).
+
+### 2.6 Careers & Recruitment Subsystem (Phase 16)
+
+The recruitment subsystem provides a complete, isolated, guest-friendly applicant flow with dedicated administrative management:
+
+- **Guest Applicant Model:** Applicants never touch the `users` table, eliminating credential leaks, account creation fatigue, and unnecessary database bloating. Submissions are stored in `job_applications`.
+- **Atomic Sequential Identifiers:** Two dedicated sequence tables (`job_sequences` and `application_sequences`) maintain year-partitioned counters (`ASRA-JOB-YYYY-XXXXX` and `ASRA-APP-YYYY-XXXXX`), protected against race conditions using PostgreSQL row-level locks.
+- **Dynamic Question Snapshots:** When an applicant answers job-specific questions, the responses in `job_application_answers` store frozen snapshots (`question_label`, `question_type`, `options_snapshot`). Updating or deleting questions on the job record later does not alter historical application data.
+- **Strict Anti-Duplicate Submissions:** `UNIQUE (job_id, email)` ensures an applicant cannot flood a posting with multiple submissions while allowing them to apply for different positions across the academy.
+- **Secure File Storage & Auditability:** Resumes are uploaded to Cloudinary (or secure local storage) with tamper-proof HMAC tokens, and streamed only via authenticated administrative endpoints. Status changes, confidential notes, interviews, and outbox communications are all audited across dedicated tables (`job_application_status_history`, `job_application_notes`, `job_interviews`, `job_application_communications`).
 
 ## 3. Conventions
 

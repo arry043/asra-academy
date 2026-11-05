@@ -29,6 +29,7 @@ export const ADMIN_PERMISSIONS = [
   PERMISSIONS.AUDIT_LOGS_VIEW,
   PERMISSIONS.CERTIFICATES_VIEW,
   PERMISSIONS.CERTIFICATES_MANAGE,
+  PERMISSIONS.RECRUITMENT_MANAGE,
 ] as const;
 
 export function hasPermission(user: AuthUser | null, permission: string): boolean {

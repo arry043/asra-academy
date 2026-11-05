@@ -13,10 +13,12 @@ import {
   AUTH_RATE_LIMITS,
   CERTIFICATE_RATE_LIMITS,
   PAYMENT_RATE_LIMITS,
+  RECRUITMENT_RATE_LIMITS,
   REFRESH_COOKIE_NAME,
   type AssessmentRateLimitName,
   type AuthRateLimitName,
   type PaymentRateLimitName,
+  type RecruitmentRateLimitName,
 } from '../config/constants.js';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
@@ -211,6 +213,30 @@ export function certificateRateLimit(
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     store: createStore(name, 'certificate'),
+    passOnStoreError: true,
+    logger: {
+      error: (error: unknown, message?: string) => logger.error({ err: error }, message),
+      warn: (error: unknown, message?: string) => logger.warn({ err: error }, message),
+    },
+    handler: (_req, res) => {
+      sendError(res, 429, 'RATE_LIMITED', 'Too many requests. Please wait a moment and try again.');
+    },
+  });
+}
+
+/**
+ * PHASE 16 recruitment limiter: per IP for public job application submission and uploads.
+ */
+export function recruitmentRateLimit(
+  name: RecruitmentRateLimitName = 'apply',
+): RateLimitRequestHandler {
+  const config = RECRUITMENT_RATE_LIMITS[name];
+  return rateLimit({
+    windowMs: config.windowMinutes * 60 * 1000,
+    limit: config.limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    store: createStore(name, 'recruitment'),
     passOnStoreError: true,
     logger: {
       error: (error: unknown, message?: string) => logger.error({ err: error }, message),

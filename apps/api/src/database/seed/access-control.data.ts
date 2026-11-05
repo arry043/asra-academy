@@ -33,6 +33,8 @@ export const PERMISSION_DEFINITIONS: Record<PermissionKey, string> = {
   [PERMISSIONS.AUDIT_LOGS_VIEW]: 'Read the administrative, payment and assessment audit logs',
   [PERMISSIONS.CERTIFICATES_VIEW]: 'View certificates and public verification records',
   [PERMISSIONS.CERTIFICATES_MANAGE]: 'Manage certificates, generate and revoke certificates',
+  [PERMISSIONS.RECRUITMENT_MANAGE]:
+    'Manage recruitment, job postings, applications, interviews, and candidate communications',
 };
 
 interface SystemRoleDefinition {
@@ -68,6 +70,7 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
       PERMISSIONS.NOTIFICATIONS_VIEW,
       PERMISSIONS.CERTIFICATES_VIEW,
       PERMISSIONS.CERTIFICATES_MANAGE,
+      PERMISSIONS.RECRUITMENT_MANAGE,
       PERMISSIONS.PROFILE_MANAGE_OWN,
     ],
   },
