@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Mail } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -7,8 +8,15 @@ import { siteConfig } from '@/config/site';
 import type { NavItem } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
+export type CareerCategoryLink = {
+  category: string;
+  label: string;
+  count?: number;
+};
+
 type FooterProps = {
-  columns?: { title: string; links: NavItem[] }[];
+  columns?: { title: string; href?: string; links: NavItem[] }[];
+  careerCategories?: CareerCategoryLink[];
   /** Only pass legal links whose pages exist. */
   legalLinks?: NavItem[];
   className?: string;
@@ -18,14 +26,85 @@ const linkClasses =
   'rounded-sm text-muted-foreground transition-colors hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none';
 
 /**
+ * Builds the effective footer columns, dynamically expanding the CAREERS section
+ * with active categories or maintaining the base link when none exist.
+ */
+export function buildFooterColumns(
+  columns: { title: string; href?: string; links: NavItem[] }[],
+  careerCategories: CareerCategoryLink[] = [],
+): { title: string; href?: string; links: NavItem[] }[] {
+  let hasCareersColumn = false;
+
+  const mapped = columns.map((column) => {
+    const isCareers = column.title.toLowerCase() === 'careers';
+    if (!isCareers) {
+      // Strip any legacy /careers link from other columns so it only lives in the dedicated CAREERS section
+      return {
+        ...column,
+        links: column.links.filter((l) => l.href !== '/careers'),
+      };
+    }
+
+    hasCareersColumn = true;
+
+    // Base link: "Careers" when no categories, or "All openings" when categories exist
+    const baseLink: NavItem =
+      careerCategories && careerCategories.length > 0
+        ? { label: 'All openings', href: '/careers' }
+        : { label: 'Careers', href: '/careers' };
+
+    const categoryLinks: NavItem[] = (careerCategories ?? []).map((c) => ({
+      label: c.label,
+      href: `/careers?category=${encodeURIComponent(c.category.toLowerCase())}`,
+    }));
+
+    return {
+      ...column,
+      href: column.href ?? '/careers',
+      links: [baseLink, ...categoryLinks],
+    };
+  });
+
+  if (!hasCareersColumn) {
+    const baseLink: NavItem =
+      careerCategories && careerCategories.length > 0
+        ? { label: 'All openings', href: '/careers' }
+        : { label: 'Careers', href: '/careers' };
+
+    const categoryLinks: NavItem[] = (careerCategories ?? []).map((c) => ({
+      label: c.label,
+      href: `/careers?category=${encodeURIComponent(c.category.toLowerCase())}`,
+    }));
+
+    mapped.push({
+      title: 'Careers',
+      href: '/careers',
+      links: [baseLink, ...categoryLinks],
+    });
+  }
+
+  return mapped;
+}
+
+/**
  * Site footer: brand, link columns, the confirmed contact email and legal links. Contact details
  * come only from `siteConfig` (client-confirmed) — no invented addresses, phones or socials.
  *
  * Uses a light surface: the supplied logo is dark-on-light only. A dark green footer like the
  * visual reference needs a reversed logo variant (CLIENT-CLARIFICATIONS V-01).
  */
-export function Footer({ columns = [], legalLinks = [], className }: FooterProps) {
+export function Footer({
+  columns = [],
+  careerCategories = [],
+  legalLinks = [],
+  className,
+}: FooterProps) {
   const year = new Date().getFullYear();
+
+  const displayColumns = React.useMemo(
+    () => buildFooterColumns(columns, careerCategories),
+    [columns, careerCategories],
+  );
 
   return (
     <footer data-slot="footer" className={cn('border-t bg-asra-ivory-200', className)}>
@@ -52,9 +131,20 @@ export function Footer({ columns = [], legalLinks = [], className }: FooterProps
           </a>
         </div>
 
-        {columns.map((column) => (
+        {displayColumns.map((column) => (
           <nav key={column.title} aria-label={column.title} className="grid content-start gap-3">
-            <h2 className="type-eyebrow text-asra-gold-800">{column.title}</h2>
+            <h2 className="type-eyebrow text-asra-gold-800">
+              {column.href ? (
+                <Link
+                  href={column.href}
+                  className="rounded-sm transition-colors hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  {column.title}
+                </Link>
+              ) : (
+                column.title
+              )}
+            </h2>
             <ul className="grid gap-2 type-body-sm">
               {column.links.map((link) => (
                 <li key={link.href}>

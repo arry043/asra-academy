@@ -17,6 +17,19 @@ Entry template:
 
 ## [Unreleased]
 
+### Module — PHASE 16 Careers & Recruitment Management System (uncommitted, pending review)
+
+- Added: Full-featured Public Careers portal (`/careers`, `/careers/[jobId]`, `/careers/[jobId]/apply`) with job filtering, dynamic screening questionnaire rendering, secure drag-and-drop PDF resume uploader, and guest submission with unique reference tracking (`ASRA-APP-YYYY-XXXXX`). Strictly account-less for applicant privacy.
+- Added: Administrative Recruitment Management ATS (`/admin/recruitment`, `/jobs`, `/jobs/new`, `/jobs/[id]/edit`, `/applications`, `/applications/[id]`) with live database KPIs, atomic sequential Job ID generator (`ASRA-JOB-YYYY-XXXXX`), vacancy lifecycle management, dynamic screening question builder, confidential applicant evaluation notes, Google Meet interview scheduling, and Resend-backed applicant communication outbox.
+- Added: Database schema migration `20261105090000_phase16_careers_recruitment` adding 10 tables (`job_sequences`, `application_sequences`, `jobs`, `job_application_questions`, `job_applications`, `job_application_answers`, `job_application_status_history`, `job_application_notes`, `job_interviews`, `job_application_communications`) and 9 enums.
+- Added: RBAC permission `recruitment.manage` mapped to `ADMIN` and `SUPER_ADMIN`.
+- Added: Multi-tenant resume storage service supporting Cloudinary with fallback to secure local disk (`storage/resumes`) and memory test buffer, with strict 5MB limit, PDF magic-byte verification (`%PDF-`), and tamper-proof HMAC tokens.
+- Added: 9 branded recruitment email templates and delivery tracking outbox via Resend.
+- Added: Dedicated top-level CAREERS footer navigation section (`LEARN`, `ACADEMY`, `CAREERS`) with automatic dynamic expansion for active job categories (`/api/v1/careers/categories`), 60-second ISR revalidation, and graceful fallback to base link when no categories exist.
+- Changed: Simplified duplicate job application feedback to a concise notice (_"You have already applied for this position."_) without overwhelming candidate with excessive operational details.
+- Tests: Acceptance suite `apps/api/tests/recruitment.test.ts` (13/13 passing) and unit suite `apps/web/tests/careers.test.tsx` (11/11 passing).
+- New Documentation: [CAREERS-RECRUITMENT.md](./CAREERS-RECRUITMENT.md), [CAREERS-ADMIN-GUIDE.md](./CAREERS-ADMIN-GUIDE.md), [CAREERS-APPLICANT-FLOW.md](./CAREERS-APPLICANT-FLOW.md); updated [DATABASE.md](./DATABASE.md) and [CLIENT-CLARIFICATIONS.md](./CLIENT-CLARIFICATIONS.md) (§AJ).
+
 ### Ops — PHASE 18 Post-Launch Stabilization (uncommitted, pending review; nothing deployed)
 
 - Fixed (INC-2026-001, P3): `GET /health/ready` reported `redis: down` and 503 on the first request to a new Vercel function instance, because `server.ts` (and so `connectRedis()`) never runs there and ioredis refuses commands before the connection is ready. New `pingRedis()` in `lib/redis.ts` waits for the connection within the existing 2 s budget. Regression: `apps/api/tests/redis-readiness.test.ts`.

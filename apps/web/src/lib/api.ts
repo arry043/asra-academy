@@ -42,6 +42,8 @@ export interface ApiRequestOptions {
   accessToken?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
+  next?: { revalidate?: number | false; tags?: string[] };
+  cache?: RequestCache;
 }
 
 /**
@@ -53,8 +55,9 @@ export async function apiRequest<TData>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<TData> {
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (options.body !== undefined && !isFormData) headers['Content-Type'] = 'application/json';
   if (options.accessToken) headers.Authorization = `Bearer ${options.accessToken}`;
 
   let response: Response;
@@ -62,9 +65,15 @@ export async function apiRequest<TData>(
     response = await fetch(`${publicEnv.NEXT_PUBLIC_API_URL}${path}`, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.body === undefined
+          ? undefined
+          : isFormData
+            ? (options.body as BodyInit)
+            : JSON.stringify(options.body),
       credentials: 'include',
-      cache: 'no-store',
+      cache: options.cache ?? (options.next ? undefined : 'no-store'),
+      next: options.next,
       signal: options.signal ?? AbortSignal.timeout(options.timeoutMs ?? 15_000),
     });
   } catch (error) {

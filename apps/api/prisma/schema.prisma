@@ -157,6 +157,13 @@ model User {
   certificates       Certificate[]     @relation("CertificateStudent")
   certificatesIssued Certificate[]     @relation("CertificateIssuedBy")
 
+  jobsCreated               Job[]                         @relation("JobCreatedBy")
+  jobsUpdated               Job[]                         @relation("JobUpdatedBy")
+  applicationNotesCreated   JobApplicationNote[]          @relation("JobApplicationNoteAdmin")
+  applicationStatusChanges  JobApplicationStatusHistory[] @relation("JobApplicationStatusChangedBy")
+  interviewsCreated         JobInterview[]                @relation("JobInterviewCreatedBy")
+  recruitmentCommunications JobApplicationCommunication[] @relation("JobApplicationCommunicationSentBy")
+
   @@index([status])
   /// Student-growth analytics bucket accounts by creation time (PHASE 12).
   @@index([createdAt])
@@ -1573,4 +1580,266 @@ model Certificate {
   @@index([status, issuedAt])
   @@index([issuedById])
   @@map("certificates")
+}
+
+// =============================================================================
+// Careers & Recruitment System (PHASE 16) — see docs/CAREERS-RECRUITMENT.md
+// =============================================================================
+
+enum JobApplicationStatus {
+  RECEIVED
+  UNDER_REVIEW
+  SHORTLISTED
+  ON_HOLD
+  INTERVIEW_SCHEDULED
+  ACCEPTED
+  REJECTED
+
+  @@map("job_application_status")
+}
+
+enum JobQuestionType {
+  SHORT_TEXT
+  LONG_TEXT
+  SINGLE_SELECT
+  MULTI_SELECT
+  YES_NO
+  NUMBER
+  DATE
+  URL
+
+  @@map("job_question_type")
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  RESCHEDULED
+  COMPLETED
+  CANCELLED
+
+  @@map("interview_status")
+}
+
+enum RecruitmentEmailStatus {
+  SENT
+  FAILED
+  PENDING
+
+  @@map("recruitment_email_status")
+}
+
+/// Monotonically increasing year-based sequence counters for atomic, unique Job ID generation.
+model JobSequence {
+  year       Int      @id
+  currentVal Int      @default(0) @map("current_val")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("job_sequences")
+}
+
+/// Monotonically increasing year-based sequence counters for atomic, unique Application Reference ID generation.
+model ApplicationSequence {
+  year       Int      @id
+  currentVal Int      @default(0) @map("current_val")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("application_sequences")
+}
+
+model Job {
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobId                  String            @unique @map("job_id") @db.VarChar(50)
+  title                  String            @db.VarChar(150)
+  slug                   String            @unique @db.VarChar(180)
+  department             String            @db.VarChar(100)
+  category               String            @db.VarChar(100)
+  employmentType         String            @default("Full-time") @map("employment_type") @db.VarChar(50)
+  workLocation           String            @map("work_location") @db.VarChar(100)
+  workArrangement        String            @default("On-site") @map("work_arrangement") @db.VarChar(50)
+  vacancies              Int?
+  experienceRequired     String?           @map("experience_required") @db.VarChar(100)
+  minQualification       String?           @map("min_qualification") @db.VarChar(150)
+  maxQualification       String?           @map("max_qualification") @db.VarChar(150)
+  salaryMin              Int?              @map("salary_min")
+  salaryMax              Int?              @map("salary_max")
+  currency               String            @default("INR") @db.VarChar(3)
+  isSalaryPublic         Boolean           @default(false) @map("is_salary_public")
+  shortDescription       String?           @map("short_description") @db.VarChar(500)
+  description            String            @db.Text
+  responsibilities       String?           @db.Text
+  requiredSkills         String?           @map("required_skills") @db.Text
+  preferredSkills        String?           @map("preferred_skills") @db.Text
+  requiredQualifications String?           @map("required_qualifications") @db.Text
+  additionalRequirements String?           @map("additional_requirements") @db.Text
+  benefits               String?           @db.Text
+  status                 PublicationStatus @default(DRAFT)
+  openingDate            DateTime?         @map("opening_date") @db.Timestamptz(3)
+  closingDate            DateTime?         @map("closing_date") @db.Timestamptz(3)
+  allowApplications      Boolean           @default(true) @map("allow_applications")
+  createdById            String?           @map("created_by_id") @db.Uuid
+  updatedById            String?           @map("updated_by_id") @db.Uuid
+  publishedAt            DateTime?         @map("published_at") @db.Timestamptz(3)
+  archivedAt             DateTime?         @map("archived_at") @db.Timestamptz(3)
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  createdBy    User?                   @relation("JobCreatedBy", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  updatedBy    User?                   @relation("JobUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  questions    JobApplicationQuestion[]
+  applications JobApplication[]
+
+  @@index([status, closingDate])
+  @@index([department])
+  @@index([category])
+  @@index([createdAt])
+  @@map("jobs")
+}
+
+model JobApplicationQuestion {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobId        String          @map("job_id") @db.Uuid
+  label        String          @db.VarChar(200)
+  helpText     String?         @map("help_text") @db.VarChar(500)
+  fieldType    JobQuestionType @map("field_type")
+  required     Boolean         @default(false)
+  options      Json?
+  displayOrder Int             @default(0) @map("display_order")
+  validation   Json?
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  job     Job                    @relation(fields: [jobId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  answers JobApplicationAnswer[]
+
+  @@index([jobId, displayOrder])
+  @@map("job_application_questions")
+}
+
+model JobApplication {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referenceId        String               @unique @map("reference_id") @db.VarChar(50)
+  jobId              String               @map("job_id") @db.Uuid
+  fullName           String               @map("full_name") @db.VarChar(150)
+  email              String               @db.VarChar(320)
+  normalizedEmail    String               @map("normalized_email") @db.VarChar(320)
+  phone              String               @db.VarChar(20)
+  currentLocation    String               @map("current_location") @db.VarChar(100)
+  resumeAssetId      String               @map("resume_asset_id") @db.VarChar(255)
+  resumeOriginalName String               @map("resume_original_name") @db.VarChar(255)
+  resumeMimeType     String               @default("application/pdf") @map("resume_mime_type") @db.VarChar(100)
+  resumeFileSize     Int                  @map("resume_file_size")
+  status             JobApplicationStatus @default(RECEIVED)
+  consentGiven       Boolean              @default(true) @map("consent_given")
+  consentGivenAt     DateTime             @default(now()) @map("consent_given_at") @db.Timestamptz(3)
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  job            Job                           @relation(fields: [jobId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  answers        JobApplicationAnswer[]
+  statusHistory  JobApplicationStatusHistory[]
+  notes          JobApplicationNote[]
+  interviews     JobInterview[]
+  communications JobApplicationCommunication[]
+
+  @@unique([jobId, normalizedEmail], name: "job_application_job_normalized_email")
+  @@index([jobId, status])
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([normalizedEmail])
+  @@map("job_applications")
+}
+
+model JobApplicationAnswer {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String   @map("application_id") @db.Uuid
+  questionId    String?  @map("question_id") @db.Uuid
+  questionLabel String   @map("question_label") @db.VarChar(200)
+  fieldType     String   @map("field_type") @db.VarChar(50)
+  answerText    String?  @map("answer_text") @db.Text
+  answerJson    Json?    @map("answer_json")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  application JobApplication          @relation(fields: [applicationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  question    JobApplicationQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([applicationId])
+  @@index([questionId])
+  @@map("job_application_answers")
+}
+
+model JobApplicationStatusHistory {
+  id            String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String                @map("application_id") @db.Uuid
+  fromStatus    JobApplicationStatus? @map("from_status")
+  toStatus      JobApplicationStatus  @map("to_status")
+  reason        String?               @db.VarChar(500)
+  changedById   String?               @map("changed_by_id") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  application JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  changedBy   User?          @relation("JobApplicationStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([applicationId, createdAt])
+  @@map("job_application_status_history")
+}
+
+model JobApplicationNote {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String   @map("application_id") @db.Uuid
+  adminId       String   @map("admin_id") @db.Uuid
+  note          String   @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  application JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  admin       User           @relation("JobApplicationNoteAdmin", fields: [adminId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([applicationId, createdAt])
+  @@map("job_application_notes")
+}
+
+model JobInterview {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId      String          @map("application_id") @db.Uuid
+  scheduledAt        DateTime        @map("scheduled_at") @db.Timestamptz(3)
+  durationMinutes    Int             @default(45) @map("duration_minutes")
+  timezone           String          @default("Asia/Kolkata") @db.VarChar(50)
+  interviewType      String          @default("Technical Interview") @map("interview_type") @db.VarChar(50)
+  meetingUrl         String          @map("meeting_url") @db.VarChar(2048)
+  instructions       String?         @db.Text
+  notes              String?         @db.Text
+  status             InterviewStatus @default(SCHEDULED)
+  cancelledAt        DateTime?       @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?         @map("cancellation_reason") @db.VarChar(500)
+  createdById        String?         @map("created_by_id") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  application JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdBy   User?          @relation("JobInterviewCreatedBy", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([applicationId, scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("job_interviews")
+}
+
+model JobApplicationCommunication {
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId     String                 @map("application_id") @db.Uuid
+  recipientEmail    String                 @map("recipient_email") @db.VarChar(320)
+  template          String                 @db.VarChar(50)
+  subject           String                 @db.VarChar(200)
+  messageText       String                 @map("message_text") @db.Text
+  messageHtml       String?                @map("message_html") @db.Text
+  providerMessageId String?                @map("provider_message_id") @db.VarChar(100)
+  status            RecruitmentEmailStatus @default(SENT)
+  error             String?                @db.VarChar(500)
+  sentById          String?                @map("sent_by_id") @db.Uuid
+  sentAt            DateTime               @default(now()) @map("sent_at") @db.Timestamptz(3)
+
+  application JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sentBy      User?          @relation("JobApplicationCommunicationSentBy", fields: [sentById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([applicationId, sentAt])
+  @@map("job_application_communications")
 }

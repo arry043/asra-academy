@@ -186,7 +186,8 @@ describe('notification creation and email delivery', () => {
     });
     const notificationsBefore = await prisma.notification.count();
     const [id] = await notifyUsers(prisma, [w.sam.userId], spec('retry', true));
-    const start = new Date('2026-11-01T00:00:00.000Z');
+    const row0 = await prisma.notificationDelivery.findUniqueOrThrow({ where: { id: id! } });
+    const start = row0.nextAttemptAt;
     at(start);
     assert.equal(await deliverEmail(id!), 'RETRY');
     let row = await prisma.notificationDelivery.findUniqueOrThrow({ where: { id: id! } });

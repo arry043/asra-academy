@@ -6,6 +6,7 @@ import {
   BarChart3,
   Bell,
   BookOpen,
+  Briefcase,
   ClipboardList,
   CreditCard,
   FolderTree,
@@ -210,6 +211,13 @@ export function buildNavigation(can: (permission: string) => boolean): NavGroup[
       label: 'Enrolments',
       href: '/admin/enrollments',
       icon: <Users />,
+    },
+  ]);
+  push('Recruitment', [
+    can(PERMISSIONS.RECRUITMENT_MANAGE) && {
+      label: 'Careers & Recruitment',
+      href: '/admin/recruitment',
+      icon: <Briefcase />,
     },
   ]);
   push('Communication', [

@@ -107,3 +107,13 @@ export const MEETING_CLAIM_LEASE_MS = 2 * 60_000;
 export const CERTIFICATE_RATE_LIMITS = {
   verify: { windowMinutes: 1, limit: 60 },
 } as const;
+
+// --- Recruitment & Careers (PHASE 16) --------------------------------------------------------
+
+/** Per-IP limits for public careers application submission and resume uploads. */
+export const RECRUITMENT_RATE_LIMITS = {
+  apply: { windowMinutes: 15, limit: 15 },
+  upload: { windowMinutes: 15, limit: 30 },
+} as const;
+
+export type RecruitmentRateLimitName = keyof typeof RECRUITMENT_RATE_LIMITS;

@@ -16,6 +16,17 @@ export async function cleanDomainTables(): Promise<void> {
     prisma.certificate.deleteMany(),
     prisma.notificationDelivery.deleteMany(),
     prisma.notification.deleteMany(),
+    // Recruitment rows (PHASE 16) reference User and Job
+    prisma.jobApplicationCommunication.deleteMany(),
+    prisma.jobInterview.deleteMany(),
+    prisma.jobApplicationNote.deleteMany(),
+    prisma.jobApplicationStatusHistory.deleteMany(),
+    prisma.jobApplicationAnswer.deleteMany(),
+    prisma.jobApplication.deleteMany(),
+    prisma.jobApplicationQuestion.deleteMany(),
+    prisma.job.deleteMany(),
+    prisma.jobSequence.deleteMany(),
+    prisma.applicationSequence.deleteMany(),
     // Financial rows are RESTRICT-protected in the application; tests remove them first.
     prisma.paymentAuditLog.deleteMany(),
     prisma.paymentWebhookEvent.deleteMany(),

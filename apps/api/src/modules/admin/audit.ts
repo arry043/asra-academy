@@ -31,9 +31,21 @@ export type AdminAuditAction =
   | 'enrollment.created_by_admin'
   | 'enrollment.cancelled_by_admin'
   | 'certificate.issued_by_admin'
-  | 'certificate.revoked_by_admin';
+  | 'certificate.revoked_by_admin'
+  | 'job.created'
+  | 'job.updated'
+  | 'job.published'
+  | 'job.unpublished'
+  | 'job.archived'
+  | 'job.deleted'
+  | 'application.status_changed'
+  | 'interview.scheduled'
+  | 'interview.rescheduled'
+  | 'interview.cancelled'
+  | 'recruitment.email_sent';
 
-export type AdminAuditEntity = 'user' | 'course' | 'live_class' | 'enrollment' | 'certificate';
+export type AdminAuditEntity =
+  'user' | 'course' | 'live_class' | 'enrollment' | 'certificate' | 'job' | 'job_application';
 
 export async function adminAudit(
   db: DbClient,
