@@ -9,6 +9,7 @@ import {
   Briefcase,
   ClipboardList,
   CreditCard,
+  FileText,
   FolderTree,
   GraduationCap,
   History,
@@ -213,19 +214,30 @@ export function buildNavigation(can: (permission: string) => boolean): NavGroup[
       icon: <Users />,
     },
   ]);
-  push('Recruitment', [
-    can(PERMISSIONS.RECRUITMENT_MANAGE) && {
-      label: 'Careers & Recruitment',
-      href: '/admin/recruitment',
-      icon: <Briefcase />,
-    },
-  ]);
   push('Communication', [
     { label: 'My notifications', href: '/admin/notifications', icon: <Bell /> },
     can(PERMISSIONS.NOTIFICATIONS_VIEW) && {
       label: 'Email delivery',
       href: '/admin/email-deliveries',
       icon: <Mail />,
+    },
+  ]);
+  push('Recruitment', [
+    can(PERMISSIONS.RECRUITMENT_MANAGE) && {
+      label: 'Overview',
+      href: '/admin/recruitment',
+      icon: <Briefcase />,
+      exact: true,
+    },
+    can(PERMISSIONS.RECRUITMENT_MANAGE) && {
+      label: 'Job Openings',
+      href: '/admin/recruitment/jobs',
+      icon: <FileText />,
+    },
+    can(PERMISSIONS.RECRUITMENT_MANAGE) && {
+      label: 'Applications',
+      href: '/admin/recruitment/applications',
+      icon: <UserRoundCheck />,
     },
   ]);
   push('Settings', [

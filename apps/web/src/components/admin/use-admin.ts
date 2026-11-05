@@ -33,11 +33,21 @@ export const ADMIN_PERMISSIONS = [
 ] as const;
 
 export function hasPermission(user: AuthUser | null, permission: string): boolean {
-  return Boolean(user?.permissions.includes(permission));
+  if (!user) return false;
+  if (user.roles.includes('SUPER_ADMIN')) return true;
+  if (
+    user.roles.includes('ADMIN') &&
+    (ADMIN_PERMISSIONS as readonly string[]).includes(permission)
+  ) {
+    return true;
+  }
+  return Boolean(user.permissions.includes(permission));
 }
 
 /** True when the user can use at least one area of the admin portal. */
 export function canUseAdminPortal(user: AuthUser | null): boolean {
+  if (!user) return false;
+  if (user.roles.includes('SUPER_ADMIN') || user.roles.includes('ADMIN')) return true;
   return ADMIN_PERMISSIONS.some((permission) => hasPermission(user, permission));
 }
 
