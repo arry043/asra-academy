@@ -136,6 +136,25 @@ describe('admin navigation', () => {
     ]);
   });
 
+  it('renders Recruitment navigation with Overview, Job Openings, and Applications after Communication', () => {
+    const nav = buildNavigation((p) => p === PERMISSIONS.RECRUITMENT_MANAGE);
+    const groupLabels = nav.map((g) => g.label).filter(Boolean);
+    const recIndex = groupLabels.indexOf('Recruitment');
+    const commIndex = groupLabels.indexOf('Communication');
+    assert.ok(recIndex > commIndex, 'Recruitment section should appear after Communication');
+
+    const recruitmentGroup = nav.find((g) => g.label === 'Recruitment');
+    assert.ok(recruitmentGroup, 'Recruitment group must exist');
+    assert.deepEqual(
+      recruitmentGroup?.items.map((i) => ({ label: i.label, href: i.href, exact: i.exact })),
+      [
+        { label: 'Overview', href: '/admin/recruitment', exact: true },
+        { label: 'Job Openings', href: '/admin/recruitment/jobs', exact: undefined },
+        { label: 'Applications', href: '/admin/recruitment/applications', exact: undefined },
+      ],
+    );
+  });
+
   it('lets analysts and super-admin-only roles into the portal', () => {
     assert.equal(canUseAdminPortal(user([PERMISSIONS.ANALYTICS_VIEW])), true);
     assert.equal(canUseAdminPortal(user([PERMISSIONS.AUDIT_LOGS_VIEW])), true);
